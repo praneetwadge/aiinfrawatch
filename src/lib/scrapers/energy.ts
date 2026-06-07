@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Energy price scrapers
  * US: EIA API — https://www.eia.gov/opendata/

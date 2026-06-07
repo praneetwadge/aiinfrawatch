@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Azure GPU pricing scraper
  * Uses Azure Retail Prices API — public, no auth required

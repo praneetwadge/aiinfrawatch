@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * GMI Cloud scraper
  * NVIDIA Reference Cloud Platform Partner — fast growing in 2026

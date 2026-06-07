@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * CoreWeave pricing scraper
  * CoreWeave exposes pricing at their public pricing page

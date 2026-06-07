@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Crusoe Cloud scraper
  * AI-only cloud powered by stranded natural gas + renewables

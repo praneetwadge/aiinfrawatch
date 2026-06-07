@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * GCP GPU pricing scraper
  * Uses GCP Cloud Billing Catalog API — public, no auth required

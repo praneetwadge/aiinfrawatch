@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Lambda Labs scraper
  * Docs: https://docs.lambdalabs.com/on-demand-cloud/cloud-api

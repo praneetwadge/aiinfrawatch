@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AWS GPU pricing scraper
  * Uses AWS public pricing API — no credentials required

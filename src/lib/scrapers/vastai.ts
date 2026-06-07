@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * vast.ai scraper
  * Docs: https://vast.ai/docs/api

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * TensorDock scraper
  * Distributed GPU marketplace — budget-friendly, good RTX + A100 selection

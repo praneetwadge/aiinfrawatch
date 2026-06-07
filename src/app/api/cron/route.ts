@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAllScrapers } from "@/lib/scrapers";
 
-export const maxDuration = 300;
-
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (secret) {
-    const provided = request.headers.get("authorization")?.replace("Bearer ", "") ?? "";
-    if (provided !== secret) {
+    const auth = request.headers.get("authorization")?.replace("Bearer ", "") ?? "";
+    if (auth !== secret) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }

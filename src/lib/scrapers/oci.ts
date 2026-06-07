@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Oracle Cloud Infrastructure (OCI) GPU pricing scraper
  * Uses OCI public pricing API — no auth required

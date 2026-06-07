@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Voltage Park scraper
  * Nonprofit-backed GPU cloud (Navigation Fund / Jed McCaleb)

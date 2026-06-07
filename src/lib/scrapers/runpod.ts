@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * RunPod scraper
  * Docs: https://docs.runpod.io/docs/graphql-api

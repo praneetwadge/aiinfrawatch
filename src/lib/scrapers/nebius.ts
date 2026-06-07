@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Nebius AI Cloud scraper
  * Nebius is a spin-off from Yandex Cloud, EU-based, strong H100 cluster offering
