@@ -8,11 +8,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const results = [];
 
-  async function tryScraper(name, importFn, fnName) {
+  async function tryScraper(name: string, importFn: () => Promise<any>, fnName: string) {
     try {
       const mod = await importFn();
+      const fn = mod[fnName];
       const result = await Promise.race([
-        mod[fnName](),
+        fn(),
         new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000))
       ]);
       if (result.listings?.length > 0) {
@@ -32,8 +33,9 @@ export async function POST(request: NextRequest) {
   await tryScraper("vastai", () => import("@/lib/scrapers/vastai"), "scrapeVastAi");
   await tryScraper("runpod", () => import("@/lib/scrapers/runpod"), "scrapeRunPod");
 
+  const succeeded = results.filter(r => r.success).length;
   return NextResponse.json({ 
-    success: true, 
+    success: succeeded > 0, 
     results,
     total_listings: results.reduce((s, r) => s + (r.count ?? 0), 0)
   });
