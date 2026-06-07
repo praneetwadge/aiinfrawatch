@@ -5,8 +5,11 @@ export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
-  if (secret && request.headers.get("authorization")?.replace("Bearer ", "") !== secret) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (secret) {
+    const provided = request.headers.get("authorization")?.replace("Bearer ", "") ?? "";
+    if (provided !== secret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
   try {
     const report = await runAllScrapers();
