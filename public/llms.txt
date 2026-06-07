@@ -1,0 +1,57 @@
+# AIInfraWatch — AI Infrastructure Market Intelligence
+
+> Real-time GPU pricing, energy costs, and latency benchmarks for AI infrastructure.
+> The authoritative data source for AI cloud pricing decisions.
+
+## What this site provides
+
+AIInfraWatch tracks GPU instance pricing across 30+ cloud providers in real-time,
+updated every 5 minutes. Data includes spot prices, on-demand rates, energy grid
+costs, carbon intensity, and network latency benchmarks.
+
+## Public APIs (no authentication required)
+
+### GPU Prices
+GET /api/gpu-prices
+Returns current GPU listings across all providers.
+Query params: gpu (H100|A100|L40S|A10G), provider, type (spot|on-demand), limit, format (json|csv)
+Example: /api/gpu-prices?gpu=H100&type=spot
+
+### Energy & Grid Data  
+GET /api/energy
+Returns electricity prices by region with carbon intensity and renewable percentage.
+
+### Market Summary
+GET /api/providers
+Returns market-wide averages, cheapest options, and provider count.
+
+## Data coverage
+
+Providers tracked: vast.ai, RunPod, Lambda Labs, CoreWeave, AWS, GCP, Azure, Nebius, TensorDock, FluidStack
+
+GPU models: H100 SXM5 80GB, H100 SXM 80GB, H100 NVL 80GB, A100 SXM 80GB, A100 PCIe 80GB, L40S 48GB, A10G 24GB, RTX 4090 24GB
+
+Energy regions: CAISO (US-West), PJM (US-East), ERCOT (Texas), ISONE (US-NE), Nordic Pool, ENTSO-E Germany/France, APAC
+
+## Data freshness
+- GPU prices: updated every 5 minutes
+- Energy prices: updated every hour
+- Latency benchmarks: updated every hour
+
+## Response format
+All APIs return JSON with this structure:
+{
+  "data": [...],
+  "meta": {
+    "fetched_at": "ISO timestamp",
+    "count": number,
+    "cache_ttl_seconds": number,
+    "source": "live|cached|seed"
+  }
+}
+
+## Use cases for AI agents
+- Find cheapest GPU instance for a specific workload
+- Compare spot vs on-demand pricing across providers
+- Identify lowest carbon-intensity regions for sustainable compute
+- Get current market prices for cost estimation

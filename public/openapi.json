@@ -1,0 +1,116 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AIInfraWatch API",
+    "description": "Real-time AI GPU pricing, energy costs, and latency data across 30+ cloud providers",
+    "version": "1.0.0",
+    "contact": { "url": "https://aiinfrawatch.com" }
+  },
+  "servers": [{ "url": "https://aiinfrawatch.com", "description": "Production" }],
+  "paths": {
+    "/api/gpu-prices": {
+      "get": {
+        "summary": "Get current GPU prices",
+        "description": "Returns live GPU instance pricing across all tracked providers. Updated every 5 minutes.",
+        "operationId": "getGpuPrices",
+        "parameters": [
+          { "name": "gpu", "in": "query", "description": "Filter by GPU model name (e.g. H100, A100, L40S)", "schema": { "type": "string" } },
+          { "name": "provider", "in": "query", "description": "Filter by provider slug (vastai, runpod, lambda, aws, gcp, coreweave)", "schema": { "type": "string" } },
+          { "name": "type", "in": "query", "description": "Pricing type filter", "schema": { "type": "string", "enum": ["spot", "on-demand", "reserved-1yr", "reserved-3yr"] } },
+          { "name": "limit", "in": "query", "description": "Max results (default 100, max 500)", "schema": { "type": "integer", "default": 100 } },
+          { "name": "format", "in": "query", "description": "Response format", "schema": { "type": "string", "enum": ["json", "csv"], "default": "json" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "GPU listings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/GpuListing" } },
+                    "meta": { "$ref": "#/components/schemas/Meta" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/energy": {
+      "get": {
+        "summary": "Get energy grid prices",
+        "description": "Returns electricity prices by region with carbon intensity. Updated hourly.",
+        "operationId": "getEnergyPrices",
+        "responses": {
+          "200": {
+            "description": "Energy prices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/EnergyPrice" } },
+                    "meta": { "$ref": "#/components/schemas/Meta" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/providers": {
+      "get": {
+        "summary": "Get market summary",
+        "description": "Returns market-wide averages, cheapest options, and statistics",
+        "operationId": "getMarketSummary",
+        "responses": {
+          "200": { "description": "Market summary" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "GpuListing": {
+        "type": "object",
+        "properties": {
+          "provider": { "type": "string", "example": "CoreWeave" },
+          "provider_slug": { "type": "string", "example": "coreweave" },
+          "gpu_model": { "type": "string", "example": "H100 SXM 80GB" },
+          "gpu_count": { "type": "integer", "example": 8 },
+          "pricing_type": { "type": "string", "enum": ["spot", "on-demand", "reserved-1yr", "reserved-3yr"] },
+          "price_per_hour": { "type": "number", "example": 26.00 },
+          "region": { "type": "string", "example": "US-East (LGA1)" },
+          "availability": { "type": "string", "enum": ["high", "medium", "low", "unavailable"] },
+          "vcpus": { "type": "integer" },
+          "ram_gb": { "type": "number" },
+          "network_gbps": { "type": "number" },
+          "fetched_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "EnergyPrice": {
+        "type": "object",
+        "properties": {
+          "region": { "type": "string" },
+          "grid_operator": { "type": "string" },
+          "price_per_kwh": { "type": "number" },
+          "carbon_intensity_gco2_kwh": { "type": "number" },
+          "renewable_pct": { "type": "number" },
+          "source": { "type": "string" }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "properties": {
+          "fetched_at": { "type": "string", "format": "date-time" },
+          "count": { "type": "integer" },
+          "cache_ttl_seconds": { "type": "integer" },
+          "source": { "type": "string", "enum": ["live", "cached", "seed"] }
+        }
+      }
+    }
+  }
+}
