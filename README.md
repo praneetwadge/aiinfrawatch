@@ -159,25 +159,3 @@ Price History
 ```
 
 ---
-
-## Roadmap
-
-### Phase 1 (this repo) ✓
-- [x] Core scraper pipeline
-- [x] Supabase schema
-- [x] Live dashboard
-- [x] Public API
-- [x] Agent discovery (llms.txt, OpenAPI)
-
-### Phase 2 — Enterprise Optimizer
-- [ ] Workload cost calculator
-- [ ] Multi-provider comparison engine
-- [ ] Cloud account integration (read-only)
-- [ ] Slack/email price alerts
-- [ ] Savings recommendations
-
-### Phase 3 — Market Maker
-- [ ] Price trend forecasting
-- [ ] Bulk pricing negotiation layer
-- [ ] GPU futures / reservation marketplace
-- [ ] Energy arbitrage signals
