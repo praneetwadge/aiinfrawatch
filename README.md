@@ -1,7 +1,7 @@
 # AIInfraWatch — AI Infrastructure Market Intelligence
 
 Real-time GPU pricing, energy costs, and latency benchmarks across 30+ cloud providers.
-Built to be the authoritative data source for AI infrastructure decisions — for humans, bots, and AI agents.
+Built to be the authoritative data source for AI infrastructure decisions — for humans, bots, and AI agents. 
 
 ---
 
