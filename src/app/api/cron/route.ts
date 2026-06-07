@@ -6,39 +6,35 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const { scrapeVastAi } = await import("@/lib/scrapers/vastai");
-    const { scrapeRunPod } = await import("@/lib/scrapers/runpod");
-    const { scrapeAWS } = await import("@/lib/scrapers/aws");
-    const { scrapeGCP } = await import("@/lib/scrapers/gcp");
-    const { scrapeAzure } = await import("@/lib/scrapers/azure");
-    const { scrapeCoreWeave } = await import("@/lib/scrapers/coreweave");
-    const { upsertGpuListings } = await import("@/lib/db/queries");
+  const results = [];
 
-    const results = [];
-    const scrapers = [
-      { name: "vastai", fn: scrapeVastAi },
-      { name: "runpod", fn: scrapeRunPod },
-      { name: "aws", fn: scrapeAWS },
-      { name: "gcp", fn: scrapeGCP },
-      { name: "azure", fn: scrapeAzure },
-      { name: "coreweave", fn: scrapeCoreWeave },
-    ];
-
-    for (const { name, fn } of scrapers) {
-      try {
-        const result = await fn();
-        if (result.listings.length > 0) {
-          await upsertGpuListings(result.listings);
-        }
-        results.push({ provider: name, count: result.listings.length, success: true });
-      } catch (e) {
-        results.push({ provider: name, error: e.message, success: false });
+  async function tryScraper(name, importFn, fnName) {
+    try {
+      const mod = await importFn();
+      const result = await Promise.race([
+        mod[fnName](),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000))
+      ]);
+      if (result.listings?.length > 0) {
+        const { upsertGpuListings } = await import("@/lib/db/queries");
+        await upsertGpuListings(result.listings);
       }
+      results.push({ provider: name, count: result.listings?.length ?? 0, success: true });
+    } catch (e) {
+      results.push({ provider: name, error: e.message, success: false });
     }
-
-    return NextResponse.json({ success: true, results });
-  } catch (err) {
-    return NextResponse.json({ success: false, error: err?.message ?? String(err) }, { status: 500 });
   }
+
+  await tryScraper("aws", () => import("@/lib/scrapers/aws"), "scrapeAWS");
+  await tryScraper("azure", () => import("@/lib/scrapers/azure"), "scrapeAzure");
+  await tryScraper("gcp", () => import("@/lib/scrapers/gcp"), "scrapeGCP");
+  await tryScraper("coreweave", () => import("@/lib/scrapers/coreweave"), "scrapeCoreWeave");
+  await tryScraper("vastai", () => import("@/lib/scrapers/vastai"), "scrapeVastAi");
+  await tryScraper("runpod", () => import("@/lib/scrapers/runpod"), "scrapeRunPod");
+
+  return NextResponse.json({ 
+    success: true, 
+    results,
+    total_listings: results.reduce((s, r) => s + (r.count ?? 0), 0)
+  });
 }
