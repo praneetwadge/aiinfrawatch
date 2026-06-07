@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AIInfraWatch — Live GPU Prices & AI Infrastructure Market Data",
-  description: "Real-time GPU spot prices, AI cloud costs, energy grid data, and latency benchmarks across CoreWeave, AWS, GCP, vast.ai, RunPod, and 30+ providers.",
+  title: { default: "AIInfraWatch — AI Compute Cost Intelligence", template: "%s · AIInfraWatch" },
+  description: "Find out if you're overpaying for AI compute. GPU spot prices, hyperscaler premiums, and private cost audits for enterprise AI teams.",
   robots: { index: true, follow: true },
 };
 

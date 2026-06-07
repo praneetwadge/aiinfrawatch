@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from "recharts";
+import SiteNav from "@/components/SiteNav";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -202,37 +204,66 @@ function MarketRibbon({ listings, summary }: { listings: GpuListing[]; summary: 
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
-function Header() {
-  const live    = ALL_PROVIDERS.filter(p => p.status === "live").length;
-  const partial = ALL_PROVIDERS.filter(p => p.status === "partial").length;
+// ── Funnel Banner (above the fold — paid product hook) ────────────────────────
+
+function FunnelBanner({ listings }: { listings: GpuListing[] }) {
+  const cheapestHigh = listings.filter(l => l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+  const highAvailCount = listings.filter(l => l.availability === "high").length;
+  const capacityConf   = listings.length > 0 ? Math.round((highAvailCount / listings.length) * 100) : 0;
+
   return (
-    <header style={{ borderBottom: "1px solid var(--border)", background: "var(--panel)", boxShadow: "0 1px 0 rgba(20,20,20,0.06)" }}>
-      <div style={{
-        maxWidth: 1360, margin: "0 auto", padding: "0 32px",
-        height: 54, display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <svg width={20} height={20} viewBox="0 0 22 22" fill="none">
-              <rect width={22} height={22} rx={3} fill="#171717" />
-              <path d="M5 16l4-9 3.5 6 2-3.5L17 16" stroke="#F7F3EA" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            </svg>
-            <span style={{ ...BODY, fontSize: 14.5, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-              AIInfraWatch
-            </span>
+    <div style={{ background: "#171717", borderBottom: "1px solid rgba(247,243,234,0.1)" }}>
+      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "36px 32px 32px" }}>
+        <div className="funnel-grid" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 52, alignItems: "center" }}>
+          <div>
+            <p style={{ ...MONO, fontSize: 10, color: "rgba(247,243,234,0.35)", letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 14 }}>
+              AI Compute Cost Intelligence
+            </p>
+            <h2 style={{ ...SERIF, fontSize: 33, fontWeight: 400, lineHeight: 1.15, color: "#F7F3EA", marginBottom: 14 }}>
+              Public prices show the market.<br />
+              <em>A cost audit shows your decision.</em>
+            </h2>
+            <p style={{ ...SANS, fontSize: 14, color: "rgba(247,243,234,0.58)", lineHeight: 1.7, maxWidth: 500 }}>
+              We track GPU and API prices across every major provider. Enterprise teams use the private cost desk to find out if they're overpaying — and what to do about it.
+            </p>
           </div>
-          <div style={{ width: 1, height: 16, background: "var(--border)" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--green)", display: "inline-block", animation: "pulse-live 2.5s ease-in-out infinite" }} />
-            <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Live index</span>
+
+          <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+            <Link href="/cost-audit" style={{
+              display: "block", textAlign: "center" as const,
+              ...SANS, fontSize: 13.5, fontWeight: 600,
+              color: "#171717", background: "#F7F3EA",
+              padding: "13px 24px", borderRadius: 3, textDecoration: "none",
+              letterSpacing: "0.01em",
+            }}>
+              Request cost audit →
+            </Link>
+            <a href="#market-data" style={{
+              display: "block", textAlign: "center" as const,
+              ...SANS, fontSize: 13, color: "rgba(247,243,234,0.6)",
+              padding: "11px 24px", borderRadius: 3, textDecoration: "none",
+              border: "1px solid rgba(247,243,234,0.15)",
+            }}>
+              Explore market data ↓
+            </a>
+            {cheapestHigh && (
+              <div style={{ padding: "10px 14px", background: "rgba(247,243,234,0.05)", border: "1px solid rgba(247,243,234,0.1)", borderRadius: 3 }}>
+                <div style={{ ...MONO, fontSize: 9.5, color: "rgba(247,243,234,0.3)", letterSpacing: "0.09em", marginBottom: 4 }}>RELIABLE CAPACITY NOW</div>
+                <div style={{ ...MONO, fontSize: 15, fontWeight: 500, color: "#F7F3EA" }}>
+                  {fmtP(cheapestHigh.price_per_hour)}<span style={{ fontSize: 11, color: "rgba(247,243,234,0.38)" }}>/hr</span>
+                </div>
+                <div style={{ ...SANS, fontSize: 11, color: "rgba(247,243,234,0.4)", marginTop: 2 }}>
+                  {getMeta(cheapestHigh.provider).short} · {cheapestHigh.gpu_model}
+                </div>
+              </div>
+            )}
+            <div style={{ ...SANS, fontSize: 11, color: "rgba(247,243,234,0.3)", textAlign: "center" as const }}>
+              {capacityConf}% of {listings.length.toLocaleString()} indexed listings high-availability
+            </div>
           </div>
-        </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ ...SANS, fontSize: 10, color: "var(--green)", background: "var(--green-dim)", border: "1px solid rgba(8,127,91,0.2)", padding: "2px 8px", borderRadius: 3, fontWeight: 500 }}>{live} live</span>
-          {partial > 0 && <span style={{ ...SANS, fontSize: 10, color: "var(--amber)", background: "var(--amber-dim)", border: "1px solid rgba(183,121,31,0.2)", padding: "2px 8px", borderRadius: 3, fontWeight: 500 }}>{partial} partial</span>}
         </div>
       </div>
-    </header>
+    </div>
   );
 }
 
@@ -1118,6 +1149,7 @@ export default function DashboardClient({ summary, listings }: Props) {
           .charts-grid { grid-template-columns: 1fr !important; }
           .tiles-grid  { grid-template-columns: repeat(2, 1fr) !important; }
           .facts-grid  { grid-template-columns: 1fr !important; gap: 20px !important; }
+          .funnel-grid { grid-template-columns: 1fr !important; gap: 28px !important; }
         }
         @media (max-width: 540px) {
           .tiles-grid { grid-template-columns: 1fr !important; }
@@ -1125,7 +1157,9 @@ export default function DashboardClient({ summary, listings }: Props) {
       `}</style>
 
       <MarketRibbon listings={listings} summary={summary} />
-      <Header />
+      <SiteNav />
+      <FunnelBanner listings={listings} />
+      <div id="market-data">
       <MarketBrief listings={listings} summary={summary} />
       <WhatWeKnow listings={listings} />
 
@@ -1241,6 +1275,7 @@ export default function DashboardClient({ summary, listings }: Props) {
           </div>
         </div>
       </div>
+      </div>{/* end #market-data */}
     </div>
   );
 }
