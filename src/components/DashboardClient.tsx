@@ -51,9 +51,12 @@ const PROVIDER_META: Record<string, { cat: string; color: string; status: string
   crusoe:       { cat: "Neocloud",    color: "#3b82f6", status: "live" },
   "crusoe energy":{ cat: "Neocloud",  color: "#3b82f6", status: "live" },
   fluidstack:   { cat: "Marketplace", color: "#8b5cf6", status: "live" },
-  ibm:          { cat: "Hyperscaler", color: "#f59e0b", status: "pending" },
-  gmi:          { cat: "Neocloud",    color: "#3b82f6", status: "pending" },
-  voltagepark:  { cat: "Neocloud",    color: "#3b82f6", status: "pending" },
+  ibm:          { cat: "Hyperscaler", color: "#f59e0b", status: "live" },
+  "ibm cloud":  { cat: "Hyperscaler", color: "#f59e0b", status: "live" },
+  gmi:          { cat: "Neocloud",    color: "#3b82f6", status: "live" },
+  "gmi cloud":  { cat: "Neocloud",    color: "#3b82f6", status: "live" },
+  voltagepark:  { cat: "Neocloud",    color: "#3b82f6", status: "live" },
+  "voltage park": { cat: "Neocloud",  color: "#3b82f6", status: "live" },
 };
 
 const ALL_PROVIDERS = [
@@ -70,9 +73,9 @@ const ALL_PROVIDERS = [
   { slug: "crusoe",      name: "Crusoe",        cat: "Neocloud",    status: "live" },
   { slug: "fluidstack",  name: "FluidStack",    cat: "Marketplace", status: "live" },
   { slug: "vastai",      name: "vast.ai",       cat: "Marketplace", status: "partial" },
-  { slug: "ibm",         name: "IBM Cloud",     cat: "Hyperscaler", status: "pending" },
-  { slug: "gmi",         name: "GMI Cloud",     cat: "Neocloud",    status: "pending" },
-  { slug: "voltagepark", name: "VoltagePark",   cat: "Neocloud",    status: "pending" },
+  { slug: "ibm",         name: "IBM Cloud",     cat: "Hyperscaler", status: "live" },
+  { slug: "gmi",         name: "GMI Cloud",     cat: "Neocloud",    status: "live" },
+  { slug: "voltagepark", name: "VoltagePark",   cat: "Neocloud",    status: "live" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ export const revalidate = 300;
 export default async function Page() {
   const [summary, listings, energy, latency] = await Promise.allSettled([
     computeMarketSummary(),
-    getLatestGpuListings({ limit: 200 }),
+    getLatestGpuListings({ limit: 500 }),
     getLatestEnergyPrices(),
     getLatencyBenchmarks(),
   ]);

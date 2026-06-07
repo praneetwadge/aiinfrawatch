@@ -34,11 +34,11 @@ src/**          → no puppeteer, no dotenv              (banned)
 
 ## Providers
 
-**Live**: runpod, aws, azure, gcp, coreweave, lambda, nebius, tensordock, oci, paperspace, crusoe, fluidstack  
+**Live**: runpod, aws, azure, gcp, coreweave, lambda, nebius, tensordock, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark  
 **Partial**: vastai  
-**Pending**: ibm, gmi, voltagepark
+**Pending**: *(none)*
 
-Hardcoded pricing (no live API): gcp, lambda, oci, paperspace, crusoe, fluidstack
+Hardcoded pricing (no live API): gcp, lambda, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark
 
 ## Scraper template
 
