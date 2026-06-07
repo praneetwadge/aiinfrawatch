@@ -74,7 +74,7 @@ export async function getLatencyBenchmarks(): Promise<LatencyBenchmark[]> {
     .select("*")
     .order("latency_p50_ms", { ascending: true });
   if (error) throw error;
-  return (data as LatencyBenchmark[]) ?? [];\
+  return (data as LatencyBenchmark[]) ?? [];
 }
 
 export async function computeMarketSummary(): Promise<MarketSummary> {
