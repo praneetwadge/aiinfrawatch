@@ -2,29 +2,85 @@
 import { supabaseAdmin } from "./supabase";
 import type { GpuListing, EnergyPrice, LatencyBenchmark, MarketSummary } from "@/types";
 
+// DC-class GPU keywords — must appear in gpu_model for priority fetch
+const DC_KEYWORDS = ["H100", "H200", "A100", "L40S", "L40", "A10G", "A10", "A30", "A40", "B200", "MI300"];
+
 export async function getLatestGpuListings(opts?: {
   gpu_model?: string;
   provider?: string;
   pricing_type?: string;
   limit?: number;
 }): Promise<GpuListing[]> {
-  // Return listings fetched in the last 25 hours from any provider
   const cutoff = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+  const totalLimit = opts?.limit ?? 2000;
 
-  let query = supabaseAdmin
-    .from("gpu_listings")
-    .select("*")
-    .gte("fetched_at", cutoff)
-    .order("price_per_hour", { ascending: true });
+  // If a specific gpu_model or provider filter is set, run a plain filtered query
+  if (opts?.gpu_model || opts?.provider) {
+    let query = supabaseAdmin
+      .from("gpu_listings")
+      .select("*")
+      .gte("fetched_at", cutoff)
+      .order("price_per_hour", { ascending: true })
+      .limit(totalLimit);
 
-  if (opts?.gpu_model) query = query.ilike("gpu_model", `%${opts.gpu_model}%`);
-  if (opts?.provider) query = query.eq("provider", opts.provider);
-  if (opts?.pricing_type) query = query.eq("pricing_type", opts.pricing_type);
-  if (opts?.limit) query = query.limit(opts.limit);
+    if (opts?.gpu_model)     query = query.ilike("gpu_model", `%${opts.gpu_model}%`);
+    if (opts?.provider)      query = query.eq("provider", opts.provider);
+    if (opts?.pricing_type)  query = query.eq("pricing_type", opts.pricing_type);
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data as GpuListing[]) ?? [];
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data as GpuListing[]) ?? [];
+  }
+
+  // Dual-priority fetch: DC-class GPUs first (60% of limit), then everything else (40%)
+  // Prevents price-ascending sort + row limit from cutting off H100/A100 listings
+  const dcLimit      = Math.ceil(totalLimit * 0.6);
+  const consumerLimit = totalLimit - dcLimit;
+
+  // Build OR filter for DC keywords
+  const dcFilter = DC_KEYWORDS.map(k => `gpu_model.ilike.%${k}%`).join(",");
+
+  const [dcRes, consumerRes] = await Promise.all([
+    supabaseAdmin
+      .from("gpu_listings")
+      .select("*")
+      .gte("fetched_at", cutoff)
+      .or(dcFilter)
+      .order("price_per_hour", { ascending: true })
+      .limit(dcLimit),
+    supabaseAdmin
+      .from("gpu_listings")
+      .select("*")
+      .gte("fetched_at", cutoff)
+      .not("gpu_model", "ilike", `%H100%`)
+      .not("gpu_model", "ilike", `%H200%`)
+      .not("gpu_model", "ilike", `%A100%`)
+      .not("gpu_model", "ilike", `%L40S%`)
+      .not("gpu_model", "ilike", `%B200%`)
+      .not("gpu_model", "ilike", `%MI300%`)
+      .order("price_per_hour", { ascending: true })
+      .limit(consumerLimit),
+  ]);
+
+  if (dcRes.error)       throw dcRes.error;
+  if (consumerRes.error) throw consumerRes.error;
+
+  // Merge, deduplicate by id, sort by price
+  const seen = new Set<string>();
+  const merged: GpuListing[] = [];
+  for (const row of [...(dcRes.data ?? []), ...(consumerRes.data ?? [])]) {
+    if (!seen.has(row.id)) {
+      seen.add(row.id);
+      merged.push(row as GpuListing);
+    }
+  }
+
+  if (opts?.pricing_type) {
+    return merged.filter(l => l.pricing_type === opts.pricing_type)
+      .sort((a, b) => a.price_per_hour - b.price_per_hour);
+  }
+
+  return merged.sort((a, b) => a.price_per_hour - b.price_per_hour);
 }
 
 export async function upsertGpuListings(listings: GpuListing[]): Promise<void> {
