@@ -58,7 +58,7 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 | `src/app/globals.css` | CSS variables, keyframes — light editorial theme |
 | `src/components/DashboardClient.tsx` | Full market UI (~1480 lines, "use client") |
 | `src/components/AuditTool.tsx` | Self-serve instant audit — GPU family + count + hours → cheapest reliable + savings |
-| `src/components/SiteNav.tsx` | Sticky nav shared across all pages (logo, 3 links, "Run a cost audit" CTA) |
+| `src/components/MarketTicker.tsx` | Shared dark ticker — used on ALL 3 routes (same component, no remount on nav) |
 | `src/components/DemandForm.tsx` | Optional post-result email capture — POSTs to `/api/audit-request` |
 | `src/app/api/audit-request/route.ts` | POST handler — zod validation → supabaseAdmin insert → `audit_requests` |
 | `src/lib/db/queries.ts` | DB queries — 25hr window, limit 2000, dual-priority DC fetch |
@@ -80,7 +80,7 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 
 ## Homepage section order (locked)
 
-1. `MarketRibbon` — 30px dark ticker, decision metrics, "N of 16 tracked · N listings"
+1. `MarketTicker` — 30px dark ticker, shared component across all routes, live price signals
 2. `SiteNav` — sticky nav, "Run a cost audit" CTA always visible
 3. `MarketHero` — light panel hero: eyebrow + H1 + one subline + 3-stat strip (H100 price · hyperscaler premium · capacity confidence) + exactly 2 CTAs ("Run a cost audit →" / "Explore the index ↓")
 4. `#market-data` anchor
@@ -171,7 +171,7 @@ All computation is **client-side** from a flat `listings: GpuListing[]` array pa
 
 | Component | Purpose |
 |-----------|---------|
-| `MarketRibbon` | Scrolling dark ticker — leads with reliable price, shows "N of 16 providers" |
+| `MarketTicker` | Shared dark scrolling ticker (30px) — same component on all 3 routes, never remounts on page nav. Shows live prices: reliable floor, H100, A100, L40S, supply concentration, capacity %. |
 | `SiteNav` | Sticky shared nav — imported from `@/components/SiteNav` |
 | `MarketHero` | Light above-fold hero — eyebrow, H1, subline, 3-stat strip, 2 CTAs only |
 | `IndexTile` | 5 promoted metric tiles — never show "—", always fallback to best available data |
@@ -208,17 +208,15 @@ Never auto-lands on an empty table.
 
 `src/components/AuditTool.tsx` — client component, receives `listings: GpuListing[]` from the `/cost-audit` server page.
 
-**Inputs:** GPU family chips (H100/A100/L40S/A10G) · GPU count · Hours/month · Current situation (hyperscaler / neocloud / marketplace / unsure).
+**Primary input:** free-text paste of current setup (bill summary, architecture notes, provider quote, plain English). Manual GPU entry (family / count / hours / situation) is collapsed behind an "Enter manually instead" toggle.
 
-**Computation (instantaneous, no submit):**
+**Manual computation (instantaneous when expanded):**
 - `cheapestReliable` = cheapest with `availability === "high"` for family; falls back to cheapest observed
 - `baseline` = cheapest in the user's current situation category (hyperscaler assumed for "unsure")
 - `savings` = `(baseline - cheapestReliable) * hours * gpuCount` per month
 - Credibility guard: if no reliable listing, labels result "cheapest observed — not reliability-verified" in amber; if no listings at all, shows honest empty state
 
-**Output:** current cost vs cheapest reliable + savings card + one-sentence advice + optional "Email me the full breakdown" capture (no submit gate before result).
-
-**Email capture** POSTs to `/api/audit-request` with `source: "cost-audit"` and prefilled spend/workload from tool inputs.
+**Submit:** POSTs to `/api/audit-request` with `source: "cost-audit"`, pasted setup text as `notes`. Email field + submit button are always visible (paste-first flow).
 
 ---
 

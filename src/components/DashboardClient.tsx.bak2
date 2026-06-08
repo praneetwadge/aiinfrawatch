@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -8,65 +8,126 @@ import {
 } from "recharts";
 import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
-import {
-  GpuListing, HYPERSCALERS, PROVIDER_META,
-  getMeta, fmtP, fmtMoney, minsAgo,
-} from "@/lib/market-helpers";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface GpuListing {
+  provider: string;
+  gpu_model: string;
+  gpu_count: number;
+  pricing_type: string;
+  price_per_hour: number;
+  region: string;
+  availability: string;
+  fetched_at?: string;
+}
+interface EnergyPrice { region: string; price_per_kwh: number; }
+interface LatencyBenchmark { provider: string; region: string; latency_p50_ms: number; }
 interface MarketSummary {
   h100_spot_avg: number; a100_spot_avg: number;
   active_providers: number; total_listings: number;
   energy_cheapest_price: number; last_updated: string;
   cheapest_h100?: GpuListing | null; cheapest_a100?: GpuListing | null;
 }
-interface Props { summary: MarketSummary | null; listings: GpuListing[]; }
+interface Props { summary: MarketSummary | null; listings: GpuListing[]; energy: EnergyPrice[]; latency: LatencyBenchmark[]; }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
-const MONO:  React.CSSProperties = { fontFamily: "var(--font-mono)" };
+const MONO: React.CSSProperties  = { fontFamily: "var(--font-mono)" };
 const SERIF: React.CSSProperties = { fontFamily: "var(--font-serif)" };
-const SANS:  React.CSSProperties = { fontFamily: "var(--font-sans)" };
-const BODY:  React.CSSProperties = { fontFamily: "var(--font-body)" };
+const SANS: React.CSSProperties  = { fontFamily: "var(--font-sans)" };
+const BODY: React.CSSProperties  = { fontFamily: "var(--font-body)" };
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Shared constants ──────────────────────────────────────────────────────────
 
+// Total providers tracked in the index (including partial). Used for "N of 16" label.
 const TOTAL_TRACKED = 16;
-const DATA_CAVEAT   =
+
+// Shared caveat shown wherever "Normalizing" previously appeared as a standalone state.
+// Replaces scattered bespoke strings throughout the UI.
+const DATA_CAVEAT =
   "Prices are normalised per provider — methodology varies. Some GPUs (including H100) may be absent from a given snapshot window. For current pricing on a specific GPU or region, request a cost audit.";
 
+// ── Provider metadata ─────────────────────────────────────────────────────────
+
+const PROVIDER_META: Record<string, { cat: string; color: string; status: string; short: string }> = {
+  runpod:         { cat: "Marketplace",  color: "var(--violet)", status: "live",    short: "RunPod" },
+  vastai:         { cat: "Marketplace",  color: "var(--violet)", status: "partial", short: "Vast.ai" },
+  "vast.ai":      { cat: "Marketplace",  color: "var(--violet)", status: "partial", short: "Vast.ai" },
+  aws:            { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "AWS" },
+  azure:          { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "Azure" },
+  gcp:            { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "GCP" },
+  "google cloud": { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "GCP" },
+  coreweave:      { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "CoreWeave" },
+  lambda:         { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Lambda" },
+  "lambda labs":  { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Lambda" },
+  nebius:         { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Nebius" },
+  tensordock:     { cat: "Marketplace",  color: "var(--violet)", status: "live",    short: "TensorDock" },
+  oci:            { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "Oracle" },
+  "oracle cloud": { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "Oracle" },
+  paperspace:     { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Paperspace" },
+  crusoe:         { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Crusoe" },
+  "crusoe energy":{ cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Crusoe" },
+  fluidstack:     { cat: "Marketplace",  color: "var(--violet)", status: "live",    short: "FluidStack" },
+  ibm:            { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "IBM" },
+  "ibm cloud":    { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "IBM" },
+  gmi:            { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "GMI" },
+  "gmi cloud":    { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "GMI" },
+  voltagepark:    { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "VoltagePark" },
+  "voltage park": { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "VoltagePark" },
+};
+
 const ALL_PROVIDERS = [
-  { slug: "runpod",      name: "RunPod",       cat: "Marketplace", status: "live" },
-  { slug: "aws",         name: "AWS",          cat: "Hyperscaler", status: "live" },
-  { slug: "azure",       name: "Azure",        cat: "Hyperscaler", status: "live" },
-  { slug: "gcp",         name: "GCP",          cat: "Hyperscaler", status: "live" },
-  { slug: "coreweave",   name: "CoreWeave",    cat: "Neocloud",    status: "live" },
-  { slug: "lambda",      name: "Lambda Labs",  cat: "Neocloud",    status: "live" },
-  { slug: "nebius",      name: "Nebius",       cat: "Neocloud",    status: "live" },
-  { slug: "tensordock",  name: "TensorDock",   cat: "Marketplace", status: "live" },
-  { slug: "oci",         name: "Oracle Cloud", cat: "Hyperscaler", status: "live" },
-  { slug: "paperspace",  name: "Paperspace",   cat: "Neocloud",    status: "live" },
-  { slug: "crusoe",      name: "Crusoe",       cat: "Neocloud",    status: "live" },
-  { slug: "fluidstack",  name: "FluidStack",   cat: "Marketplace", status: "live" },
-  { slug: "ibm",         name: "IBM Cloud",    cat: "Hyperscaler", status: "live" },
-  { slug: "gmi",         name: "GMI Cloud",    cat: "Neocloud",    status: "live" },
-  { slug: "voltagepark", name: "VoltagePark",  cat: "Neocloud",    status: "live" },
-  { slug: "vastai",      name: "Vast.ai",      cat: "Marketplace", status: "partial" },
+  { slug: "runpod",      name: "RunPod",        cat: "Marketplace", status: "live" },
+  { slug: "aws",         name: "AWS",           cat: "Hyperscaler", status: "live" },
+  { slug: "azure",       name: "Azure",         cat: "Hyperscaler", status: "live" },
+  { slug: "gcp",         name: "GCP",           cat: "Hyperscaler", status: "live" },
+  { slug: "coreweave",   name: "CoreWeave",     cat: "Neocloud",    status: "live" },
+  { slug: "lambda",      name: "Lambda Labs",   cat: "Neocloud",    status: "live" },
+  { slug: "nebius",      name: "Nebius",        cat: "Neocloud",    status: "live" },
+  { slug: "tensordock",  name: "TensorDock",    cat: "Marketplace", status: "live" },
+  { slug: "oci",         name: "Oracle Cloud",  cat: "Hyperscaler", status: "live" },
+  { slug: "paperspace",  name: "Paperspace",    cat: "Neocloud",    status: "live" },
+  { slug: "crusoe",      name: "Crusoe",        cat: "Neocloud",    status: "live" },
+  { slug: "fluidstack",  name: "FluidStack",    cat: "Marketplace", status: "live" },
+  { slug: "ibm",         name: "IBM Cloud",     cat: "Hyperscaler", status: "live" },
+  { slug: "gmi",         name: "GMI Cloud",     cat: "Neocloud",    status: "live" },
+  { slug: "voltagepark", name: "VoltagePark",   cat: "Neocloud",    status: "live" },
+  { slug: "vastai",      name: "Vast.ai",       cat: "Marketplace", status: "partial" },
 ];
 
-const GPU_FAMILIES  = ["All", "H100", "A100", "L40S", "A10G", "B200"];
+const GPU_FAMILIES = ["All", "H100", "A100", "L40S", "A10G", "B200"];
+const HYPERSCALERS  = ["aws", "azure", "gcp", "oci", "ibm", "ibm cloud", "google cloud", "oracle cloud"];
 
-// DC GPU matching — word-boundary aware ("A40" must not match "RTX A4000")
-const DC_GPU_KEYWORDS = ["H100","H200","A100","L40S","L40","A10G","A10","A30","A40","B200","MI300"];
+// DC GPU matching — word-boundary aware to prevent "A40" matching "RTX A4000"
+const DC_GPU_KEYWORDS = ["H100", "H200", "A100", "L40S", "L40", "A10G", "A10", "A30", "A40", "B200", "MI300"];
 const isDcGpu = (model: string): boolean => {
   const m = model.toUpperCase();
   return DC_GPU_KEYWORDS.some(k => {
     const idx = m.indexOf(k);
     if (idx === -1) return false;
-    const after = m[idx + k.length];
-    return !after || !/\d/.test(after);
+    // Must NOT be immediately followed by a digit (prevents "A40" matching "A4000")
+    const charAfter = m[idx + k.length];
+    return !charAfter || !/\d/.test(charAfter);
   });
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const getMeta = (p: string) =>
+  PROVIDER_META[p.toLowerCase()] ?? { cat: "Unknown", color: "var(--text-muted)", status: "unknown", short: p };
+
+const fmt  = (n: number, d = 2) => n.toFixed(d);
+const fmtP = (n: number) => n < 1 ? `$${n.toFixed(2)}` : n < 10 ? `$${n.toFixed(2)}` : `$${Math.round(n)}`;
+
+const minsAgo = (iso?: string): string => {
+  if (!iso) return "—";
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 };
 
 const availColor = (a: string) =>
@@ -235,6 +296,384 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
   );
 }
 
+// ── Deleted: FunnelBanner, MarketBrief, WhatWeKnow, CostDesk
+// Their audit math lives in AuditTool.tsx; hero stats are in MarketHero above.
+
+// ── [PLACEHOLDER — keeps compiler happy, immediately below is the next real component]
+
+function FunnelBanner({ listings }: { listings: GpuListing[] }) {
+  const cheapestHigh = listings.filter(l => l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+  const highAvailCount = listings.filter(l => l.availability === "high").length;
+  const capacityConf   = listings.length > 0 ? Math.round((highAvailCount / listings.length) * 100) : 0;
+
+  return (
+    <div style={{ background: "#171717", borderBottom: "1px solid rgba(247,243,234,0.1)" }}>
+      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "36px 32px 32px" }}>
+        <div className="funnel-grid" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 52, alignItems: "center" }}>
+          <div>
+            <p style={{ ...MONO, fontSize: 10, color: "rgba(247,243,234,0.35)", letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 14 }}>
+              AI Compute Cost Intelligence
+            </p>
+            <h2 style={{ ...SERIF, fontSize: 33, fontWeight: 400, lineHeight: 1.15, color: "#F7F3EA", marginBottom: 14 }}>
+              Public prices show the market.<br />
+              <em>A cost audit shows your decision.</em>
+            </h2>
+            <p style={{ ...SANS, fontSize: 14, color: "rgba(247,243,234,0.58)", lineHeight: 1.7, maxWidth: 500 }}>
+              We track GPU and API prices across every major provider. Enterprise teams use the private cost desk to find out if they're overpaying — and what to do about it.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+            <Link href="/cost-audit" style={{
+              display: "block", textAlign: "center" as const,
+              ...SANS, fontSize: 13.5, fontWeight: 600,
+              color: "#171717", background: "#F7F3EA",
+              padding: "13px 24px", borderRadius: 3, textDecoration: "none",
+              letterSpacing: "0.01em",
+            }}>
+              Request cost audit →
+            </Link>
+            <a href="#market-data" style={{
+              display: "block", textAlign: "center" as const,
+              ...SANS, fontSize: 13, color: "rgba(247,243,234,0.6)",
+              padding: "11px 24px", borderRadius: 3, textDecoration: "none",
+              border: "1px solid rgba(247,243,234,0.15)",
+            }}>
+              Explore market data ↓
+            </a>
+            {cheapestHigh && (
+              <div style={{ padding: "10px 14px", background: "rgba(247,243,234,0.05)", border: "1px solid rgba(247,243,234,0.1)", borderRadius: 3 }}>
+                <div style={{ ...MONO, fontSize: 9.5, color: "rgba(247,243,234,0.3)", letterSpacing: "0.09em", marginBottom: 4 }}>RELIABLE CAPACITY NOW</div>
+                <div style={{ ...MONO, fontSize: 15, fontWeight: 500, color: "#F7F3EA" }}>
+                  {fmtP(cheapestHigh.price_per_hour)}<span style={{ fontSize: 11, color: "rgba(247,243,234,0.38)" }}>/hr</span>
+                </div>
+                <div style={{ ...SANS, fontSize: 11, color: "rgba(247,243,234,0.4)", marginTop: 2 }}>
+                  {getMeta(cheapestHigh.provider).short} · {cheapestHigh.gpu_model}
+                </div>
+              </div>
+            )}
+            <div style={{ ...SANS, fontSize: 11, color: "rgba(247,243,234,0.3)", textAlign: "center" as const }}>
+              {capacityConf}% of {listings.length.toLocaleString()} indexed listings high-availability
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Market Brief ──────────────────────────────────────────────────────────────
+
+function MarketBrief({ listings, summary, activeProviders }: { listings: GpuListing[]; summary: MarketSummary | null; activeProviders: number }) {
+  const cheapestAny  = [...listings].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+  const cheapestHigh = listings.filter(l => l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+
+  const h100All  = listings.filter(l => l.gpu_model.includes("H100"));
+  const h100High = h100All.filter(l => l.availability === "high");
+  const cheapestH100High = [...h100High].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+
+  const counts: Record<string, number> = {};
+  listings.forEach(l => { counts[l.provider] = (counts[l.provider] || 0) + 1; });
+  const topProvider = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  const topPct = topProvider ? Math.round((topProvider[1] / listings.length) * 100) : 0;
+
+  const highAvailCount = listings.filter(l => l.availability === "high").length;
+  const capacityConf = listings.length > 0 ? Math.round((highAvailCount / listings.length) * 100) : 0;
+
+  const briefItems = [
+    cheapestAny && {
+      label: "Cheapest observed",
+      value: `${fmtP(cheapestAny.price_per_hour)}/hr`,
+      sub: `${getMeta(cheapestAny.provider).short} · ${cheapestAny.gpu_model}`,
+      badge: "observed" as ConfidenceLevel,
+      color: "var(--text-secondary)",
+    },
+    cheapestHigh && {
+      label: "Cheapest high-availability",
+      value: `${fmtP(cheapestHigh.price_per_hour)}/hr`,
+      sub: `${getMeta(cheapestHigh.provider).short} · ${cheapestHigh.gpu_model}`,
+      badge: "high-avail" as ConfidenceLevel,
+      color: "var(--green)",
+    },
+    cheapestH100High ? {
+      label: "H100 reliable from",
+      value: `${fmtP(cheapestH100High.price_per_hour)}/hr`,
+      sub: `${getMeta(cheapestH100High.provider).short} · high avail.`,
+      badge: "high-avail" as ConfidenceLevel,
+      color: "var(--blue)",
+    } : (() => {
+      // Fallback: cheapest reliable A100 if no H100 high-avail
+      const a100High = listings.filter(l => l.gpu_model.includes("A100") && l.availability === "high")
+        .sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+      if (a100High) return {
+        label: "H100 absent · A100 reliable from",
+        value: `${fmtP(a100High.price_per_hour)}/hr`,
+        sub: `${getMeta(a100High.provider).short} · high avail. — request audit for H100`,
+        badge: "partial" as ConfidenceLevel,
+        color: "var(--amber)",
+      };
+      return {
+        label: "H100 coverage",
+        value: h100All.length > 0 ? `${h100All.length} listings` : "Not in snapshot",
+        sub: h100All.length > 0 ? "No reliability-verified listings" : "Request audit for current pricing",
+        badge: "pending" as ConfidenceLevel,
+        color: "var(--amber)",
+      };
+    })(),
+    topProvider && {
+      label: "Supply concentration",
+      value: `${topPct}%`,
+      sub: `${getMeta(topProvider[0]).short} of ${listings.length.toLocaleString()} listings`,
+      badge: topPct >= 40 ? "observed" as ConfidenceLevel : "reliable" as ConfidenceLevel,
+      color: topPct >= 40 ? "var(--amber)" : "var(--text-secondary)",
+    },
+    {
+      label: "Capacity confidence",
+      value: `${capacityConf}%`,
+      sub: `${highAvailCount.toLocaleString()} of ${listings.length.toLocaleString()} high avail.`,
+      badge: capacityConf >= 60 ? "high-avail" as ConfidenceLevel : "observed" as ConfidenceLevel,
+      color: capacityConf >= 60 ? "var(--green)" : "var(--text-secondary)",
+    },
+  ].filter(Boolean) as { label: string; value: string; sub: string; badge: ConfidenceLevel; color: string }[];
+
+  return (
+    <div style={{ background: "var(--panel)", borderBottom: "2px solid var(--border)" }}>
+      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "48px 32px 40px" }}>
+        <div className="brief-grid" style={{ display: "grid", gridTemplateColumns: "1fr 316px", gap: 60, alignItems: "start" }}>
+
+          {/* Left */}
+          <div>
+            <p style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 14, fontWeight: 500 }}>
+              AI Infrastructure · Market Intelligence
+            </p>
+            <h1 style={{ ...SERIF, fontSize: 40, fontWeight: 400, lineHeight: 1.12, color: "var(--text-primary)", marginBottom: 18 }}>
+              Know the real price of compute<br />
+              <em>— before you sign.</em>
+            </h1>
+            <p style={{ ...BODY, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.72, maxWidth: 540, fontWeight: 300 }}>
+              Spot prices, hyperscaler premiums, and capacity signals across{" "}
+              {activeProviders < TOTAL_TRACKED
+                ? `${activeProviders} of ${TOTAL_TRACKED} tracked providers`
+                : `${TOTAL_TRACKED} providers`}{" "}
+              — so you can see what a quote hides before you commit.
+            </p>
+            <p style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6, maxWidth: 500, marginTop: 14, borderLeft: "2px solid var(--border-mid)", paddingLeft: 12 }}>
+              Low posted prices are useful only when capacity is available and reliable. This index surfaces both.
+            </p>
+          </div>
+
+          {/* Right: brief card */}
+          <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderTop: "3px solid var(--text-primary)" }}>
+            <div style={{ padding: "11px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "0.03em" }}>Today's Market Brief</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--green)", display: "inline-block", animation: "pulse-live 2.5s ease-in-out infinite" }} />
+                <span style={{ ...MONO, fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.08em" }}>LIVE</span>
+              </span>
+            </div>
+            {briefItems.map((b, i) => (
+              <div key={i} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+                padding: "10px 16px",
+                borderBottom: i < briefItems.length - 1 ? "1px solid var(--border)" : "none",
+                gap: 10,
+              }}>
+                <div>
+                  <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>{b.label}</div>
+                  <ConfidenceBadge level={b.badge} />
+                </div>
+                <div style={{ textAlign: "right" as const, flexShrink: 0 }}>
+                  <div style={{ ...MONO, fontSize: 13.5, fontWeight: 500, color: b.color }}>{b.value}</div>
+                  <div style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>{b.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── What We Know Right Now strip ──────────────────────────────────────────────
+
+function WhatWeKnow({ listings }: { listings: GpuListing[] }) {
+  const h100All = listings.filter(l => l.gpu_model.includes("H100"));
+  const cheapestH100 = [...h100All].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+  const cheapestH100High = listings.filter(l => l.gpu_model.includes("H100") && l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+
+  const counts: Record<string, number> = {};
+  listings.forEach(l => { counts[l.provider] = (counts[l.provider] || 0) + 1; });
+  const topEntry = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  const topMeta  = topEntry ? getMeta(topEntry[0]) : null;
+  const topPct   = topEntry ? Math.round((topEntry[1] / listings.length) * 100) : 0;
+
+  const hyperListings    = listings.filter(l => HYPERSCALERS.includes(l.provider.toLowerCase()));
+  const nonHyperListings = listings.filter(l => !HYPERSCALERS.includes(l.provider.toLowerCase()));
+  const hyperCheapest    = [...hyperListings].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+  const nonHyperCheapest = [...nonHyperListings].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+
+  const facts = [
+    topMeta && {
+      label: "Supply leader",
+      text: `${topMeta.short} holds ${topPct}% of indexed listings (${topEntry[1].toLocaleString()} active) — ${topMeta.cat === "Marketplace" ? "marketplace" : topMeta.cat.toLowerCase()} GPU supply.`,
+      color: "var(--blue)",
+    },
+    nonHyperCheapest && hyperCheapest && {
+      label: "Where prices are lower",
+      text: `Cheapest listings are marketplace and neocloud — not hyperscaler. ${getMeta(nonHyperCheapest.provider).short} ${nonHyperCheapest.gpu_model} from ${fmtP(nonHyperCheapest.price_per_hour)}/hr vs ${getMeta(hyperCheapest.provider).short} from ${fmtP(hyperCheapest.price_per_hour)}/hr.`,
+      color: "var(--green)",
+    },
+    {
+      label: h100All.length > 0 ? "H100 coverage" : "H100 status",
+      text: h100All.length > 0
+        ? `${h100All.length} H100 listings across ${new Set(h100All.map(l => l.provider)).size} providers.${cheapestH100High ? ` Reliable from ${fmtP(cheapestH100High.price_per_hour)}/hr (${getMeta(cheapestH100High.provider).short}, high avail.).` : " Reliability-verified listings are limited."} Hyperscaler normalization varies — treat published rates as indicative.`
+        : "H100 data not yet available in this query window. " + DATA_CAVEAT,
+      color: "var(--amber)",
+    },
+  ].filter(Boolean) as { label: string; text: string; color: string }[];
+
+  return (
+    <div style={{ borderTop: "1px solid var(--border)", borderBottom: "2px solid var(--border)", background: "var(--elevated)" }}>
+      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "20px 32px" }}>
+        <div className="facts-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 32 }}>
+          {facts.map((f, i) => (
+            <div key={i}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7 }}>
+                <div style={{ width: 3, height: 13, background: f.color, flexShrink: 0 }} />
+                <span style={{ ...SANS, fontSize: 10.5, fontWeight: 600, color: f.color, textTransform: "uppercase" as const, letterSpacing: "0.07em" }}>{f.label}</span>
+              </div>
+              <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.65, margin: 0 }}>{f.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Private Cost Desk ─────────────────────────────────────────────────────────
+
+function CostDesk({ listings }: { listings: GpuListing[] }) {
+  const [gpu, setGpu]     = useState("H100");
+  const [hours, setHours] = useState(720);
+
+  const recs = useMemo(() => {
+    const ls = listings.filter(l => l.gpu_model.includes(gpu));
+    if (!ls.length) return [];
+    const sorted   = [...ls].sort((a, b) => a.price_per_hour - b.price_per_hour);
+    const reliable = ls.filter(l => l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour);
+    const hyper    = ls.filter(l => HYPERSCALERS.includes(l.provider.toLowerCase())).sort((a, b) => a.price_per_hour - b.price_per_hour);
+    return [
+      sorted[0]             && { label: "Cheapest available",   listing: sorted[0],   color: "var(--blue)" },
+      (reliable[0] ?? null) && { label: "Highest reliability",  listing: reliable[0], color: "var(--green)" },
+      (hyper[0] ?? null)    && { label: "Hyperscaler baseline", listing: hyper[0],    color: "var(--amber)" },
+    ].filter(r => r && r.listing) as { label: string; listing: GpuListing; color: string }[];
+  }, [listings, gpu]);
+
+  const cheapest    = recs[0]?.listing;
+  const hyperscaler = recs.find(r => r.label === "Hyperscaler baseline")?.listing;
+  const savings     = cheapest && hyperscaler && hyperscaler.price_per_hour > cheapest.price_per_hour
+    ? Math.round((1 - cheapest.price_per_hour / hyperscaler.price_per_hour) * 100) : null;
+
+  return (
+    <div style={{ background: "var(--panel)", border: "1px solid rgba(183,121,31,0.3)", borderTop: "3px solid var(--amber)", boxShadow: "var(--shadow-md)" }}>
+      <div style={{ padding: "22px 28px 20px", borderBottom: "1px solid var(--border)", display: "flex", gap: 28, alignItems: "flex-start" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--amber)", textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 7 }}>Private Cost Desk</div>
+          <h3 style={{ ...SERIF, fontSize: 22, fontWeight: 400, color: "var(--text-primary)", lineHeight: 1.2, marginBottom: 6 }}>
+            Run your workload through the market.
+          </h3>
+          <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.65, maxWidth: 540 }}>
+            Public prices show the surface. A private estimate accounts for GPU mix, utilization, region, reliability, API usage, contract terms, and migration risk.
+          </p>
+        </div>
+        {/* Redacted sample card */}
+        <div style={{ flexShrink: 0, width: 174, border: "1px solid var(--border)", background: "var(--bg)", padding: "12px 14px", position: "relative" as const, overflow: "hidden" }}>
+          <div style={{ ...SANS, fontSize: 8.5, fontWeight: 600, color: "var(--amber)", letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 7 }}>Sample Estimate</div>
+          <div style={{ filter: "blur(3.5px)", pointerEvents: "none" }}>
+            {[["8×H100 · 3 weeks","$214k/mo"],["Optimized mix","$128k/mo"],["Savings","−40%"],["Concentration risk","HIGH"]].map(([l,v]) => (
+              <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ ...SANS, fontSize: 9.5, color: "var(--text-muted)" }}>{l}</span>
+                <span style={{ ...MONO, fontSize: 9.5, fontWeight: 600, color: "var(--text-primary)" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ position: "absolute" as const, inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(247,243,234,0.45)" }}>
+            <span style={{ ...SANS, fontSize: 10.5, fontWeight: 600, color: "var(--amber)", letterSpacing: "0.04em" }}>Private</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: "16px 28px 20px" }}>
+        {/* GPU selector + hours */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 14, alignItems: "center" }}>
+          {["H100", "A100", "L40S", "A10G"].map(g => (
+            <button key={g} onClick={() => setGpu(g)} style={{
+              ...MONO, fontSize: 12, padding: "5px 13px",
+              border: `1px solid ${gpu === g ? "var(--amber)" : "var(--border-mid)"}`,
+              background: gpu === g ? "var(--amber-dim)" : "var(--panel)",
+              color: gpu === g ? "var(--amber)" : "var(--text-secondary)",
+              borderRadius: 3, fontWeight: gpu === g ? 500 : 400,
+            }}>{g}</button>
+          ))}
+          <div style={{ width: 1, height: 16, background: "var(--border)" }} />
+          <label style={{ display: "flex", alignItems: "center", gap: 6, ...SANS, fontSize: 12, color: "var(--text-secondary)" }}>
+            hrs/mo:
+            <input type="number" value={hours} onChange={e => setHours(Number(e.target.value))} min={1} max={8760}
+              style={{ ...MONO, width: 66, background: "var(--panel)", border: "1px solid var(--border-mid)", color: "var(--text-primary)", padding: "4px 8px", fontSize: 12.5, borderRadius: 3, outline: "none" }}
+            />
+          </label>
+          {savings !== null && (
+            <span style={{ ...SANS, fontSize: 11, color: "var(--green)", background: "var(--green-dim)", border: "1px solid rgba(8,127,91,0.2)", padding: "3px 9px", borderRadius: 3, fontWeight: 500 }}>
+              Up to {savings}% vs hyperscaler
+            </span>
+          )}
+        </div>
+
+        {/* Results row */}
+        {recs.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))", gap: 10, marginBottom: 16 }}>
+            {recs.map(r => (
+              <div key={r.label} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderTop: `3px solid ${r.color}`, padding: "14px 16px" }}>
+                <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: r.color, textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 7 }}>{r.label}</div>
+                <div style={{ ...MONO, fontSize: 24, fontWeight: 500, color: r.color, letterSpacing: "-0.025em", lineHeight: 1 }}>
+                  {fmtP(r.listing.price_per_hour)}<span style={{ fontSize: 11, fontWeight: 300, color: "var(--text-muted)" }}>/hr</span>
+                </div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-secondary)", margin: "6px 0 2px", fontWeight: 500 }}>{getMeta(r.listing.provider).short}</div>
+                <div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)" }}>{r.listing.gpu_model}</div>
+                <Rule my={9} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <span style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)" }}>{hours}h est.</span>
+                  <span style={{ ...MONO, fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
+                    ${(r.listing.price_per_hour * hours).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ ...SANS, fontSize: 13, color: "var(--text-muted)", padding: "12px 0 16px" }}>
+            No {gpu} listings in the current window. Coverage expanding — check back shortly.
+          </div>
+        )}
+
+        {/* CTA */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+          <div style={{ ...SANS, fontSize: 12.5, color: "#fff", fontWeight: 600, background: "var(--amber)", padding: "8px 20px", letterSpacing: "0.01em", cursor: "pointer", borderRadius: 2 }}>
+            Request cost audit
+          </div>
+          <div style={{ display: "flex", gap: 16 }}>
+            {["Cloud bill", "Architecture diagram", "Workload description"].map(inp => (
+              <span key={inp} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "var(--elevated)", padding: "3px 8px", borderRadius: 2, border: "1px solid var(--border)" }}>{inp}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Market Index Tiles ────────────────────────────────────────────────────────
 
@@ -776,6 +1215,7 @@ export default function DashboardClient({ summary, listings }: Props) {
     .sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
 
   // Credibility-guarded averages
+  const h100Avg = h100Prices.length ? h100Prices.reduce((s, p) => s + p, 0) / h100Prices.length : 0;
   const a100Avg = a100Prices.length ? a100Prices.reduce((s, p) => s + p, 0) / a100Prices.length : 0;
 
   // Hyperscaler premium — H100 preferred, falls back to A100
