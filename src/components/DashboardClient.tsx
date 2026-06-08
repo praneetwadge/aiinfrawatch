@@ -153,7 +153,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "44px 32px 36px" }}>
         {/* Eyebrow */}
         <p style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 16 }}>
-          LIVE INDEX · {activeProviders} {activeProviders === 1 ? "PROVIDER" : "PROVIDERS"} · UPDATED DAILY
+          {activeProviders} {activeProviders === 1 ? "PROVIDER" : "PROVIDERS"} · UPDATED DAILY
         </p>
 
         <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 52, alignItems: "center" }}>
@@ -162,11 +162,8 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
             <h1 style={{ ...SERIF, fontSize: 40, fontWeight: 400, lineHeight: 1.12, color: "var(--text-primary)", marginBottom: 14 }}>
               Your AI compute bill is probably priced wrong.
             </h1>
-            <p style={{ ...BODY, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 520, marginBottom: 8 }}>
+            <p style={{ ...BODY, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 520, marginBottom: 24 }}>
               AIInfraWatch compares live GPU prices, availability, and workload fit so you know what to keep, what to move, and where you may be overpaying.
-            </p>
-            <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, maxWidth: 520, marginBottom: 24 }}>
-              Track GPU price, availability, and reliability signals across cloud providers — then turn market data into workload decisions.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
               <Link href="/cost-audit" style={{
@@ -249,22 +246,21 @@ function IndexTile({ label, value, note, color, spark, footnote, badge }: {
   label: string; value: string; note?: string; color: string;
   spark?: number[]; footnote?: string; badge?: ConfidenceLevel;
 }) {
-  // Only render badge for the non-reliable exception states
   const showBadge = badge && badge !== "high-avail" && badge !== "reliable";
   return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", padding: "18px 20px", display: "flex", flexDirection: "column" as const, gap: 5, borderTop: `3px solid ${color}` }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, minHeight: 18 }}>
-        <div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", fontWeight: 600 }}>{label}</div>
+    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "20px 22px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 10 }}>
+        <div style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", fontWeight: 600 }}>{label}</div>
         {showBadge && <ConfidenceBadge level={badge} />}
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 8 }}>
         <div>
-          <div style={{ ...MONO, fontSize: 26, fontWeight: 500, color, lineHeight: 1.05, letterSpacing: "-0.02em" }}>{value}</div>
-          {note && <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>{note}</div>}
+          <div style={{ ...MONO, fontSize: 32, fontWeight: 500, color, lineHeight: 1, letterSpacing: "-0.03em" }}>{value}</div>
+          {note && <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 5 }}>{note}</div>}
         </div>
-        {spark && spark.length >= 2 && <Sparkline values={spark} color={color} width={56} height={24} />}
+        {spark && spark.length >= 2 && <Sparkline values={spark} color={color} width={60} height={28} />}
       </div>
-      {footnote && <div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", lineHeight: 1.5, marginTop: 2 }}>{footnote}</div>}
+      {footnote && <div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", lineHeight: 1.5, marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>{footnote}</div>}
     </div>
   );
 }
@@ -445,41 +441,56 @@ function PriceByFamily({ listings }: { listings: GpuListing[] }) {
 
 function GpuSmallMultiples({ listings }: { listings: GpuListing[] }) {
   const cards = ["H100", "A100", "L40S", "A10G"].map(family => {
-    const ls     = listings.filter(l => l.gpu_model.includes(family));
+    const ls = listings.filter(l => l.gpu_model.includes(family));
     if (!ls.length) return null;
-    const prices = ls.map(l => l.price_per_hour).sort((a, b) => a - b);
-    const highLs = ls.filter(l => l.availability === "high");
-    return {
-      family, count: ls.length,
-      min: prices[0], max: prices[prices.length - 1],
-      avg: prices.reduce((s, p) => s + p, 0) / prices.length,
-      minReliable: highLs.length ? Math.min(...highLs.map(l => l.price_per_hour)) : null,
-      spark: prices.slice(0, 9),
-    };
-  }).filter(Boolean) as { family: string; count: number; min: number; max: number; avg: number; minReliable: number | null; spark: number[] }[];
+    const prices   = ls.map(l => l.price_per_hour).sort((a, b) => a - b);
+    const highLs   = ls.filter(l => l.availability === "high");
+    const minReliable = highLs.length ? Math.min(...highLs.map(l => l.price_per_hour)) : null;
+    const gapPct   = minReliable && prices[0] > 0
+      ? Math.round(((minReliable - prices[0]) / prices[0]) * 100) : null;
+    return { family, count: ls.length, min: prices[0], max: prices[prices.length - 1], minReliable, gapPct };
+  }).filter(Boolean) as { family: string; count: number; min: number; max: number; minReliable: number | null; gapPct: number | null }[];
 
   if (!cards.length) return <div style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", padding: "20px 0" }}>No DC GPU data.</div>;
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
       {cards.map(c => (
-        <div key={c.family} style={{ background: "var(--panel)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", padding: "14px 16px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 7 }}>
-            <span style={{ ...MONO, fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>{c.family}</span>
+        <div key={c.family} style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "16px 18px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+            <span style={{ ...MONO, fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{c.family}</span>
             <span style={{ ...SANS, fontSize: 10, color: "var(--text-muted)" }}>{c.count} listings</span>
           </div>
-          <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: "var(--blue)", letterSpacing: "-0.025em", lineHeight: 1 }}>
-            {fmtP(c.min)}
+
+          {/* The gap is the story */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div>
+              <div style={{ ...SANS, fontSize: 9.5, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 3 }}>Cheapest observed</div>
+              <div style={{ ...MONO, fontSize: 20, fontWeight: 500, color: "var(--text-secondary)", letterSpacing: "-0.02em" }}>{fmtP(c.min)}</div>
+            </div>
+            <div>
+              <div style={{ ...SANS, fontSize: 9.5, color: c.minReliable ? "var(--green)" : "var(--amber)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 3 }}>
+                {c.minReliable ? "Reliable from" : "No reliable listings"}
+              </div>
+              {c.minReliable ? (
+                <div style={{ ...MONO, fontSize: 20, fontWeight: 500, color: "var(--green)", letterSpacing: "-0.02em" }}>{fmtP(c.minReliable)}</div>
+              ) : (
+                <div style={{ ...SANS, fontSize: 11, color: "var(--amber)", marginTop: 2 }}>Observed only</div>
+              )}
+            </div>
           </div>
-          <div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", margin: "3px 0 8px" }}>from /hr · avg {fmtP(c.avg)}</div>
-          {c.minReliable !== null && (
-            <div style={{ ...SANS, fontSize: 10.5, color: "var(--green)", marginBottom: 8 }}>Reliable from {fmtP(c.minReliable)}/hr</div>
+
+          {/* Gap annotation */}
+          {c.gapPct !== null && c.gapPct > 0 && (
+            <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)", ...SANS, fontSize: 11, color: "var(--text-muted)" }}>
+              +{c.gapPct}% for confirmed availability
+            </div>
           )}
-          <Rule />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 7 }}>
-            <div style={{ ...SANS, fontSize: 10, color: "var(--text-muted)" }}>max {fmtP(c.max)}</div>
-            <Sparkline values={c.spark} color="var(--blue)" width={48} height={18} />
-          </div>
+          {!c.minReliable && (
+            <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)", ...SANS, fontSize: 11, color: "var(--amber)" }}>
+              Not a production routing target.
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -539,27 +550,6 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
 
   const effectiveFamily = gpuFamily;
 
-  // Decision presets — filter shortcuts mapped to buyer questions
-  const applyPreset = (preset: string) => {
-    setSearch(""); setCatFilter("all"); setTypeFilter("all"); setAvailFilter("all");
-    switch (preset) {
-      case "reliable-a100":
-        setGpuFamily("A100"); setAvailFilter("high"); setTypeFilter("on-demand"); setSortKey("price"); setSortDir("asc"); break;
-      case "evals":
-        setGpuFamily("A100"); setAvailFilter("high"); setTypeFilter("spot"); setSortKey("price"); setSortDir("asc"); break;
-      case "batch":
-        setGpuFamily("A100"); setAvailFilter("high"); setSortKey("price"); setSortDir("asc"); break;
-      case "h100-floor":
-        setGpuFamily("H100"); setSortKey("price"); setSortDir("asc"); break;
-      case "production-safe":
-        setGpuFamily(getDefaultFamily()); setAvailFilter("high"); setCatFilter("Neocloud"); setSortKey("price"); setSortDir("asc"); break;
-      case "spot-bargains":
-        setGpuFamily("All"); setTypeFilter("spot"); setSortKey("price"); setSortDir("asc"); break;
-      case "high-risk":
-        setGpuFamily("All"); setAvailFilter("low"); setSortKey("price"); setSortDir("asc"); break;
-    }
-  };
-
   const filtered = useMemo(() => {
     let r = listings;
     if (effectiveFamily !== "All") r = r.filter(l => l.gpu_model.toUpperCase().includes(effectiveFamily.toUpperCase()));
@@ -615,26 +605,6 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
 
   return (
     <div>
-      {/* Decision presets */}
-      <div style={{ display: "flex", gap: 6, padding: "10px 0", flexWrap: "wrap" as const, borderBottom: "1px solid var(--border)" }}>
-        <span style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", alignSelf: "center", marginRight: 4 }}>Quick filters:</span>
-        {[
-          { id: "reliable-a100",   label: "Cheapest reliable A100" },
-          { id: "evals",           label: "Best for evals" },
-          { id: "batch",           label: "Best for batch" },
-          { id: "h100-floor",      label: "Lowest observed H100" },
-          { id: "production-safe", label: "Production-safe candidates" },
-          { id: "spot-bargains",   label: "Spot-only bargains" },
-          { id: "high-risk",       label: "High-risk / low-availability" },
-        ].map(({ id, label }) => (
-          <button key={id} onClick={() => applyPreset(id)} style={{
-            ...SANS, fontSize: 11.5, padding: "4px 10px", borderRadius: 3, cursor: "pointer",
-            border: "1px solid var(--border-mid)", background: "var(--elevated)",
-            color: "var(--text-secondary)",
-          }}>{label}</button>
-        ))}
-      </div>
-
       {/* GPU tabs */}
       <div style={{ display: "flex", borderBottom: "1px solid var(--border)", overflowX: "auto" }}>
         {GPU_FAMILIES.map(f => (
@@ -702,10 +672,13 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
               </tr>
             ) : grouped ? (
               groupMap.flatMap(([gpu, rows]) => {
-                const isOpen     = expanded.has(gpu);
-                const cheapestP  = Math.min(...rows.map(r => r.price_per_hour));
-                const provSet    = new Set(rows.map(r => r.provider));
-                const highCount  = rows.filter(r => r.availability === "high").length;
+                const isOpen      = expanded.has(gpu);
+                const provSet     = new Set(rows.map(r => r.provider));
+                const allPrices   = rows.map(r => r.price_per_hour).sort((a, b) => a - b);
+                const highRows    = rows.filter(r => r.availability === "high");
+                const cheapestP   = allPrices[0];
+                const reliableP   = highRows.length ? Math.min(...highRows.map(r => r.price_per_hour)) : null;
+                const hasGap      = reliableP !== null && reliableP > cheapestP * 1.01;
                 return [
                   <tr key={`g-${gpu}`} onClick={() => toggleExpand(gpu)} style={{ cursor: "pointer", borderBottom: "1px solid var(--border)", background: isOpen ? "var(--blue-dim)" : "var(--bg)" }}>
                     <td style={{ ...MONO, padding: "12px 4px 12px 0", fontSize: 8, color: "var(--text-muted)" }}>{isOpen ? "▼" : "▶"}</td>
@@ -713,16 +686,17 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
                     <td style={{ ...SANS, padding: "12px 12px 12px 0", fontSize: 11.5, color: "var(--text-muted)" }}>
                       {[...provSet].slice(0, 3).join(", ")}{provSet.size > 3 ? ` +${provSet.size - 3}` : ""}
                     </td>
-                    <td style={{ ...SANS, padding: "12px 12px 12px 0", fontSize: 11, color: "var(--text-muted)" }}>
-                      {rows.length} listings · {provSet.size} providers
+                    {/* Observed floor */}
+                    <td style={{ ...MONO, padding: "12px 12px 12px 0", fontSize: 12, color: hasGap ? "var(--text-muted)" : "var(--green)", textAlign: "right" as const }}>
+                      <span style={{ ...SANS, fontSize: 9.5, color: "var(--text-muted)", display: "block", marginBottom: 1 }}>OBSERVED</span>
+                      {fmtP(cheapestP)}
                     </td>
-                    <td>
-                      {highCount === 0 && <ConfidenceBadge level="observed" />}
+                    {/* Reliable floor */}
+                    <td style={{ ...MONO, padding: "12px 12px 12px 0", fontSize: 12, color: reliableP ? "var(--green)" : "var(--amber)", textAlign: "right" as const }}>
+                      <span style={{ ...SANS, fontSize: 9.5, color: reliableP ? "var(--green)" : "var(--amber)", display: "block", marginBottom: 1 }}>RELIABLE</span>
+                      {reliableP ? fmtP(reliableP) : "none"}
                     </td>
-                    <td style={{ ...MONO, padding: "12px 12px 12px 0", textAlign: "right" as const, fontWeight: 600, color: "var(--green)", fontSize: 14 }}>
-                      from {fmtP(cheapestP)}
-                    </td>
-                    <td colSpan={2} />
+                    <td colSpan={3} />
                   </tr>,
                   ...(isOpen ? rows.map((l, idx) => {
                     const meta = getMeta(l.provider);
@@ -781,12 +755,6 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
             )}
           </tbody>
         </table>
-      </div>
-
-      <div style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}>
-        <p style={{ ...SANS, fontSize: 11, color: "var(--text-muted)" }}>
-          Prices sourced from public APIs and published rate cards. Normalization varies by provider — treat as indicative. Hardcoded rates are noted per-provider in methodology.
-        </p>
       </div>
     </div>
   );
@@ -864,24 +832,6 @@ export default function DashboardClient({ summary, listings }: Props) {
         a100PremiumPct={a100PremiumPct}
         capacityConf={capacityConf}
       />
-
-      {/* ── Pain cards ── */}
-      <div style={{ borderBottom: "1px solid var(--border)" }}>
-        <div style={{ maxWidth: 1360, margin: "0 auto", padding: "32px 32px" }}>
-          <div className="tiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-            {[
-              { q: "Running evals on premium infra?", a: "Non-urgent evals and batch jobs are often the easiest workloads to move first — and the highest-savings ones." },
-              { q: "Comparing GPU vendors manually?", a: "Headline prices hide availability, interruption risk, region, and migration friction. The cheapest listing isn't always the cheapest option." },
-              { q: "No backup capacity plan?", a: "Cheap capacity is useless if it disappears when production needs it. Provider concentration is a risk, not just a metric." },
-            ].map(({ q, a }) => (
-              <div key={q} style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "18px 20px" }}>
-                <div style={{ ...SANS, fontSize: 13.5, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8, lineHeight: 1.3 }}>{q}</div>
-                <div style={{ ...BODY, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65 }}>{a}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* ── What buyers should do today (signals) ── */}
       <div style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
@@ -1011,17 +961,13 @@ export default function DashboardClient({ summary, listings }: Props) {
         {/* ── Methodology ── */}
         <div style={{ marginBottom: 28 }}>
           <Rule my={0} />
-          <div style={{ padding: "18px 0", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 24 }}>
-            {[
-              { title: "What we track", text: `${activeProviders} cloud providers — ${ALL_PROVIDERS.filter(p => p.status === "live").length} active, ${ALL_PROVIDERS.filter(p => p.status === "partial").length} partial. Prices are from public APIs and published rate cards. Some providers (gcp, lambda, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark) use hardcoded rates where live APIs are too large for serverless scraping.` },
-              { title: "Observed vs reliable", text: `"Observed" means the listing exists in the index but availability is unconfirmed. "Reliable" means availability === "high" as reported by the provider API. Never use an observed-only price as a production routing target without verifying availability.` },
-              { title: "Freshness", text: `Index updated daily at 00:00 UTC. ${DATA_CAVEAT}` },
-            ].map(s => (
-              <div key={s.title}>
-                <div style={{ ...SANS, fontSize: 10.5, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 5 }}>{s.title}</div>
-                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.65 }}>{s.text}</div>
-              </div>
-            ))}
+          <div style={{ padding: "14px 0" }}>
+            <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.65 }}>
+              Prices from public APIs and published rate cards across {activeProviders} providers — updated daily at 00:00 UTC.
+              {" "}<strong style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Observed</strong> = listing exists, availability unconfirmed.
+              {" "}<strong style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Reliable</strong> = availability === "high" per provider API.
+              {" "}Hardcoded rates: gcp, lambda, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark.
+            </p>
           </div>
         </div>
 

@@ -51,10 +51,8 @@ export default function SiteNav() {
           </nav>
         </div>
 
-        {/* Right: freshness indicator + primary CTA */}
+        {/* Right: primary CTA */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.06em" }}>UPDATED DAILY</span>
-          <div style={{ width: 1, height: 16, background: "var(--border)" }} />
           <Link href="/cost-audit" style={{
             ...SANS, fontSize: 12.5, fontWeight: 600,
             color: "#F7F3EA", background: "#171717",
