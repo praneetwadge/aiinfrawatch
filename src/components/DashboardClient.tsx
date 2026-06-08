@@ -184,12 +184,12 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
             </div>
           </div>
 
-          {/* Right: 3-stat strip */}
+          {/* Right: market state strip */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 1, border: "1px solid var(--border)", background: "var(--border)" }}>
-            {/* Stat 1: Cheapest reliable H100 */}
+            {/* Stat 1: H100 floor */}
             <div style={{ background: "var(--bg)", padding: "14px 18px" }}>
               <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
-                {cheapestH100High ? "Cheapest reliable H100" : h100Prices.length ? "Cheapest observed H100" : "H100"}
+                {cheapestH100High ? "H100 — production safe from" : h100Prices.length ? "H100 — observed floor (not reliable)" : "H100 — not in snapshot"}
               </div>
               {h100Value ? (
                 <>
@@ -199,37 +199,39 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
                   {h100Sub && <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>{h100Sub}</div>}
                 </>
               ) : (
-                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Not in current snapshot</div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Request audit for current H100 options</div>
               )}
             </div>
 
-            {/* Stat 2: Hyperscaler premium — only shown when meaningfully positive */}
+            {/* Stat 2: Hyperscaler premium */}
             <div style={{ background: "var(--bg)", padding: "14px 18px" }}>
               <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
-                Hyperscaler premium{effectivePremium !== null ? ` (${premiumIsH100 ? "H100" : "A100"})` : ""}
+                {effectivePremium !== null && effectivePremium > 0
+                  ? `Hyperscaler overprice vs specialists (${premiumIsH100 ? "H100" : "A100"})`
+                  : "Hyperscaler vs specialist pricing"}
               </div>
-              {effectivePremium !== null ? (
+              {effectivePremium !== null && effectivePremium > 0 ? (
                 <>
                   <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>
                     +{Math.round(effectivePremium)}%
                   </div>
-                  <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>vs. specialist clouds</div>
+                  <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>more than specialist clouds</div>
                 </>
               ) : (
-                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>No premium right now</div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>No material premium right now</div>
               )}
             </div>
 
-            {/* Stat 3: Capacity confidence */}
+            {/* Stat 3: Capacity */}
             <div style={{ background: "var(--bg)", padding: "14px 18px" }}>
               <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
-                Capacity confidence
+                {capacityConf >= 60 ? "Supply healthy" : "Supply thin — verify before committing"}
               </div>
               <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: capacityConf >= 60 ? "var(--green)" : "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>
                 {capacityConf}%
               </div>
               <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
-                of {listings.length.toLocaleString()} {listings.length === 1 ? "listing" : "listings"} high-avail.
+                of {listings.length.toLocaleString()} {listings.length === 1 ? "listing" : "listings"} availability-confirmed
               </div>
             </div>
           </div>
@@ -811,12 +813,14 @@ export default function DashboardClient({ summary, listings }: Props) {
         select option { background: #fff; color: #171717; }
         input::placeholder { color: var(--text-muted); }
         @media (max-width: 900px) {
-          .hero-grid   { grid-template-columns: 1fr !important; gap: 28px !important; }
-          .charts-grid { grid-template-columns: 1fr !important; }
-          .tiles-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+          .hero-grid    { grid-template-columns: 1fr !important; gap: 28px !important; }
+          .charts-grid  { grid-template-columns: 1fr !important; }
+          .tiles-grid   { grid-template-columns: repeat(2, 1fr) !important; }
+          .status-grid  { grid-template-columns: repeat(2, 1fr) !important; }
         }
         @media (max-width: 540px) {
-          .tiles-grid { grid-template-columns: 1fr !important; }
+          .tiles-grid   { grid-template-columns: 1fr !important; }
+          .status-grid  { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
@@ -833,59 +837,133 @@ export default function DashboardClient({ summary, listings }: Props) {
         capacityConf={capacityConf}
       />
 
-      {/* ── What buyers should do today (signals) ── */}
-      <div style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ maxWidth: 1360, margin: "0 auto", padding: "36px 32px" }}>
-          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 20 }}>What buyers should do today</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
-            {[
-              {
-                headline: "Cheapest observed H100 is not production-safe by default.",
-                body: h100Prices.length && !cheapestH100High
-                  ? `There are ${h100Prices.length} H100 listings in the index right now, but none with confirmed high availability. Treat that floor price as experimental capacity, not a production routing target.`
-                  : cheapestH100High
-                    ? `The cheapest H100 listing (${fmtP(h100Prices[0] ?? cheapestH100High.price_per_hour)}/hr) is observed-only pricing. The cheapest reliable option is ${fmtP(cheapestH100High.price_per_hour)}/hr at ${getMeta(cheapestH100High.provider).short} — a meaningful gap. Don't route production traffic to observed-only listings.`
-                    : "H100 data is sparse in this snapshot. Treat any floor price as experimental until availability is confirmed.",
-              },
-              {
-                headline: "A100 may be the more practical market.",
-                body: a100OnDemandReliable
-                  ? `For evals, batch inference, and fine-tuning, reliable A100 supply at ${fmtP(a100OnDemandReliable.price_per_hour)}/hr at ${getMeta(a100OnDemandReliable.provider).short} can beat chasing the cheapest H100 — especially when the H100 floor is observed-only.`
-                  : "For many eval, batch, and fine-tuning workloads, deeper reliable A100 supply can beat chasing the cheapest H100. Check the A100 tab in the explorer.",
-              },
-              {
-                headline: "Capacity confidence changes the price.",
-                body: `${capacityConf}% of indexed listings have confirmed high availability. Discount a low headline price when availability is weak or provider concentration is high — the option may not be there when you need it.`,
-              },
-              {
-                headline: "Provider concentration is a risk.",
-                body: (() => {
-                  const counts: Record<string, number> = {};
-                  listings.forEach(l => { counts[l.provider] = (counts[l.provider] || 0) + 1; });
-                  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-                  const topPct = top ? Math.round((top[1] / listings.length) * 100) : 0;
-                  return top
-                    ? `${getMeta(top[0]).short} is ${topPct}% of the current index. ${topPct >= 40 ? "Buyers routing critical workloads through a concentrated index need a fallback provider before they need it — not after." : "Supply is reasonably spread, but always have a fallback routing option before routing critical workloads."}`
-                    : "Always have a fallback routing option before routing critical workloads through a single provider.";
-                })(),
-              },
-            ].map(({ headline, body }) => (
-              <div key={headline} style={{ borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
-                <div style={{ ...SANS, fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6, lineHeight: 1.35 }}>{headline}</div>
-                <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.65 }}>{body}</div>
+      {/* ── AI compute market today ── */}
+      {(() => {
+        const counts: Record<string, number> = {};
+        listings.forEach(l => { counts[l.provider] = (counts[l.provider] || 0) + 1; });
+        const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+        const topPct = top ? Math.round((top[1] / listings.length) * 100) : 0;
+
+        const h100Status = cheapestH100High ? "healthy" : h100Prices.length ? "caution" : "unavailable";
+        const a100Reliable = a100OnDemandReliable ?? (a100Prices.length ? { price_per_hour: a100Prices[0], provider: "unknown" } as GpuListing : null);
+        const a100Status = a100Reliable ? "healthy" : "caution";
+        const capacityStatus = capacityConf >= 60 ? "healthy" : capacityConf >= 40 ? "caution" : "risk";
+        const concentrationStatus = topPct >= 50 ? "risk" : topPct >= 35 ? "caution" : "healthy";
+
+        const dot = (s: string) => ({
+          healthy: "var(--green)", caution: "var(--amber)", risk: "var(--red)", unavailable: "var(--text-muted)"
+        } as Record<string, string>)[s] ?? "var(--text-muted)";
+
+        const rows = [
+          {
+            status: h100Status,
+            label: "H100",
+            state: h100Status === "healthy" ? `Reliable from ${fmtP(cheapestH100High!.price_per_hour)}/hr · ${getMeta(cheapestH100High!.provider).short}`
+              : h100Status === "caution" ? `${h100Prices.length} listings — none availability-confirmed`
+              : "Not in current snapshot",
+            action: h100Status === "healthy" ? `${h100High.length} high-availability listings. Production routing viable.`
+              : h100Status === "caution" ? "Observed-only. Don't route production here. Treat as experimental capacity."
+              : "Request audit for current H100 options by region.",
+          },
+          {
+            status: a100Status,
+            label: "A100",
+            state: a100Reliable ? `Reliable from ${fmtP(a100Reliable.price_per_hour)}/hr · ${getMeta(a100Reliable.provider).short}`
+              : "Reliable supply thin this snapshot",
+            action: a100Status === "healthy"
+              ? "Better fit than H100 for evals, batch, and fine-tuning when H100 availability is thin."
+              : "Spot listings exist but reliable supply is limited. Check on-demand options.",
+          },
+          {
+            status: capacityStatus,
+            label: "Capacity",
+            state: `${capacityConf}% of ${listings.length.toLocaleString()} listings confirmed high-availability`,
+            action: capacityStatus === "healthy" ? "Supply is adequate. Compare on price and region, not just availability."
+              : capacityStatus === "caution" ? "Meaningful share of listings are unconfirmed. Verify before committing to spot."
+              : "Availability risk is elevated. Prioritise on-demand over spot for production work.",
+          },
+          {
+            status: concentrationStatus,
+            label: "Concentration",
+            state: top ? `${getMeta(top[0]).short} is ${topPct}% of the index` : "Supply spread across providers",
+            action: concentrationStatus === "risk" ? `Heavy dependence on ${top ? getMeta(top[0]).short : "one provider"}. Identify a fallback before routing critical workloads.`
+              : concentrationStatus === "caution" ? "Moderate concentration. Have a secondary provider tested and ready."
+              : "Supply reasonably distributed. Standard fallback planning applies.",
+          },
+        ];
+
+        return (
+          <div style={{ borderBottom: "1px solid var(--border)" }}>
+            <div style={{ maxWidth: 1360, margin: "0 auto", padding: "0 32px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", borderLeft: "1px solid var(--border)" }} className="status-grid">
+                {rows.map(r => (
+                  <div key={r.label} style={{ padding: "22px 24px", borderRight: "1px solid var(--border)", borderTop: "3px solid " + dot(r.status) }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: dot(r.status), flexShrink: 0, display: "inline-block" }} />
+                      <span style={{ ...MONO, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>{r.label}</span>
+                    </div>
+                    <div style={{ ...SANS, fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6, lineHeight: 1.3 }}>{r.state}</div>
+                    <div style={{ ...SANS, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>{r.action}</div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* ── Market data as proof ── */}
       <div id="market-data">
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "40px 32px 0" }}>
 
+        {/* Workload routing guidance */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 14 }}>What can safely move</div>
+          <div style={{ background: "var(--panel)", border: "1px solid var(--border)" }}>
+            {[
+              {
+                signal: "move",
+                label: "Move now",
+                workloads: "Evals, benchmarking, batch inference, fine-tuning",
+                why: a100OnDemandReliable
+                  ? `Reliable A100 at ${fmtP(a100OnDemandReliable.price_per_hour)}/hr (${getMeta(a100OnDemandReliable.provider).short}) — interruption-tolerant workloads don't need H100 pricing.`
+                  : "Interruption-tolerant workloads. Move to cheapest reliable capacity available.",
+                color: "var(--green)",
+              },
+              {
+                signal: "caution",
+                label: "Move carefully",
+                workloads: "Dev notebooks, periodic training runs",
+                why: "Spot pricing is available but availability varies. Test the provider before committing long jobs. Have a checkpoint strategy.",
+                color: "var(--amber)",
+              },
+              {
+                signal: "keep",
+                label: "Keep put",
+                workloads: "Real-time inference, latency-critical serving, SLA-bound production",
+                why: "Migration friction and availability risk outweigh cost savings. Optimise utilisation and reserved pricing instead.",
+                color: "var(--text-muted)",
+              },
+            ].map((row, i, arr) => (
+              <div key={row.signal} style={{ display: "grid", gridTemplateColumns: "110px 1fr 1fr", gap: 0, borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
+                <div style={{ padding: "14px 16px", borderRight: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: row.color, flexShrink: 0, display: "inline-block" }} />
+                  <span style={{ ...SANS, fontSize: 12, fontWeight: 600, color: row.color }}>{row.label}</span>
+                </div>
+                <div style={{ padding: "14px 16px", borderRight: "1px solid var(--border)" }}>
+                  <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-primary)", lineHeight: 1.5 }}>{row.workloads}</div>
+                </div>
+                <div style={{ padding: "14px 16px" }}>
+                  <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.5 }}>{row.why}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* 3 tiles */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 14 }}>Market index</div>
+          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 14 }}>Current prices</div>
           <div className="tiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             <IndexTile
               label={cheapestH100High ? "Cheapest reliable H100" : h100Prices.length ? "Cheapest observed H100" : "H100"}
