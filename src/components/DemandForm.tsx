@@ -2,15 +2,15 @@
 
 import React, { useState } from "react";
 
-const SANS: React.CSSProperties = { fontFamily: "var(--font-sans)" };
-const MONO: React.CSSProperties = { fontFamily: "var(--font-mono)" };
+const SANS: React.CSSProperties  = { fontFamily: "var(--font-sans)" };
+const MONO: React.CSSProperties  = { fontFamily: "var(--font-mono)" };
 const SERIF: React.CSSProperties = { fontFamily: "var(--font-serif)" };
 
 interface DemandFormProps {
-  source: "cost-audit" | "load-balancer";
-  headline?: string;
-  ctaLabel?: string;
-  accent?: string;
+  source:     "cost-audit" | "load-balancer";
+  headline?:  string;
+  ctaLabel?:  string;
+  accent?:    string;
 }
 
 const SPEND_OPTIONS = [
@@ -35,27 +35,56 @@ const WORKLOAD_OPTIONS = [
   "Not sure yet",
 ];
 
-export default function DemandForm({ source, headline, ctaLabel = "Request access", accent = "#171717" }: DemandFormProps) {
-  const [email,    setEmail]    = useState("");
-  const [spend,    setSpend]    = useState("");
-  const [stack,    setStack]    = useState("");
-  const [workload, setWorkload] = useState("");
-  const [notes,    setNotes]    = useState("");
+export default function DemandForm({
+  source,
+  headline,
+  ctaLabel = source === "load-balancer" ? "Join the beta" : "Request cost audit",
+  accent   = "#171717",
+}: DemandFormProps) {
+  const [email,     setEmail]     = useState("");
+  const [spend,     setSpend]     = useState("");
+  const [stack,     setStack]     = useState("");
+  const [workload,  setWorkload]  = useState("");
+  const [notes,     setNotes]     = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [error,    setError]    = useState("");
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState("");
 
-  const validate = () => {
-    if (!email || !email.includes("@")) return "Please enter a valid work email.";
-    if (!spend)    return "Please select your approximate monthly AI spend.";
-    if (!workload) return "Please select your primary workload type.";
+  const validate = (): string => {
+    if (!email || !email.includes("@"))  return "Please enter a valid work email.";
+    if (!spend)                           return "Please select your approximate monthly AI spend.";
+    if (!workload)                        return "Please select your primary workload type.";
     return "";
   };
 
-  const handleSubmit = () => {
-    const err = validate();
-    if (err) { setError(err); return; }
+  const handleSubmit = async () => {
+    const validErr = validate();
+    if (validErr) { setError(validErr); return; }
     setError("");
-    setSubmitted(true);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/audit-request", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, monthlySpend: spend, stack, workload, notes, source }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        setError(json.error ?? "Something went wrong. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      setSubmittedEmail(email);
+      setSubmitted(true);
+    } catch {
+      setError("Network error — please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const inputSt: React.CSSProperties = {
@@ -65,7 +94,7 @@ export default function DemandForm({ source, headline, ctaLabel = "Request acces
     fontSize: 13.5, outline: "none", borderRadius: 3,
   };
   const selectSt: React.CSSProperties = { ...inputSt, cursor: "pointer", appearance: "none" as const };
-  const labelSt: React.CSSProperties = {
+  const labelSt: React.CSSProperties  = {
     ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)",
     textTransform: "uppercase" as const, letterSpacing: "0.07em",
     display: "block", marginBottom: 5,
@@ -74,12 +103,14 @@ export default function DemandForm({ source, headline, ctaLabel = "Request acces
   if (submitted) {
     return (
       <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "36px 32px", textAlign: "center" as const }}>
-        <div style={{ fontSize: 28, marginBottom: 14 }}>✓</div>
+        <div style={{ fontSize: 28, marginBottom: 14, color: "var(--green)" }}>✓</div>
         <h3 style={{ ...SERIF, fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 10 }}>
           Request received.
         </h3>
-        <p style={{ ...SANS, fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.65, maxWidth: 380, margin: "0 auto" }}>
-          We review each request manually. If your spend profile fits, we'll reach out within 1–2 business days with next steps.
+        <p style={{ ...SANS, fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.65, maxWidth: 400, margin: "0 auto" }}>
+          We review each request manually. If your spend profile fits, we'll reply to{" "}
+          <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong>{" "}
+          within 1–2 business days with next steps.
         </p>
         <div style={{ marginTop: 20, ...MONO, fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em" }}>
           {source === "cost-audit" ? "COST AUDIT EARLY ACCESS" : "LOAD BALANCER BETA"}
@@ -102,7 +133,7 @@ export default function DemandForm({ source, headline, ctaLabel = "Request acces
             placeholder="you@company.com"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            style={{ ...inputSt }}
+            style={inputSt}
           />
         </div>
 
@@ -135,16 +166,24 @@ export default function DemandForm({ source, headline, ctaLabel = "Request acces
               <button key={o} onClick={() => setWorkload(o)} style={{
                 ...SANS, fontSize: 12, padding: "5px 12px", borderRadius: 3,
                 border: `1px solid ${workload === o ? accent : "var(--border-mid)"}`,
-                background: workload === o ? (accent === "#171717" ? "#171717" : "var(--amber-dim)") : "var(--panel)",
-                color: workload === o ? (accent === "#171717" ? "#F7F3EA" : "var(--amber)") : "var(--text-secondary)",
+                background: workload === o
+                  ? (accent === "#171717" ? "#171717" : "var(--amber-dim)")
+                  : "var(--panel)",
+                color: workload === o
+                  ? (accent === "#171717" ? "#F7F3EA" : "var(--amber)")
+                  : "var(--text-secondary)",
                 fontWeight: workload === o ? 500 : 400,
+                cursor: "pointer",
               }}>{o}</button>
             ))}
           </div>
         </div>
 
         <div style={{ gridColumn: "1 / -1" }}>
-          <label style={labelSt}>Anything else we should know <span style={{ fontWeight: 400, textTransform: "none" as const }}>— optional</span></label>
+          <label style={labelSt}>
+            Anything else we should know{" "}
+            <span style={{ fontWeight: 400, textTransform: "none" as const }}>— optional</span>
+          </label>
           <textarea
             placeholder="Current provider, contract situation, what's driving the review…"
             value={notes}
@@ -162,14 +201,16 @@ export default function DemandForm({ source, headline, ctaLabel = "Request acces
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <button
           onClick={handleSubmit}
+          disabled={loading}
           style={{
             ...SANS, fontSize: 13, fontWeight: 600,
-            color: "#F7F3EA", background: accent,
+            color: "#F7F3EA", background: loading ? "var(--text-muted)" : accent,
             padding: "10px 24px", borderRadius: 3, border: "none",
-            letterSpacing: "0.01em",
+            letterSpacing: "0.01em", cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.7 : 1,
           }}
         >
-          {ctaLabel}
+          {loading ? "Submitting…" : ctaLabel}
         </button>
         <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>
           We review each request manually. No spam.

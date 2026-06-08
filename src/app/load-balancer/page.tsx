@@ -153,7 +153,7 @@ export default function LoadBalancerPage() {
           </div>
           <DemandForm
             source="load-balancer"
-            ctaLabel="Join load-balancer beta"
+            ctaLabel="Join the beta"
             accent="var(--blue)"
           />
         </div>
