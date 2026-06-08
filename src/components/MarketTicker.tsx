@@ -25,8 +25,6 @@ export default function MarketTicker({ listings, summary }: MarketTickerProps) {
     const a100 = listings.filter(item => item.gpu_model.toUpperCase().includes("A100"));
     const l40s = listings.filter(item => item.gpu_model.toUpperCase().includes("L40S"));
     const reliable = listings.filter(item => item.availability === "high");
-    const cheapestReliable = [...reliable].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
-    const cheapestObserved = [...listings].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
 
     const h100Reliable = minPrice(h100.filter(item => item.availability === "high"));
     const h100Observed = minPrice(h100);
@@ -49,11 +47,6 @@ export default function MarketTicker({ listings, summary }: MarketTickerProps) {
 
     const base = [
       "AI Compute Market · Live",
-      cheapestReliable
-        ? `Reliable floor ${fmtP(cheapestReliable.price_per_hour)}/hr · ${getMeta(cheapestReliable.provider).short}`
-        : cheapestObserved
-          ? `Observed floor ${fmtP(cheapestObserved.price_per_hour)}/hr · ${getMeta(cheapestObserved.provider).short}`
-          : "Market snapshot loading",
       h100Reliable !== null
         ? `H100 reliable from ${fmtP(h100Reliable)}/hr`
         : h100Observed !== null
@@ -64,7 +57,7 @@ export default function MarketTicker({ listings, summary }: MarketTickerProps) {
         : a100Observed !== null
           ? `A100 observed from ${fmtP(a100Observed)}/hr`
           : null,
-      l40sLow !== null ? `L40S floor ${fmtP(l40sLow)}/hr` : null,
+      l40sLow !== null ? `L40S from ${fmtP(l40sLow)}/hr` : null,
       topProvider && topProviderShare !== null
         ? `Supply concentration: ${getMeta(topProvider[0]).short} ${topProviderShare}%`
         : null,

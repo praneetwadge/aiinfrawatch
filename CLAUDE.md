@@ -82,16 +82,16 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 
 1. `MarketTicker` — 30px dark ticker, shared component across all routes, live price signals
 2. `SiteNav` — sticky nav, "Run a cost audit" CTA always visible
-3. `MarketHero` — light panel hero: eyebrow + H1 + one subline + 3-stat strip (H100 price · hyperscaler premium · capacity confidence) + exactly 2 CTAs ("Run a cost audit →" / "Explore the index ↓")
+3. `MarketHero` — light panel hero: eyebrow + H1 + subline + 3-stat strip (H100 price, hyperscaler premium, capacity confidence) + 2 CTAs only
 4. `#market-data` anchor
-5. `Market Index` — 5 promoted tiles
-6. `Price Analysis` — H100SpreadChart + GpuSmallMultiples + PriceByFamily
-7. `Market Signals` — auto-generated signal cards
-8. `Provider Explorer` — sortable table, best-data tab default (H100 > A100 > All)
-9. `Methodology` — 3-column text block
-10. `Footer` — API / llms.txt / OpenAPI links, freshness timestamp
+5. `The Market` — consolidated section: inline supply-concentration signal sentence + 3 IndexTiles (H100 reliable, A100 floor, capacity confidence) + H100SpreadChart + GpuSmallMultiples
+6. `Provider Explorer` — sortable table, best-data tab default (H100 > A100 > All)
+7. `Methodology` — 3-column text block
+8. `Footer`
 
-**Removed from homepage:** `FunnelBanner`, `MarketBrief`, `WhatWeKnow`, `CostDesk`. Definitions remain in `DashboardClient.tsx` but do not render. Audit math lives in `AuditTool.tsx`.
+**Removed from homepage:** `FunnelBanner`, `MarketBrief`, `WhatWeKnow`, `CostDesk`, `Market Signals` (cards), `PriceByFamily`, standalone `SectionHead` headers. Audit math lives in `AuditTool.tsx`. Signal is inline in The Market section.
+
+**Premium tile removed** — hyperscaler premium stat appears only in MarketHero. No duplicate.
 
 ---
 
@@ -129,6 +129,10 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 ```
 
 **Rule**: SERIF/BODY for editorial headlines only. SANS for every label, table cell, button, form field. MONO for prices, timestamps, tickers.
+
+**Badge rule**: Badges mark the exception (non-reliable) only — the reliable/default state is unmarked. Never render a green "High availability" badge; only render amber "Observed only" or "Not in snapshot" when data is below the reliable threshold.
+
+**Metric rule**: Each metric appears exactly once on its most decision-relevant surface. H100 price → MarketHero + The Market tile. Hyperscaler premium → MarketHero only. Capacity confidence → MarketHero + The Market tile (different context: hero = signal, tile = detail).
 
 ### Inline style constants
 

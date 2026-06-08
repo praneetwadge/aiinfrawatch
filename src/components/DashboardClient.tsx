@@ -131,7 +131,11 @@ interface MarketHeroProps {
 }
 
 function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100Prices, premiumPct, a100PremiumPct, capacityConf }: MarketHeroProps) {
-  const effectivePremium = premiumPct ?? a100PremiumPct;
+  // Only show premium when it is meaningfully positive (>0)
+  const effectivePremium = (premiumPct !== null && premiumPct > 0) ? premiumPct
+    : (a100PremiumPct !== null && a100PremiumPct > 0) ? a100PremiumPct
+    : null;
+  const premiumIsH100 = premiumPct !== null && premiumPct > 0;
 
   // H100 stat
   const h100Value = cheapestH100High
@@ -149,7 +153,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "44px 32px 36px" }}>
         {/* Eyebrow */}
         <p style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 16 }}>
-          LIVE · {activeProviders} of {TOTAL_TRACKED} providers · updated {minsAgo(summary?.last_updated)}
+          LIVE · {activeProviders} of {TOTAL_TRACKED} {activeProviders === 1 ? "provider" : "providers"} · updated {minsAgo(summary?.last_updated)}
         </p>
 
         <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 52, alignItems: "center" }}>
@@ -199,20 +203,20 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
               )}
             </div>
 
-            {/* Stat 2: Hyperscaler premium */}
+            {/* Stat 2: Hyperscaler premium — only shown when meaningfully positive */}
             <div style={{ background: "var(--bg)", padding: "14px 18px" }}>
               <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
-                {premiumPct !== null ? "Hyperscaler premium (H100)" : "Hyperscaler premium (A100)"}
+                Hyperscaler premium{effectivePremium !== null ? ` (${premiumIsH100 ? "H100" : "A100"})` : ""}
               </div>
               {effectivePremium !== null ? (
                 <>
                   <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>
-                    +{effectivePremium.toFixed(0)}%
+                    +{Math.round(effectivePremium)}%
                   </div>
                   <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>vs. specialist clouds</div>
                 </>
               ) : (
-                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Insufficient data</div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>No premium right now</div>
               )}
             </div>
 
@@ -225,7 +229,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
                 {capacityConf}%
               </div>
               <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
-                of {listings.length.toLocaleString()} listings high-avail.
+                of {listings.length.toLocaleString()} {listings.length === 1 ? "listing" : "listings"} high-avail.
               </div>
             </div>
           </div>
@@ -242,11 +246,13 @@ function IndexTile({ label, value, note, color, spark, footnote, badge }: {
   label: string; value: string; note?: string; color: string;
   spark?: number[]; footnote?: string; badge?: ConfidenceLevel;
 }) {
+  // Only render badge for the non-reliable exception states
+  const showBadge = badge && badge !== "high-avail" && badge !== "reliable";
   return (
     <div style={{ background: "var(--panel)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", padding: "18px 20px", display: "flex", flexDirection: "column" as const, gap: 5, borderTop: `3px solid ${color}` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, minHeight: 18 }}>
         <div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", fontWeight: 600 }}>{label}</div>
-        {badge && <ConfidenceBadge level={badge} />}
+        {showBadge && <ConfidenceBadge level={badge} />}
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 8 }}>
         <div>
@@ -255,7 +261,7 @@ function IndexTile({ label, value, note, color, spark, footnote, badge }: {
         </div>
         {spark && spark.length >= 2 && <Sparkline values={spark} color={color} width={56} height={24} />}
       </div>
-      {footnote && <><Rule my={5} /><div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", lineHeight: 1.5 }}>{footnote}</div></>}
+      {footnote && <div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", lineHeight: 1.5, marginTop: 2 }}>{footnote}</div>}
     </div>
   );
 }
@@ -743,16 +749,6 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
   );
 }
 
-// ── Section heading ───────────────────────────────────────────────────────────
-
-function SectionHead({ title, sub }: { title: string; sub?: string }) {
-  return (
-    <div style={{ marginBottom: 16, paddingBottom: 10, borderBottom: "2px solid var(--text-primary)" }}>
-      <h2 style={{ ...SANS, fontSize: 17, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.015em", lineHeight: 1.2 }}>{title}</h2>
-      {sub && <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>{sub}</p>}
-    </div>
-  );
-}
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -768,7 +764,6 @@ export default function DashboardClient({ summary, listings }: Props) {
   const a100Prices = a100Spot.map(l => l.price_per_hour).sort((a, b) => a - b);
 
   const cheapestH100High = [...h100High].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
-  const cheapestAny      = [...listings].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
 
   // A100 on-demand reliable — fallback when A100 spot is absent
   const a100OnDemandReliable = listings
@@ -796,39 +791,6 @@ export default function DashboardClient({ summary, listings }: Props) {
   const capacityConf   = listings.length > 0 ? Math.round((highAvailCount / listings.length) * 100) : 0;
 
   const updatedAgo = minsAgo(summary?.last_updated);
-
-  const signals = useMemo(() => {
-    if (!listings.length) return [];
-    const counts: Record<string, number> = {};
-    listings.forEach(l => { counts[l.provider] = (counts[l.provider] || 0) + 1; });
-    const top    = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    const topPct = top ? Math.round((top[1] / listings.length) * 100) : 0;
-    const partialPs = ALL_PROVIDERS.filter(p => p.status === "partial");
-
-    return [
-      top && {
-        headline: "Supply concentration",
-        body: `${getMeta(top[0]).short} accounts for ${topPct}% of the current index (${top[1].toLocaleString()} listings). Single-provider dependency is a risk signal for production workloads.`,
-        type: topPct >= 40 ? "warn" as const : "info" as const,
-      },
-      h100Prices.length >= 2 && {
-        headline: "H100 spread",
-        body: `Spot prices range ${fmtP(h100Prices[0])} – ${fmtP(h100Prices[h100Prices.length - 1])}/hr across ${new Set(h100Spot.map(l => l.provider)).size} providers.`,
-        sub: `${h100Prices.length} spot listings · ${h100High.length} high availability`,
-        type: "warn" as const,
-      },
-      highAvailCount > 0 && {
-        headline: "Reliable capacity",
-        body: `${highAvailCount.toLocaleString()} of ${listings.length.toLocaleString()} listings (${capacityConf}%) report confirmed high availability — suitable for production workloads.`,
-        type: "success" as const,
-      },
-      partialPs.length > 0 && {
-        headline: "Partial coverage",
-        body: `${partialPs.map(p => p.name).join(", ")} — normalization in progress. Pricing may be incomplete or delayed.`,
-        type: "neutral" as const,
-      },
-    ].filter(Boolean) as { headline: string; body: string; sub?: string; type: "info" | "warn" | "success" | "neutral" }[];
-  }, [listings, h100Prices, h100High, h100Spot, highAvailCount, capacityConf]);
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text-primary)" }}>
@@ -861,80 +823,72 @@ export default function DashboardClient({ summary, listings }: Props) {
       />
       <div id="market-data">
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "40px 32px 80px" }}>
-        <div style={{ marginBottom: 44 }}>
-          <SectionHead title="Market Index" sub="Decision-relevant benchmarks — credibility-guarded" />
-          <div className="tiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
-            <IndexTile
-              label="Cheapest any GPU"
-              value={cheapestAny ? fmtP(cheapestAny.price_per_hour) : "No data"}
-              note={cheapestAny ? `${getMeta(cheapestAny.provider).short} · ${cheapestAny.gpu_model}` : "no data"}
-              color="var(--text-secondary)"
-              badge="observed"
-            />
+
+        {/* ── THE MARKET ── */}
+        <div style={{ marginBottom: 48 }}>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 3 }}>The Market</div>
+            {/* Inline signal sentence */}
+            {(() => {
+              const counts: Record<string, number> = {};
+              listings.forEach(l => { counts[l.provider] = (counts[l.provider] || 0) + 1; });
+              const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+              const topPct = top ? Math.round((top[1] / listings.length) * 100) : 0;
+              if (!top) return null;
+              return (
+                <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", margin: 0 }}>
+                  {getMeta(top[0]).short} accounts for {topPct}% of the index ({top[1].toLocaleString()} of {listings.length.toLocaleString()} {listings.length === 1 ? "listing" : "listings"}).
+                  {topPct >= 40 ? " Single-provider concentration is a risk signal for production workloads." : " Supply is reasonably distributed across providers."}
+                </p>
+              );
+            })()}
+          </div>
+
+          {/* 3 tiles — reliable H100, A100 floor, capacity confidence */}
+          <div className="tiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
             <IndexTile
               label={cheapestH100High ? "Cheapest reliable H100" : h100Prices.length ? "Cheapest observed H100" : "H100"}
               value={cheapestH100High ? fmtP(cheapestH100High.price_per_hour) : h100Prices.length ? fmtP(h100Prices[0]) : "Not in snapshot"}
-              note={cheapestH100High ? `${getMeta(cheapestH100High.provider).short} · high avail.` : h100Prices.length ? "Observed only — no reliable listings" : "Request an audit for current H100 pricing"}
+              note={cheapestH100High
+                ? `${getMeta(cheapestH100High.provider).short} · ${h100High.length} reliable ${h100High.length === 1 ? "listing" : "listings"}`
+                : h100Prices.length ? `${h100Prices.length} ${h100Prices.length === 1 ? "listing" : "listings"} observed`
+                : "Request an audit for current H100 pricing"}
               color={cheapestH100High ? "var(--blue)" : h100Prices.length ? "var(--amber)" : "var(--text-muted)"}
               spark={h100Prices.slice(0, 10)}
-              badge={cheapestH100High ? "high-avail" : h100Prices.length ? "observed" : "pending"}
+              badge={!cheapestH100High && h100Prices.length ? "observed" : !h100Prices.length ? "pending" : undefined}
               footnote={h100Prices.length >= 2 ? `Range ${fmtP(h100Prices[0])} – ${fmtP(h100Prices[h100Prices.length - 1])}` : undefined}
             />
             <IndexTile
-              label="Hyperscaler premium"
-              value={premiumPct !== null ? `+${premiumPct.toFixed(0)}%` : a100PremiumPct !== null ? `+${a100PremiumPct.toFixed(0)}%` : "Insufficient data"}
-              note={premiumPct !== null ? "H100 vs. specialist clouds" : a100PremiumPct !== null ? "A100 vs. specialist clouds (H100 absent)" : "Needs H100 or A100 from both sides"}
-              color={premiumPct !== null || a100PremiumPct !== null ? "var(--amber)" : "var(--text-muted)"}
-              badge={premiumPct !== null || a100PremiumPct !== null ? "observed" : "pending"}
-              footnote={premiumPct !== null ? `${(hyperAvg / specAvg).toFixed(1)}× on avg.` : a100PremiumPct !== null ? `${((a100HyperAvg / a100SpecAvg)).toFixed(1)}× on avg.` : "Needs data from both sides"}
+              label={a100Avg > 0 ? "A100 spot floor" : a100OnDemandReliable ? "A100 reliable floor" : "A100"}
+              value={a100Avg > 0 ? fmtP(a100Prices[0]) : a100OnDemandReliable ? fmtP(a100OnDemandReliable.price_per_hour) : "Not in snapshot"}
+              note={a100Avg > 0
+                ? `${a100Prices.length} spot ${a100Prices.length === 1 ? "listing" : "listings"} · avg ${fmtP(a100Avg)}`
+                : a100OnDemandReliable
+                  ? `${getMeta(a100OnDemandReliable.provider).short} · on-demand`
+                  : "Request audit for A100 pricing"}
+              color={a100Avg > 0 ? "var(--blue)" : a100OnDemandReliable ? "var(--green)" : "var(--text-muted)"}
+              spark={a100Prices.length ? a100Prices.slice(0, 10) : undefined}
+              badge={a100Prices.length < 3 && !a100OnDemandReliable ? "pending" : undefined}
             />
             <IndexTile
               label="Capacity confidence"
               value={`${capacityConf}%`}
-              note={`${highAvailCount.toLocaleString()} of ${listings.length.toLocaleString()} high avail.`}
+              note={`${highAvailCount.toLocaleString()} of ${listings.length.toLocaleString()} ${listings.length === 1 ? "listing" : "listings"} high-avail.`}
               color={capacityConf >= 60 ? "var(--green)" : "var(--amber)"}
-              badge={capacityConf >= 60 ? "high-avail" : "observed"}
-              footnote="Share of listings with confirmed availability"
-            />
-            <IndexTile
-              label={a100Avg > 0 ? "A100 spot avg." : a100OnDemandReliable ? "A100 reliable (on-demand)" : "A100"}
-              value={a100Avg > 0 ? fmtP(a100Avg) : a100OnDemandReliable ? fmtP(a100OnDemandReliable.price_per_hour) : "Not in snapshot"}
-              note={a100Avg > 0
-                ? `${a100Prices.length} spot listings`
-                : a100OnDemandReliable
-                  ? `${getMeta(a100OnDemandReliable.provider).short} · high avail. on-demand`
-                  : "Request audit for A100 pricing"}
-              color={a100Avg > 0 ? "var(--blue)" : a100OnDemandReliable ? "var(--green)" : "var(--text-muted)"}
-              spark={a100Prices.length ? a100Prices.slice(0, 10) : undefined}
-              badge={a100Prices.length >= 3 ? "observed" : a100OnDemandReliable ? "high-avail" : "pending"}
-              footnote={a100Prices.length >= 2 ? `${fmtP(a100Prices[0])} – ${fmtP(a100Prices[a100Prices.length - 1])}` : undefined}
+              badge={capacityConf < 60 ? "observed" : undefined}
             />
           </div>
-        </div>
 
-        {/* ── Price Analysis ── */}
-        <div style={{ marginBottom: 44 }}>
-          <SectionHead title="Price Analysis" sub="What the headline price hides — spreads, premiums, and family comparisons" />
-          <div className="charts-grid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14, marginBottom: 14 }}>
+          {/* H100 spread chart + GPU family multiples */}
+          <div className="charts-grid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14 }}>
             <H100SpreadChart listings={listings} />
             <GpuSmallMultiples listings={listings} />
           </div>
-          <PriceByFamily listings={listings} />
         </div>
-
-        {/* ── Market Signals ── */}
-        {signals.length > 0 && (
-          <div style={{ marginBottom: 44 }}>
-            <SectionHead title="Market Signals" sub="Automated analysis of supply, pricing, and data quality" />
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const }}>
-              {signals.map((s, i) => <SignalCard key={i} {...s} />)}
-            </div>
-          </div>
-        )}
 
         {/* ── Provider Explorer ── */}
         <div style={{ marginBottom: 44 }}>
-          <SectionHead title="Provider Explorer" sub="All indexed GPU listings — filter, sort, compare" />
+          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 14 }}>Provider Explorer</div>
           <div style={{ background: "var(--panel)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", padding: "0 20px" }}>
             <ProviderExplorer listings={listings} />
           </div>
@@ -945,7 +899,7 @@ export default function DashboardClient({ summary, listings }: Props) {
           <Rule my={0} />
           <div style={{ padding: "18px 0", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 24 }}>
             {[
-              { title: "Coverage", text: `${activeProviders < TOTAL_TRACKED ? `${activeProviders} of ${TOTAL_TRACKED}` : TOTAL_TRACKED} providers active · ${ALL_PROVIDERS.filter(p => p.status === "partial").length} partial · ${listings.length.toLocaleString()} listings in the current 25-hour window.` },
+              { title: "Coverage", text: `${activeProviders < TOTAL_TRACKED ? `${activeProviders} of ${TOTAL_TRACKED}` : TOTAL_TRACKED} ${activeProviders === 1 ? "provider" : "providers"} · ${ALL_PROVIDERS.filter(p => p.status === "partial").length} partial · ${listings.length.toLocaleString()} ${listings.length === 1 ? "listing" : "listings"} in the current 25-hour window.` },
               { title: "Methodology", text: DATA_CAVEAT },
               { title: "Freshness", text: `Last ingestion: ${updatedAgo}. Runs daily via Vercel cron. Freshness badges flag listings older than 25 hours.` },
             ].map(s => (
@@ -961,7 +915,7 @@ export default function DashboardClient({ summary, listings }: Props) {
         <Rule />
         <div style={{ paddingTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 10 }}>
           <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>
-            AIInfraWatch · {activeProviders < TOTAL_TRACKED ? `${activeProviders} of ${TOTAL_TRACKED} providers tracked` : `${TOTAL_TRACKED} providers`} · Prices are indicative only.
+            AIInfraWatch · {activeProviders < TOTAL_TRACKED ? `${activeProviders} of ${TOTAL_TRACKED} ${activeProviders === 1 ? "provider" : "providers"} tracked` : `${TOTAL_TRACKED} providers`} · Prices are indicative only.
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {[["API","/api/gpu-prices"],["llms.txt","/llms.txt"],["OpenAPI","/openapi.json"]].map(([l,h]) => (
