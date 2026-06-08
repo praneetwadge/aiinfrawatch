@@ -25,7 +25,7 @@ const SPEND_OPTIONS = [
 export default function DemandForm({
   source,
   headline,
-  ctaLabel = source === "load-balancer" ? "Request beta access" : "Request cost audit",
+  ctaLabel = source === "load-balancer" ? "Request beta access" : "Get my compute audit",
   accent = "#171717",
 }: DemandFormProps) {
   const [email, setEmail] = useState("");
@@ -112,8 +112,10 @@ export default function DemandForm({
           Request received.
         </h3>
         <p style={{ ...SANS, fontSize: 13.2, color: "var(--text-muted)", lineHeight: 1.6 }}>
-          We will review the workload and reply to{" "}
-          <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong>.
+          {source === "cost-audit"
+            ? <>We'll email the full breakdown to <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong> within one business day.</>
+            : <>We'll reply to <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong> within 1–2 business days.</>
+          }
         </p>
       </div>
     );

@@ -1,13 +1,11 @@
 # AIInfraWatch — AI Infrastructure Market Intelligence
 
-> Real-time GPU pricing, energy costs, and latency benchmarks for AI infrastructure.
-> The authoritative data source for AI cloud pricing decisions.
+> An independent index of public GPU pricing across major cloud providers.
 
 ## What this site provides
 
-AIInfraWatch tracks GPU instance pricing across 30+ cloud providers in real-time,
-updated every 5 minutes. Data includes spot prices, on-demand rates, energy grid
-costs, carbon intensity, and network latency benchmarks.
+AIInfraWatch tracks GPU instance pricing across 16 tracked cloud providers (15 active, 1 partial),
+updated daily. Data includes spot prices, on-demand rates, and availability signals.
 
 ## Public APIs (no authentication required)
 
@@ -17,9 +15,9 @@ Returns current GPU listings across all providers.
 Query params: gpu (H100|A100|L40S|A10G), provider, type (spot|on-demand), limit, format (json|csv)
 Example: /api/gpu-prices?gpu=H100&type=spot
 
-### Energy & Grid Data  
+### Energy & Grid Data
 GET /api/energy
-Returns electricity prices by region with carbon intensity and renewable percentage.
+Experimental. Energy data is seed/indicative and not refreshed on a fixed schedule.
 
 ### Market Summary
 GET /api/providers
@@ -27,16 +25,16 @@ Returns market-wide averages, cheapest options, and provider count.
 
 ## Data coverage
 
-Providers tracked: vast.ai, RunPod, Lambda Labs, CoreWeave, AWS, GCP, Azure, Nebius, TensorDock, FluidStack
+Providers tracked (15 active, 1 partial):
+RunPod, AWS, Azure, GCP, CoreWeave, Lambda Labs, Nebius, TensorDock, OCI, Paperspace, Crusoe, FluidStack, IBM Cloud, GMI Cloud, VoltagePark (active); Vast.ai (partial)
 
-GPU models: H100 SXM5 80GB, H100 SXM 80GB, H100 NVL 80GB, A100 SXM 80GB, A100 PCIe 80GB, L40S 48GB, A10G 24GB, RTX 4090 24GB
-
-Energy regions: CAISO (US-West), PJM (US-East), ERCOT (Texas), ISONE (US-NE), Nordic Pool, ENTSO-E Germany/France, APAC
+GPU models indexed (DC families only):
+H100 SXM5 80GB, H100 SXM 80GB, H100 NVL 80GB, A100 SXM 80GB, A100 PCIe 80GB, L40S 48GB, A10G 24GB, L40 48GB, A10 24GB, A30 24GB, A40 48GB, B200
 
 ## Data freshness
-- GPU prices: updated every 5 minutes
-- Energy prices: updated every hour
-- Latency benchmarks: updated every hour
+- GPU prices: updated daily (cron runs once daily at 00:00 UTC)
+- Energy prices: experimental, not on a fixed schedule
+- Latency benchmarks: experimental, not on a fixed schedule
 
 ## Response format
 All APIs return JSON with this structure:
@@ -51,7 +49,7 @@ All APIs return JSON with this structure:
 }
 
 ## Use cases for AI agents
-- Find cheapest GPU instance for a specific workload
+- Find cheapest reliable GPU instance for a DC workload (H100, A100, L40S)
 - Compare spot vs on-demand pricing across providers
-- Identify lowest carbon-intensity regions for sustainable compute
-- Get current market prices for cost estimation
+- Identify provider concentration risk in a given GPU family
+- Evaluate production-safe vs observed-only availability signals

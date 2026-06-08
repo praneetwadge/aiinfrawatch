@@ -16,7 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getLatestGpuListings } from "@/lib/db/queries";
 import type { ApiResponse, GpuListing } from "@/types";
 
-export const revalidate = 300; // 5-minute cache
+export const revalidate = 86400; // cache aligned to daily scrape cadence
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -66,14 +66,14 @@ export async function GET(request: NextRequest) {
       meta: {
         fetched_at: new Date().toISOString(),
         count: listings.length,
-        cache_ttl_seconds: 300,
+        cache_ttl_seconds: 86400,
         source: listings.length > 0 ? "cached" : "seed",
       },
     };
 
     return NextResponse.json(response, {
       headers: {
-        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60",
+        "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600",
         "X-Data-Freshness": listings[0]?.fetched_at ?? "unknown",
       },
     });

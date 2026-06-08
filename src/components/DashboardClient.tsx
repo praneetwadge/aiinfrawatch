@@ -153,17 +153,20 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "44px 32px 36px" }}>
         {/* Eyebrow */}
         <p style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 16 }}>
-          LIVE · {activeProviders} of {TOTAL_TRACKED} {activeProviders === 1 ? "provider" : "providers"} · updated {minsAgo(summary?.last_updated)}
+          LIVE INDEX · {activeProviders} {activeProviders === 1 ? "PROVIDER" : "PROVIDERS"} · UPDATED DAILY
         </p>
 
         <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 52, alignItems: "center" }}>
           {/* Left: headline + CTAs */}
           <div>
             <h1 style={{ ...SERIF, fontSize: 40, fontWeight: 400, lineHeight: 1.12, color: "var(--text-primary)", marginBottom: 14 }}>
-              What you should actually pay<br />for AI compute.
+              Your AI compute bill is probably priced wrong.
             </h1>
-            <p style={{ ...BODY, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 520, marginBottom: 24 }}>
-              Live GPU prices across {TOTAL_TRACKED} cloud providers — and the cheapest reliable place to run your workload.
+            <p style={{ ...BODY, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 520, marginBottom: 8 }}>
+              AIInfraWatch compares live GPU prices, availability, and workload fit so you know what to keep, what to move, and where you may be overpaying.
+            </p>
+            <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, maxWidth: 520, marginBottom: 24 }}>
+              Track GPU price, availability, and reliability signals across cloud providers — then turn market data into workload decisions.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
               <Link href="/cost-audit" style={{
@@ -179,7 +182,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
                 padding: "11px 20px", borderRadius: 3, textDecoration: "none",
                 border: "1px solid var(--border-mid)", whiteSpace: "nowrap" as const,
               }}>
-                Explore the index ↓
+                View live market ↓
               </a>
             </div>
           </div>
@@ -534,8 +537,28 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
   const [expanded,    setExpanded]    = useState<Set<string>>(new Set());
   const [grouped,     setGrouped]     = useState(true);
 
-  // effectiveFamily respects the selected tab; if user manually picks H100 but there's no data, show a clear empty state
   const effectiveFamily = gpuFamily;
+
+  // Decision presets — filter shortcuts mapped to buyer questions
+  const applyPreset = (preset: string) => {
+    setSearch(""); setCatFilter("all"); setTypeFilter("all"); setAvailFilter("all");
+    switch (preset) {
+      case "reliable-a100":
+        setGpuFamily("A100"); setAvailFilter("high"); setTypeFilter("on-demand"); setSortKey("price"); setSortDir("asc"); break;
+      case "evals":
+        setGpuFamily("A100"); setAvailFilter("high"); setTypeFilter("spot"); setSortKey("price"); setSortDir("asc"); break;
+      case "batch":
+        setGpuFamily("A100"); setAvailFilter("high"); setSortKey("price"); setSortDir("asc"); break;
+      case "h100-floor":
+        setGpuFamily("H100"); setSortKey("price"); setSortDir("asc"); break;
+      case "production-safe":
+        setGpuFamily(getDefaultFamily()); setAvailFilter("high"); setCatFilter("Neocloud"); setSortKey("price"); setSortDir("asc"); break;
+      case "spot-bargains":
+        setGpuFamily("All"); setTypeFilter("spot"); setSortKey("price"); setSortDir("asc"); break;
+      case "high-risk":
+        setGpuFamily("All"); setAvailFilter("low"); setSortKey("price"); setSortDir("asc"); break;
+    }
+  };
 
   const filtered = useMemo(() => {
     let r = listings;
@@ -592,6 +615,26 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
 
   return (
     <div>
+      {/* Decision presets */}
+      <div style={{ display: "flex", gap: 6, padding: "10px 0", flexWrap: "wrap" as const, borderBottom: "1px solid var(--border)" }}>
+        <span style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", alignSelf: "center", marginRight: 4 }}>Quick filters:</span>
+        {[
+          { id: "reliable-a100",   label: "Cheapest reliable A100" },
+          { id: "evals",           label: "Best for evals" },
+          { id: "batch",           label: "Best for batch" },
+          { id: "h100-floor",      label: "Lowest observed H100" },
+          { id: "production-safe", label: "Production-safe candidates" },
+          { id: "spot-bargains",   label: "Spot-only bargains" },
+          { id: "high-risk",       label: "High-risk / low-availability" },
+        ].map(({ id, label }) => (
+          <button key={id} onClick={() => applyPreset(id)} style={{
+            ...SANS, fontSize: 11.5, padding: "4px 10px", borderRadius: 3, cursor: "pointer",
+            border: "1px solid var(--border-mid)", background: "var(--elevated)",
+            color: "var(--text-secondary)",
+          }}>{label}</button>
+        ))}
+      </div>
+
       {/* GPU tabs */}
       <div style={{ display: "flex", borderBottom: "1px solid var(--border)", overflowX: "auto" }}>
         {GPU_FAMILIES.map(f => (
@@ -674,7 +717,7 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
                       {rows.length} listings · {provSet.size} providers
                     </td>
                     <td>
-                      {highCount > 0 && <ConfidenceBadge level="high-avail" />}
+                      {highCount === 0 && <ConfidenceBadge level="observed" />}
                     </td>
                     <td style={{ ...MONO, padding: "12px 12px 12px 0", textAlign: "right" as const, fontWeight: 600, color: "var(--green)", fontSize: 14 }}>
                       from {fmtP(cheapestP)}
@@ -821,38 +864,86 @@ export default function DashboardClient({ summary, listings }: Props) {
         a100PremiumPct={a100PremiumPct}
         capacityConf={capacityConf}
       />
-      <div id="market-data">
-      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "40px 32px 80px" }}>
 
-        {/* ── THE MARKET ── */}
-        <div style={{ marginBottom: 48 }}>
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 3 }}>The Market</div>
-            {/* Inline signal sentence */}
-            {(() => {
-              const counts: Record<string, number> = {};
-              listings.forEach(l => { counts[l.provider] = (counts[l.provider] || 0) + 1; });
-              const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-              const topPct = top ? Math.round((top[1] / listings.length) * 100) : 0;
-              if (!top) return null;
-              return (
-                <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", margin: 0 }}>
-                  {getMeta(top[0]).short} accounts for {topPct}% of the index ({top[1].toLocaleString()} of {listings.length.toLocaleString()} {listings.length === 1 ? "listing" : "listings"}).
-                  {topPct >= 40 ? " Single-provider concentration is a risk signal for production workloads." : " Supply is reasonably distributed across providers."}
-                </p>
-              );
-            })()}
+      {/* ── Pain cards ── */}
+      <div style={{ borderBottom: "1px solid var(--border)" }}>
+        <div style={{ maxWidth: 1360, margin: "0 auto", padding: "32px 32px" }}>
+          <div className="tiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+            {[
+              { q: "Running evals on premium infra?", a: "Non-urgent evals and batch jobs are often the easiest workloads to move first — and the highest-savings ones." },
+              { q: "Comparing GPU vendors manually?", a: "Headline prices hide availability, interruption risk, region, and migration friction. The cheapest listing isn't always the cheapest option." },
+              { q: "No backup capacity plan?", a: "Cheap capacity is useless if it disappears when production needs it. Provider concentration is a risk, not just a metric." },
+            ].map(({ q, a }) => (
+              <div key={q} style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "18px 20px" }}>
+                <div style={{ ...SANS, fontSize: 13.5, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8, lineHeight: 1.3 }}>{q}</div>
+                <div style={{ ...BODY, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65 }}>{a}</div>
+              </div>
+            ))}
           </div>
+        </div>
+      </div>
 
-          {/* 3 tiles — reliable H100, A100 floor, capacity confidence */}
-          <div className="tiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+      {/* ── What buyers should do today (signals) ── */}
+      <div style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ maxWidth: 1360, margin: "0 auto", padding: "36px 32px" }}>
+          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 20 }}>What buyers should do today</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+            {[
+              {
+                headline: "Cheapest observed H100 is not production-safe by default.",
+                body: h100Prices.length && !cheapestH100High
+                  ? `There are ${h100Prices.length} H100 listings in the index right now, but none with confirmed high availability. Treat that floor price as experimental capacity, not a production routing target.`
+                  : cheapestH100High
+                    ? `The cheapest H100 listing (${fmtP(h100Prices[0] ?? cheapestH100High.price_per_hour)}/hr) is observed-only pricing. The cheapest reliable option is ${fmtP(cheapestH100High.price_per_hour)}/hr at ${getMeta(cheapestH100High.provider).short} — a meaningful gap. Don't route production traffic to observed-only listings.`
+                    : "H100 data is sparse in this snapshot. Treat any floor price as experimental until availability is confirmed.",
+              },
+              {
+                headline: "A100 may be the more practical market.",
+                body: a100OnDemandReliable
+                  ? `For evals, batch inference, and fine-tuning, reliable A100 supply at ${fmtP(a100OnDemandReliable.price_per_hour)}/hr at ${getMeta(a100OnDemandReliable.provider).short} can beat chasing the cheapest H100 — especially when the H100 floor is observed-only.`
+                  : "For many eval, batch, and fine-tuning workloads, deeper reliable A100 supply can beat chasing the cheapest H100. Check the A100 tab in the explorer.",
+              },
+              {
+                headline: "Capacity confidence changes the price.",
+                body: `${capacityConf}% of indexed listings have confirmed high availability. Discount a low headline price when availability is weak or provider concentration is high — the option may not be there when you need it.`,
+              },
+              {
+                headline: "Provider concentration is a risk.",
+                body: (() => {
+                  const counts: Record<string, number> = {};
+                  listings.forEach(l => { counts[l.provider] = (counts[l.provider] || 0) + 1; });
+                  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+                  const topPct = top ? Math.round((top[1] / listings.length) * 100) : 0;
+                  return top
+                    ? `${getMeta(top[0]).short} is ${topPct}% of the current index. ${topPct >= 40 ? "Buyers routing critical workloads through a concentrated index need a fallback provider before they need it — not after." : "Supply is reasonably spread, but always have a fallback routing option before routing critical workloads."}`
+                    : "Always have a fallback routing option before routing critical workloads through a single provider.";
+                })(),
+              },
+            ].map(({ headline, body }) => (
+              <div key={headline} style={{ borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
+                <div style={{ ...SANS, fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6, lineHeight: 1.35 }}>{headline}</div>
+                <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.65 }}>{body}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Market data as proof ── */}
+      <div id="market-data">
+      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "40px 32px 0" }}>
+
+        {/* 3 tiles */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 14 }}>Market index</div>
+          <div className="tiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             <IndexTile
               label={cheapestH100High ? "Cheapest reliable H100" : h100Prices.length ? "Cheapest observed H100" : "H100"}
               value={cheapestH100High ? fmtP(cheapestH100High.price_per_hour) : h100Prices.length ? fmtP(h100Prices[0]) : "Not in snapshot"}
               note={cheapestH100High
                 ? `${getMeta(cheapestH100High.provider).short} · ${h100High.length} reliable ${h100High.length === 1 ? "listing" : "listings"}`
-                : h100Prices.length ? `${h100Prices.length} ${h100Prices.length === 1 ? "listing" : "listings"} observed`
-                : "Request an audit for current H100 pricing"}
+                : h100Prices.length ? `${h100Prices.length} ${h100Prices.length === 1 ? "listing" : "listings"} — observed only`
+                : "Not in current snapshot"}
               color={cheapestH100High ? "var(--blue)" : h100Prices.length ? "var(--amber)" : "var(--text-muted)"}
               spark={h100Prices.slice(0, 10)}
               badge={!cheapestH100High && h100Prices.length ? "observed" : !h100Prices.length ? "pending" : undefined}
@@ -865,7 +956,7 @@ export default function DashboardClient({ summary, listings }: Props) {
                 ? `${a100Prices.length} spot ${a100Prices.length === 1 ? "listing" : "listings"} · avg ${fmtP(a100Avg)}`
                 : a100OnDemandReliable
                   ? `${getMeta(a100OnDemandReliable.provider).short} · on-demand`
-                  : "Request audit for A100 pricing"}
+                  : "Not in current snapshot"}
               color={a100Avg > 0 ? "var(--blue)" : a100OnDemandReliable ? "var(--green)" : "var(--text-muted)"}
               spark={a100Prices.length ? a100Prices.slice(0, 10) : undefined}
               badge={a100Prices.length < 3 && !a100OnDemandReliable ? "pending" : undefined}
@@ -878,30 +969,53 @@ export default function DashboardClient({ summary, listings }: Props) {
               badge={capacityConf < 60 ? "observed" : undefined}
             />
           </div>
+        </div>
 
-          {/* H100 spread chart + GPU family multiples */}
+        {/* Chart: cheapest vs reliable gap */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 8 }}>The cheapest price and the cheapest safe price are not the same.</div>
           <div className="charts-grid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14 }}>
             <H100SpreadChart listings={listings} />
             <GpuSmallMultiples listings={listings} />
           </div>
         </div>
 
-        {/* ── Provider Explorer ── */}
+        {/* Provider Explorer */}
         <div style={{ marginBottom: 44 }}>
-          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 14 }}>Provider Explorer</div>
+          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 6 }}>Provider Explorer</div>
+          <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", marginBottom: 12 }}>The full index — verify the numbers yourself.</p>
           <div style={{ background: "var(--panel)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", padding: "0 20px" }}>
             <ProviderExplorer listings={listings} />
           </div>
         </div>
+
+      </div>
+      </div>{/* end #market-data */}
+
+      {/* ── Load Balancer teaser ── */}
+      <div style={{ background: "var(--elevated)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ maxWidth: 1360, margin: "0 auto", padding: "28px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" as const }}>
+          <div>
+            <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 6 }}>Coming next</div>
+            <div style={{ ...SERIF, fontSize: 20, fontWeight: 400, color: "var(--text-primary)", marginBottom: 4 }}>Automated routing for flexible workloads.</div>
+            <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>Keep production stable. Move evals, batch, and fine-tuning to cheaper reliable capacity automatically.</div>
+          </div>
+          <Link href="/load-balancer" style={{ ...SANS, fontSize: 13, fontWeight: 600, color: "var(--text-primary)", border: "1px solid var(--border-mid)", padding: "9px 20px", borderRadius: 3, textDecoration: "none", whiteSpace: "nowrap" as const }}>
+            Learn about routing beta →
+          </Link>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "32px 32px 80px" }}>
 
         {/* ── Methodology ── */}
         <div style={{ marginBottom: 28 }}>
           <Rule my={0} />
           <div style={{ padding: "18px 0", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 24 }}>
             {[
-              { title: "Coverage", text: `${activeProviders < TOTAL_TRACKED ? `${activeProviders} of ${TOTAL_TRACKED}` : TOTAL_TRACKED} ${activeProviders === 1 ? "provider" : "providers"} · ${ALL_PROVIDERS.filter(p => p.status === "partial").length} partial · ${listings.length.toLocaleString()} ${listings.length === 1 ? "listing" : "listings"} in the current 25-hour window.` },
-              { title: "Methodology", text: DATA_CAVEAT },
-              { title: "Freshness", text: `Last ingestion: ${updatedAgo}. Runs daily via Vercel cron. Freshness badges flag listings older than 25 hours.` },
+              { title: "What we track", text: `${activeProviders} cloud providers — ${ALL_PROVIDERS.filter(p => p.status === "live").length} active, ${ALL_PROVIDERS.filter(p => p.status === "partial").length} partial. Prices are from public APIs and published rate cards. Some providers (gcp, lambda, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark) use hardcoded rates where live APIs are too large for serverless scraping.` },
+              { title: "Observed vs reliable", text: `"Observed" means the listing exists in the index but availability is unconfirmed. "Reliable" means availability === "high" as reported by the provider API. Never use an observed-only price as a production routing target without verifying availability.` },
+              { title: "Freshness", text: `Index updated daily at 00:00 UTC. ${DATA_CAVEAT}` },
             ].map(s => (
               <div key={s.title}>
                 <div style={{ ...SANS, fontSize: 10.5, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 5 }}>{s.title}</div>
@@ -914,8 +1028,9 @@ export default function DashboardClient({ summary, listings }: Props) {
         {/* ── Footer ── */}
         <Rule />
         <div style={{ paddingTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 10 }}>
-          <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>
-            AIInfraWatch · {activeProviders < TOTAL_TRACKED ? `${activeProviders} of ${TOTAL_TRACKED} ${activeProviders === 1 ? "provider" : "providers"} tracked` : `${TOTAL_TRACKED} providers`} · Prices are indicative only.
+          <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
+            <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>AIInfraWatch · {activeProviders} {activeProviders === 1 ? "provider" : "providers"} · Updated daily</span>
+            <Link href="/load-balancer" style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}>Load Balancer beta</Link>
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {[["API","/api/gpu-prices"],["llms.txt","/llms.txt"],["OpenAPI","/openapi.json"]].map(([l,h]) => (
@@ -925,7 +1040,6 @@ export default function DashboardClient({ summary, listings }: Props) {
           </div>
         </div>
       </div>
-      </div>{/* end #market-data */}
     </div>
   );
 }

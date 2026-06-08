@@ -2,16 +2,16 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AIInfraWatch API",
-    "description": "Real-time AI GPU pricing, energy costs, and latency data across 30+ cloud providers",
+    "description": "Public GPU pricing index across 16 tracked cloud providers (15 active, 1 partial). Updated daily.",
     "version": "1.0.0",
-    "contact": { "url": "https://aiinfrawatch.com" }
+    "contact": { "url": "https://aiinfrawatch.vercel.app" }
   },
-  "servers": [{ "url": "https://aiinfrawatch.com", "description": "Production" }],
+  "servers": [{ "url": "https://aiinfrawatch.vercel.app", "description": "Production" }],
   "paths": {
     "/api/gpu-prices": {
       "get": {
         "summary": "Get current GPU prices",
-        "description": "Returns live GPU instance pricing across all tracked providers. Updated every 5 minutes.",
+        "description": "Returns GPU instance pricing across all tracked providers. Updated daily.",
         "operationId": "getGpuPrices",
         "parameters": [
           { "name": "gpu", "in": "query", "description": "Filter by GPU model name (e.g. H100, A100, L40S)", "schema": { "type": "string" } },
@@ -40,8 +40,8 @@
     },
     "/api/energy": {
       "get": {
-        "summary": "Get energy grid prices",
-        "description": "Returns electricity prices by region with carbon intensity. Updated hourly.",
+        "summary": "Get energy grid prices (experimental)",
+        "description": "Experimental. Energy data is seed/indicative and not refreshed on a fixed schedule. Source field in meta will reflect true data state.",
         "operationId": "getEnergyPrices",
         "responses": {
           "200": {
@@ -64,7 +64,7 @@
     "/api/providers": {
       "get": {
         "summary": "Get market summary",
-        "description": "Returns market-wide averages, cheapest options, and statistics",
+        "description": "Returns market-wide averages, cheapest options, and provider count. Updated daily.",
         "operationId": "getMarketSummary",
         "responses": {
           "200": { "description": "Market summary" }
@@ -80,9 +80,9 @@
           "provider": { "type": "string", "example": "CoreWeave" },
           "provider_slug": { "type": "string", "example": "coreweave" },
           "gpu_model": { "type": "string", "example": "H100 SXM 80GB" },
-          "gpu_count": { "type": "integer", "example": 8 },
+          "gpu_count": { "type": "integer", "example": 8, "description": "Number of GPUs in the instance. price_per_hour is the total cluster price." },
           "pricing_type": { "type": "string", "enum": ["spot", "on-demand", "reserved-1yr", "reserved-3yr"] },
-          "price_per_hour": { "type": "number", "example": 26.00 },
+          "price_per_hour": { "type": "number", "example": 3.28, "description": "Per-GPU price in USD/hr. Multiply by gpu_count for cluster total." },
           "region": { "type": "string", "example": "US-East (LGA1)" },
           "availability": { "type": "string", "enum": ["high", "medium", "low", "unavailable"] },
           "vcpus": { "type": "integer" },

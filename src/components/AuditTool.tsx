@@ -2,422 +2,416 @@
 
 import React, { useMemo, useState } from "react";
 import {
-  GpuListing,
-  HYPERSCALERS,
-  fmtMoney,
-  fmtP,
-  getMeta,
+  GpuListing, HYPERSCALERS, fmtMoney, fmtP, getMeta,
 } from "@/lib/market-helpers";
 
-const MONO: React.CSSProperties = { fontFamily: "var(--font-mono)" };
-const SANS: React.CSSProperties = { fontFamily: "var(--font-sans)" };
+const MONO:  React.CSSProperties = { fontFamily: "var(--font-mono)" };
+const SANS:  React.CSSProperties = { fontFamily: "var(--font-sans)" };
 const SERIF: React.CSSProperties = { fontFamily: "var(--font-serif)" };
 
 type Situation = "hyperscaler" | "neocloud" | "marketplace" | "unsure";
-type GpuFamily = "H100" | "A100" | "L40S" | "A10G";
+type WorkloadType = "inference" | "batch" | "evals" | "finetuning" | "training" | "dev" | "unsure";
+type GpuFamily = "H100" | "A100" | "L40S" | "A10G" | "other";
 
-const GPU_FAMILIES: GpuFamily[] = ["H100", "A100", "L40S", "A10G"];
-
-const SITUATION_OPTIONS: { value: Situation; label: string }[] = [
-  { value: "hyperscaler", label: "Hyperscaler" },
-  { value: "neocloud", label: "Neocloud" },
-  { value: "marketplace", label: "Marketplace" },
-  { value: "unsure", label: "Not sure" },
+const WORKLOAD_OPTIONS: { value: WorkloadType; label: string; batchFriendly: boolean }[] = [
+  { value: "inference",  label: "Real-time inference",   batchFriendly: false },
+  { value: "batch",      label: "Batch inference",       batchFriendly: true  },
+  { value: "evals",      label: "Evals / benchmarking",  batchFriendly: true  },
+  { value: "finetuning", label: "Fine-tuning",           batchFriendly: true  },
+  { value: "training",   label: "Training",              batchFriendly: false },
+  { value: "dev",        label: "Dev notebooks",         batchFriendly: true  },
+  { value: "unsure",     label: "Not sure",              batchFriendly: false },
 ];
 
-interface AuditToolProps {
-  listings: GpuListing[];
-}
+const SETUP_OPTIONS: { value: Situation; label: string }[] = [
+  { value: "hyperscaler",  label: "AWS / GCP / Azure" },
+  { value: "neocloud",     label: "CoreWeave / Lambda / Nebius" },
+  { value: "marketplace",  label: "RunPod / Vast.ai" },
+  { value: "unsure",       label: "Mixed / not sure" },
+];
 
-const parsePositiveNumber = (value: string, fallback: number) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
+const GPU_FAMILIES: GpuFamily[] = ["H100", "A100", "L40S", "A10G", "other"];
+
+interface AuditToolProps { listings: GpuListing[]; }
+
+const parseNum = (v: string, fallback: number) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
-export default function AuditTool({ listings }: AuditToolProps) {
-  const [setupText, setSetupText] = useState("");
-  const [email, setEmail] = useState("");
-  const [showManual, setShowManual] = useState(false);
-  const [family, setFamily] = useState<GpuFamily>("H100");
-  const [gpuCount, setGpuCount] = useState("8");
-  const [hours, setHours] = useState("720");
-  const [situation, setSituation] = useState<Situation>("hyperscaler");
-  const [submitted, setSubmitted] = useState(false);
-  const [submittedEmail, setSubmittedEmail] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+function ResultCard({ listings, family, gpuCount, hours, situation, workload }: {
+  listings: GpuListing[]; family: GpuFamily; gpuCount: number; hours: number;
+  situation: Situation; workload: WorkloadType;
+}) {
+  const familyListings = family === "other"
+    ? listings
+    : listings.filter(l => l.gpu_model.toUpperCase().includes(family));
 
-  const inputStyle: React.CSSProperties = {
-    ...SANS,
-    width: "100%",
-    background: "var(--panel)",
-    border: "1px solid var(--border-mid)",
-    color: "var(--text-primary)",
-    padding: "10px 12px",
-    fontSize: 13.5,
-    outline: "none",
-    borderRadius: 3,
-  };
-
-  const labelStyle: React.CSSProperties = {
-    ...SANS,
-    display: "block",
-    fontSize: 10.5,
-    fontWeight: 650,
-    color: "var(--text-muted)",
-    textTransform: "uppercase",
-    letterSpacing: "0.07em",
-    marginBottom: 6,
-  };
-
-  const manualResult = useMemo(() => {
-    const count = parsePositiveNumber(gpuCount, 1);
-    const monthlyHours = parsePositiveNumber(hours, 1);
-    const familyListings = listings.filter(item => item.gpu_model.toUpperCase().includes(family));
-    if (!familyListings.length) return null;
-
-    const sorted = [...familyListings].sort((a, b) => a.price_per_hour - b.price_per_hour);
-    const reliable = familyListings
-      .filter(item => item.availability === "high")
-      .sort((a, b) => a.price_per_hour - b.price_per_hour);
-
-    let baseline: GpuListing | null = null;
-    if (situation === "hyperscaler" || situation === "unsure") {
-      baseline = familyListings
-        .filter(item => HYPERSCALERS.includes(item.provider.toLowerCase()))
-        .sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
-    }
-    if (situation === "neocloud") {
-      baseline = familyListings
-        .filter(item => getMeta(item.provider).cat === "Neocloud")
-        .sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
-    }
-    if (situation === "marketplace") {
-      baseline = familyListings
-        .filter(item => getMeta(item.provider).cat === "Marketplace")
-        .sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
-    }
-
-    const recommendation = reliable[0] ?? sorted[0];
-    const currentMonthly = baseline ? baseline.price_per_hour * count * monthlyHours : null;
-    const recommendedMonthly = recommendation.price_per_hour * count * monthlyHours;
-    const savings = currentMonthly && currentMonthly > recommendedMonthly
-      ? currentMonthly - recommendedMonthly
-      : null;
-    const savingsPct = currentMonthly && savings ? Math.round((savings / currentMonthly) * 100) : null;
-
-    return {
-      count,
-      monthlyHours,
-      baseline,
-      recommendation,
-      currentMonthly,
-      recommendedMonthly,
-      savings,
-      savingsPct,
-      isReliable: recommendation.availability === "high",
-    };
-  }, [family, gpuCount, hours, listings, situation]);
-
-  const handleSubmit = async () => {
-    if (!email || !email.includes("@")) {
-      setError("Enter a valid work email.");
-      return;
-    }
-    if (!setupText.trim() && !showManual) {
-      setError("Paste your setup, bill summary, quote, or architecture notes.");
-      return;
-    }
-
-    setError("");
-    setLoading(true);
-
-    const manualNotes = showManual
-      ? `Manual estimate: ${gpuCount}×${family}, ${hours}h/mo, current category ${situation}.`
-      : "";
-
-    try {
-      const response = await fetch("/api/audit-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          monthlySpend: "Unknown / audit needed",
-          workload: "Cost audit intake",
-          notes: [setupText.trim(), manualNotes].filter(Boolean).join("\n\n"),
-          source: "cost-audit",
-        }),
-      });
-
-      const json = await response.json();
-      if (!response.ok || !json.success) {
-        setError(json.error ?? "Something went wrong. Try again.");
-        setLoading(false);
-        return;
-      }
-
-      setSubmittedEmail(email);
-      setSubmitted(true);
-    } catch {
-      setError("Network error — try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (submitted) {
+  if (!familyListings.length) {
     return (
-      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "34px 28px", textAlign: "center" }}>
-        <div style={{ fontSize: 28, color: "var(--green)", marginBottom: 12 }}>✓</div>
-        <h2 style={{ ...SERIF, fontSize: 25, fontWeight: 400, color: "var(--text-primary)", marginBottom: 8 }}>
-          Audit request received.
-        </h2>
-        <p style={{ ...SANS, fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.65, maxWidth: 460, margin: "0 auto" }}>
-          We will use your setup details and the live market index to prepare the provider-by-provider read for{" "}
-          <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong>.
-        </p>
+      <div style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "16px 20px" }}>
+        <div style={{ ...SANS, fontSize: 13, color: "var(--text-muted)" }}>
+          No {family === "other" ? "GPU" : family} listings in the current snapshot.{" "}
+          <a href="/cost-audit" style={{ color: "var(--blue)" }}>Request a full audit</a> for current pricing on this GPU family.
+        </div>
       </div>
     );
   }
 
-  return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
-      <div style={{ padding: "24px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 230px", gap: 22, alignItems: "start" }} className="audit-intake-grid">
-          <div>
-            <label style={labelStyle}>Paste your current setup</label>
-            <textarea
-              value={setupText}
-              onChange={event => setSetupText(event.target.value)}
-              placeholder="Example: We run 8×H100 on GCP for batch inference and evals, around 500–700 hours/month. Production serving stays on AWS. We have a quote around $X/hr and want to know what can safely move."
-              rows={8}
-              style={{
-                ...inputStyle,
-                minHeight: 172,
-                resize: "vertical",
-                lineHeight: 1.55,
-                fontFamily: "var(--font-sans)",
-              }}
-            />
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-              {["Architecture notes", "Cloud bill summary", "Provider quote", "Plain English is fine"].map(item => (
-                <span key={item} style={{
-                  ...SANS,
-                  fontSize: 11.5,
-                  color: "var(--text-muted)",
-                  background: "var(--elevated)",
-                  border: "1px solid var(--border)",
-                  padding: "4px 8px",
-                  borderRadius: 3,
-                }}>
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
+  const sorted   = [...familyListings].sort((a, b) => a.price_per_hour - b.price_per_hour);
+  const reliable = familyListings.filter(l => l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour);
+  const cheapestObserved  = sorted[0];
+  const cheapestReliable  = reliable[0] ?? null;
+  const recommendation    = cheapestReliable ?? cheapestObserved;
+  const isReliable        = !!cheapestReliable;
 
-          <aside style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "17px 18px" }}>
-            <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
-              What you get
-            </div>
-            {[
-              "Estimated current monthly spend",
-              "Cheapest reliable alternatives",
-              "Migration risk by workload",
-              "One practical next step",
-            ].map(item => (
-              <div key={item} style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.45, marginBottom: 9 }}>
-                → {item}
+  // Baseline from current situation
+  let baseline: GpuListing | null = null;
+  if (situation === "hyperscaler" || situation === "unsure") {
+    baseline = familyListings.filter(l => HYPERSCALERS.includes(l.provider.toLowerCase()))
+      .sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
+  } else if (situation === "neocloud") {
+    baseline = familyListings.filter(l => getMeta(l.provider).cat === "Neocloud")
+      .sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
+  } else if (situation === "marketplace") {
+    baseline = familyListings.filter(l => getMeta(l.provider).cat === "Marketplace")
+      .sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
+  }
+
+  const currentMonthly     = baseline ? baseline.price_per_hour * gpuCount * hours : null;
+  const recommendedMonthly = recommendation.price_per_hour * gpuCount * hours;
+  const savings     = currentMonthly && currentMonthly > recommendedMonthly ? currentMonthly - recommendedMonthly : null;
+  const savingsPct  = currentMonthly && savings ? Math.round((savings / currentMonthly) * 100) : null;
+
+  // Workload-fit recommendation
+  const workloadObj = WORKLOAD_OPTIONS.find(w => w.value === workload);
+  const isBatchFriendly = workloadObj?.batchFriendly ?? false;
+
+  let advice = "";
+  if (savingsPct !== null && savingsPct >= 20 && isBatchFriendly) {
+    advice = `Move ${workloadObj?.label.toLowerCase() ?? "this workload"} to ${getMeta(recommendation.provider).short} first — it's interruption-tolerant and the savings are material. Keep latency-critical production serving where it is.`;
+  } else if (savingsPct !== null && savingsPct >= 10) {
+    advice = `Savings are available but migration friction matters. Audit contract terms and reserved pricing before switching. ${!isBatchFriendly ? "This workload type carries migration risk — move incrementally." : ""}`;
+  } else if (savingsPct !== null) {
+    advice = `You're near market floor for reliable ${family === "other" ? "GPU" : family}. Focus on utilisation and reserved pricing rather than provider switching.`;
+  } else if (!baseline) {
+    advice = `No ${situation} listings found for ${family === "other" ? "this GPU" : family} in the current snapshot. The audit can surface region-specific options not in the daily index.`;
+  }
+
+  const reliabilityRisk = !isReliable ? "High" : capacityConfFromListings(familyListings) >= 60 ? "Low" : "Medium";
+
+  return (
+    <div style={{ background: "var(--panel)", border: "1px solid var(--border)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 0 }} className="result-grid">
+
+        {/* Current */}
+        <div style={{ padding: "16px 20px", borderRight: "1px solid var(--border)" }}>
+          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 6 }}>
+            {baseline ? `Est. current (${situation === "unsure" ? "hyperscaler assumed" : situation})` : "No baseline found"}
+          </div>
+          {currentMonthly ? (
+            <>
+              <div style={{ ...MONO, fontSize: 26, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.025em", lineHeight: 1 }}>
+                {fmtMoney(currentMonthly)}<span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 300 }}>/mo</span>
               </div>
-            ))}
-          </aside>
+              <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                {getMeta(baseline!.provider).short} · {fmtP(baseline!.price_per_hour)}/hr × {gpuCount} GPU{gpuCount !== 1 ? "s" : ""} × {hours}h
+              </div>
+            </>
+          ) : (
+            <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", marginTop: 4 }}>
+              No {family === "other" ? "GPU" : family} listings for your provider type in this snapshot.
+            </div>
+          )}
         </div>
 
-        <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "start" }} className="audit-submit-grid">
-          <div>
-            <label style={labelStyle}>Work email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={event => setEmail(event.target.value)}
-              placeholder="you@company.com"
-              style={inputStyle}
-            />
-            {error && (
-              <p style={{ ...SANS, color: "var(--red)", fontSize: 12, marginTop: 7 }}>
-                {error}
-              </p>
-            )}
+        {/* Recommended */}
+        <div style={{ padding: "16px 20px", borderRight: "1px solid var(--border)", borderTop: `3px solid ${isReliable ? "var(--green)" : "var(--amber)"}`, marginTop: -1 }}>
+          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: isReliable ? "var(--green)" : "var(--amber)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 6 }}>
+            {isReliable ? "Cheapest reliable" : "Cheapest observed"}
+            {!isReliable && <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 400, background: "var(--amber-dim)", border: "1px solid rgba(183,121,31,0.2)", padding: "1px 5px", borderRadius: 2 }}>observed only</span>}
           </div>
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            style={{
-              ...SANS,
-              alignSelf: "end",
-              color: "#F7F3EA",
-              background: loading ? "var(--text-muted)" : "#171717",
-              border: "none",
-              borderRadius: 3,
-              padding: "11px 22px",
-              fontSize: 13.5,
-              fontWeight: 650,
-              whiteSpace: "nowrap",
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
-            {loading ? "Sending…" : "Request audit →"}
-          </button>
+          <div style={{ ...MONO, fontSize: 26, fontWeight: 500, color: isReliable ? "var(--green)" : "var(--amber)", letterSpacing: "-0.025em", lineHeight: 1 }}>
+            {fmtMoney(recommendedMonthly)}<span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 300 }}>/mo</span>
+          </div>
+          <div style={{ ...SANS, fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>
+            {getMeta(recommendation.provider).short} · {recommendation.gpu_model} · {fmtP(recommendation.price_per_hour)}/hr
+          </div>
+          {!isReliable && (
+            <div style={{ ...SANS, fontSize: 10.5, color: "var(--amber)", marginTop: 4 }}>
+              No high-availability listings — not a production routing target.
+            </div>
+          )}
+        </div>
+
+        {/* Savings */}
+        <div style={{ padding: "16px 20px", minWidth: 120, textAlign: "center" as const, background: savings && savingsPct && savingsPct >= 10 ? "var(--green-dim)" : "var(--bg)" }}>
+          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 6 }}>Savings</div>
+          {savings ? (
+            <>
+              <div style={{ ...MONO, fontSize: 22, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.02em", lineHeight: 1 }}>{fmtMoney(savings)}</div>
+              <div style={{ ...MONO, fontSize: 12, color: "var(--green)", marginTop: 2 }}>{savingsPct}% less</div>
+              <div style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>per month</div>
+            </>
+          ) : (
+            <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5, marginTop: 4 }}>
+              {currentMonthly ? "Near market floor" : "Needs baseline"}
+            </div>
+          )}
         </div>
       </div>
 
-      <div style={{ borderTop: "1px solid var(--border)" }}>
-        <button
-          onClick={() => setShowManual(open => !open)}
-          style={{
-            ...SANS,
-            width: "100%",
-            background: "transparent",
-            border: "none",
-            color: "var(--text-secondary)",
-            padding: "13px 24px",
-            textAlign: "left",
-            fontSize: 13,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span>Enter manually instead</span>
-          <span style={{ ...MONO, fontSize: 12 }}>{showManual ? "−" : "+"}</span>
-        </button>
-
-        {showManual && (
-          <div style={{ padding: "0 24px 24px" }}>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "1.1fr 0.7fr 0.8fr 1fr",
-              gap: 12,
-              marginBottom: 14,
-            }} className="manual-grid">
-              <div>
-                <label style={labelStyle}>GPU family</label>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {GPU_FAMILIES.map(item => (
-                    <button
-                      key={item}
-                      onClick={() => setFamily(item)}
-                      style={{
-                        ...MONO,
-                        fontSize: 11.5,
-                        padding: "7px 10px",
-                        borderRadius: 3,
-                        border: `1px solid ${family === item ? "var(--blue)" : "var(--border-mid)"}`,
-                        background: family === item ? "var(--blue-dim)" : "var(--panel)",
-                        color: family === item ? "var(--blue)" : "var(--text-secondary)",
-                      }}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label style={labelStyle}>GPUs</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={gpuCount}
-                  onChange={event => setGpuCount(event.target.value)}
-                  onBlur={() => setGpuCount(String(parsePositiveNumber(gpuCount, 1)))}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Hours/mo</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={hours}
-                  onChange={event => setHours(event.target.value)}
-                  onBlur={() => setHours(String(parsePositiveNumber(hours, 720)))}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Current</label>
-                <select
-                  value={situation}
-                  onChange={event => setSituation(event.target.value as Situation)}
-                  style={{ ...inputStyle, appearance: "auto" }}
-                >
-                  {SITUATION_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {manualResult ? (
-              <div style={{
-                background: "var(--bg)",
-                border: "1px solid var(--border)",
-                padding: "14px 16px",
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: 14,
-              }} className="manual-result-grid">
-                <div>
-                  <div style={{ ...SANS, fontSize: 10, fontWeight: 650, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                    Current estimate
-                  </div>
-                  <div style={{ ...MONO, fontSize: 19, color: "var(--text-primary)", marginTop: 5 }}>
-                    {manualResult.currentMonthly ? `${fmtMoney(manualResult.currentMonthly)}/mo` : "No baseline"}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ ...SANS, fontSize: 10, fontWeight: 650, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                    Market option
-                  </div>
-                  <div style={{ ...MONO, fontSize: 19, color: manualResult.isReliable ? "var(--green)" : "var(--amber)", marginTop: 5 }}>
-                    {fmtMoney(manualResult.recommendedMonthly)}/mo
-                  </div>
-                  <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>
-                    {getMeta(manualResult.recommendation.provider).short} · {fmtP(manualResult.recommendation.price_per_hour)}/hr
-                  </div>
-                </div>
-                <div>
-                  <div style={{ ...SANS, fontSize: 10, fontWeight: 650, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                    Potential saving
-                  </div>
-                  <div style={{ ...MONO, fontSize: 19, color: manualResult.savings ? "var(--green)" : "var(--text-muted)", marginTop: 5 }}>
-                    {manualResult.savings ? `${fmtMoney(manualResult.savings)}/mo` : "Needs audit"}
-                  </div>
-                  {manualResult.savingsPct !== null && (
-                    <div style={{ ...SANS, fontSize: 11.5, color: "var(--green)", marginTop: 2 }}>
-                      {manualResult.savingsPct}% lower
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", background: "var(--bg)", border: "1px solid var(--border)", padding: "13px 15px" }}>
-                No {family} listings in the current market snapshot.
-              </div>
-            )}
-          </div>
+      {/* Risk + advice */}
+      <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "auto 1fr", gap: 16, alignItems: "start" }}>
+        <div>
+          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>Availability risk</div>
+          <div style={{ ...MONO, fontSize: 13, fontWeight: 600, color: reliabilityRisk === "Low" ? "var(--green)" : reliabilityRisk === "High" ? "var(--red)" : "var(--amber)" }}>{reliabilityRisk}</div>
+        </div>
+        {advice && (
+          <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 14 }}>{advice}</div>
         )}
       </div>
 
       <style>{`
+        @media (max-width: 700px) { .result-grid { grid-template-columns: 1fr !important; } }
+      `}</style>
+    </div>
+  );
+}
+
+function capacityConfFromListings(ls: GpuListing[]) {
+  if (!ls.length) return 0;
+  return Math.round(ls.filter(l => l.availability === "high").length / ls.length * 100);
+}
+
+export default function AuditTool({ listings }: AuditToolProps) {
+  const [setupText,   setSetupText]   = useState("");
+  const [email,       setEmail]       = useState("");
+  const [showManual,  setShowManual]  = useState(false);
+  const [family,      setFamily]      = useState<GpuFamily>("H100");
+  const [gpuCountStr, setGpuCount]    = useState("8");
+  const [hoursStr,    setHours]       = useState("720");
+  const [situation,   setSituation]   = useState<Situation>("hyperscaler");
+  const [workload,    setWorkload]     = useState<WorkloadType>("evals");
+  const [showCapture, setShowCapture] = useState(false);
+  const [submitted,   setSubmitted]   = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [error,       setError]       = useState("");
+  const [loading,     setLoading]     = useState(false);
+
+  const gpuCount = parseNum(gpuCountStr, 1);
+  const hours    = parseNum(hoursStr, 720);
+
+  // Worked example — computed from live A100 data (most practical market)
+  const workedExample = useMemo(() => {
+    const a100Hyper = listings.filter(l => l.gpu_model.includes("A100") && HYPERSCALERS.includes(l.provider.toLowerCase()) && l.availability === "high")
+      .sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+    const a100Spec  = listings.filter(l => l.gpu_model.includes("A100") && !HYPERSCALERS.includes(l.provider.toLowerCase()) && l.availability === "high")
+      .sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+    if (!a100Hyper || !a100Spec) return null;
+    const baseline = a100Hyper.price_per_hour * 8 * 500;
+    const recommended = a100Spec.price_per_hour * 8 * 500;
+    const saving = baseline - recommended;
+    if (saving <= 0) return null;
+    return { baseline: a100Hyper.price_per_hour, recommended: a100Spec.price_per_hour, savings: saving, provider: getMeta(a100Spec.provider).short };
+  }, [listings]);
+
+  const inputStyle: React.CSSProperties = {
+    ...SANS, width: "100%", background: "var(--panel)", border: "1px solid var(--border-mid)",
+    color: "var(--text-primary)", padding: "10px 12px", fontSize: 13.5, outline: "none", borderRadius: 3,
+  };
+  const labelStyle: React.CSSProperties = {
+    ...SANS, display: "block", fontSize: 10.5, fontWeight: 650, color: "var(--text-muted)",
+    textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6,
+  };
+
+  const handleCapture = async () => {
+    if (!email || !email.includes("@")) { setError("Enter a valid work email."); return; }
+    setError(""); setLoading(true);
+    try {
+      const res = await fetch("/api/audit-request", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email, monthlySpend: "Unknown / audit needed", workload: workload,
+          notes: [setupText.trim(), showManual ? `Manual: ${gpuCountStr}×${family}, ${hoursStr}h/mo, ${situation}` : ""].filter(Boolean).join("\n\n"),
+          source: "cost-audit",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) { setError(json.error ?? "Something went wrong."); setLoading(false); return; }
+      setSubmittedEmail(email); setSubmitted(true);
+    } catch { setError("Network error — try again."); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+
+      {/* ── Worked example ── */}
+      {workedExample && (
+        <div style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderLeft: "3px solid var(--green)", padding: "14px 18px", marginBottom: 20 }}>
+          <div style={{ ...MONO, fontSize: 10, color: "var(--green)", letterSpacing: "0.08em", marginBottom: 6 }}>EXAMPLE</div>
+          <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65 }}>
+            Evals and batch inference on hyperscaler A100s (~{fmtP(workedExample.baseline)}/hr) pay a reliability premium they don't need for interruption-tolerant jobs. Moving those to reliable specialist A100s (~{fmtP(workedExample.recommended)}/hr at {workedExample.provider}) ≈{" "}
+            <strong style={{ color: "var(--green)" }}>{fmtMoney(workedExample.savings)}/mo saved</strong> for 8 GPUs × 500 hrs, while production serving stays put.{" "}
+            <em style={{ color: "var(--text-muted)" }}>Your numbers will differ.</em>
+          </div>
+        </div>
+      )}
+
+      {/* ── Primary input: paste ── */}
+      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", marginBottom: 16 }}>
+        <div style={{ padding: "20px 24px 16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 20, alignItems: "start" }} className="audit-intake-grid">
+            <div>
+              <label style={labelStyle}>Paste your current setup</label>
+              <textarea
+                value={setupText}
+                onChange={e => setSetupText(e.target.value)}
+                placeholder="Example: We run 8×H100 on GCP for batch inference and evals, around 500–700 hours/month. Production serving stays on AWS. We have a quote around $X/hr and want to know what can safely move."
+                rows={6}
+                style={{ ...inputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.55 }}
+              />
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                {["Architecture notes", "Cloud bill summary", "Provider quote", "Plain English is fine"].map(t => (
+                  <span key={t} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "var(--elevated)", border: "1px solid var(--border)", padding: "3px 8px", borderRadius: 3 }}>{t}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "14px 16px" }}>
+              <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>What you get</div>
+              {["Current spend estimate", "Cheapest reliable alternatives", "What to move vs keep", "Availability risk signal", "First recommended action"].map(item => (
+                <div key={item} style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.45, marginBottom: 7 }}>→ {item}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Manual entry expand ── */}
+        <div style={{ borderTop: "1px solid var(--border)" }}>
+          <button onClick={() => setShowManual(o => !o)} style={{
+            ...SANS, width: "100%", background: "transparent", border: "none",
+            color: "var(--text-secondary)", padding: "12px 24px", textAlign: "left",
+            fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <span>Enter details instead</span>
+            <span style={{ ...MONO, fontSize: 12 }}>{showManual ? "−" : "+"}</span>
+          </button>
+
+          {showManual && (
+            <div style={{ padding: "0 24px 20px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 }} className="manual-grid">
+                <div>
+                  <label style={labelStyle}>Workload type</label>
+                  <select value={workload} onChange={e => setWorkload(e.target.value as WorkloadType)} style={{ ...inputStyle, appearance: "auto" }}>
+                    {WORKLOAD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Current setup</label>
+                  <select value={situation} onChange={e => setSituation(e.target.value as Situation)} style={{ ...inputStyle, appearance: "auto" }}>
+                    {SETUP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>GPU family</label>
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                    {(["H100","A100","L40S","A10G","other"] as GpuFamily[]).map(f => (
+                      <button key={f} onClick={() => setFamily(f)} style={{
+                        ...MONO, fontSize: 11, padding: "6px 10px", borderRadius: 3,
+                        border: `1px solid ${family === f ? "var(--blue)" : "var(--border-mid)"}`,
+                        background: family === f ? "var(--blue-dim)" : "var(--panel)",
+                        color: family === f ? "var(--blue)" : "var(--text-secondary)",
+                      }}>{f}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                <div>
+                  <label style={labelStyle}>GPU count</label>
+                  <input type="number" min={1} value={gpuCountStr}
+                    onChange={e => setGpuCount(e.target.value)}
+                    onBlur={() => setGpuCount(String(parseNum(gpuCountStr, 1)))}
+                    style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Hours / month</label>
+                  <input type="number" min={1} max={8760} value={hoursStr}
+                    onChange={e => setHours(e.target.value)}
+                    onBlur={() => setHours(String(parseNum(hoursStr, 720)))}
+                    style={inputStyle} />
+                </div>
+              </div>
+
+              {/* Instant result — no submit needed */}
+              <ResultCard
+                listings={listings}
+                family={family}
+                gpuCount={gpuCount}
+                hours={hours}
+                situation={situation}
+                workload={workload}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Email capture — after result, not before ── */}
+      {!submitted ? (
+        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "18px 24px" }}>
+          {!showCapture ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <button onClick={() => setShowCapture(true)} style={{
+                ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "#171717",
+                padding: "9px 20px", borderRadius: 3, border: "none", cursor: "pointer",
+              }}>
+                Get my compute audit →
+              </button>
+              <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
+                Provider-by-provider breakdown, region options, and what to move first.
+              </span>
+            </div>
+          ) : (
+            <div>
+              <label style={labelStyle}>Work email</label>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
+                <input type="email" placeholder="you@company.com" value={email}
+                  onChange={e => setEmail(e.target.value)} autoFocus
+                  style={{ ...inputStyle, width: "auto", flex: "1 1 240px" }} />
+                <button onClick={handleCapture} disabled={loading} style={{
+                  ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA",
+                  background: loading ? "var(--text-muted)" : "#171717",
+                  padding: "10px 22px", borderRadius: 3, border: "none", cursor: loading ? "not-allowed" : "pointer",
+                }}>
+                  {loading ? "Sending…" : "Get my compute audit"}
+                </button>
+                <button onClick={() => setShowCapture(false)} style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>Cancel</button>
+              </div>
+              {error && <p style={{ ...SANS, fontSize: 12, color: "var(--red)", marginTop: 8 }}>{error}</p>}
+              <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.05em", marginTop: 10 }}>ANALYST-REVIEWED · WITHIN ONE BUSINESS DAY</div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "24px", textAlign: "center" }}>
+          <div style={{ fontSize: 24, color: "var(--green)", marginBottom: 10 }}>✓</div>
+          <div style={{ ...SERIF, fontSize: 20, fontWeight: 400, color: "var(--text-primary)", marginBottom: 8 }}>On its way.</div>
+          <div style={{ ...SANS, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
+            We'll email the full provider-by-provider breakdown to <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong> within one business day.
+          </div>
+          <div style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", marginTop: 12 }}>
+            Want this routed automatically once you've moved?{" "}
+            <a href="/load-balancer" style={{ color: "var(--blue)" }}>Join the routing beta →</a>
+          </div>
+        </div>
+      )}
+
+      <style>{`
         @media (max-width: 760px) {
-          .audit-intake-grid,
-          .audit-submit-grid,
-          .manual-grid,
-          .manual-result-grid {
-            grid-template-columns: 1fr !important;
-          }
+          .audit-intake-grid, .manual-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

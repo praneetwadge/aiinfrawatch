@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { computeMarketSummary } from "@/lib/db/queries";
 
-export const revalidate = 300;
+export const revalidate = 86400;
 
 export async function GET(_request: NextRequest) {
   try {

@@ -23,10 +23,10 @@ const Logo = () => (
 export default function SiteNav() {
   const path = usePathname();
 
+  // Load Balancer removed from primary nav — accessible via footer + post-audit CTA
   const navLinks = [
-    { href: "/",              label: "Market Data" },
-    { href: "/cost-audit",   label: "Cost Audit" },
-    { href: "/load-balancer", label: "Load Balancer" },
+    { href: "/",            label: "Market Index" },
+    { href: "/cost-audit",  label: "Cost Audit" },
   ];
 
   const isActive = (href: string) => href === "/" ? path === "/" : path.startsWith(href);
@@ -46,18 +46,14 @@ export default function SiteNav() {
                 padding: "5px 12px", borderRadius: 4,
                 background: isActive(href) ? "var(--elevated)" : "transparent",
                 textDecoration: "none",
-                transition: "background 0.1s",
               }}>{label}</Link>
             ))}
           </nav>
         </div>
 
-        {/* Right: live indicator + primary CTA */}
+        {/* Right: freshness indicator + primary CTA */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--green)", display: "inline-block", animation: "pulse-live 2.5s ease-in-out infinite" }} />
-            <span style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.04em" }}>LIVE INDEX</span>
-          </div>
+          <span style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.06em" }}>UPDATED DAILY</span>
           <div style={{ width: 1, height: 16, background: "var(--border)" }} />
           <Link href="/cost-audit" style={{
             ...SANS, fontSize: 12.5, fontWeight: 600,

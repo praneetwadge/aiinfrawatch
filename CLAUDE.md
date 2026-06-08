@@ -80,18 +80,20 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 
 ## Homepage section order (locked)
 
-1. `MarketTicker` — 30px dark ticker, shared component across all routes, live price signals
-2. `SiteNav` — sticky nav, "Run a cost audit" CTA always visible
-3. `MarketHero` — light panel hero: eyebrow + H1 + subline + 3-stat strip (H100 price, hyperscaler premium, capacity confidence) + 2 CTAs only
-4. `#market-data` anchor
-5. `The Market` — consolidated section: inline supply-concentration signal sentence + 3 IndexTiles (H100 reliable, A100 floor, capacity confidence) + H100SpreadChart + GpuSmallMultiples
-6. `Provider Explorer` — sortable table, best-data tab default (H100 > A100 > All)
-7. `Methodology` — 3-column text block
-8. `Footer`
+1. `MarketTicker` — 30px dark ticker, shared component across all routes, DC GPU prices + capacity
+2. `SiteNav` — sticky nav, 2 links (Market Index / Cost Audit) + "Run a cost audit" CTA. Load Balancer removed from primary nav (footer + post-audit only)
+3. `MarketHero` — light panel: eyebrow (UPDATED DAILY) + H1 ("Your AI compute bill is probably priced wrong.") + subheadline + support line + 3-stat strip + 2 CTAs ("Run a cost audit →" / "View live market ↓")
+4. `Pain cards` — 3 cards, no headings, body font. Decision friction, not features
+5. `What buyers should do today` — 4 signal paragraphs, insight + implication, bound to live data
+6. `#market-data` anchor → Market index: 3 IndexTiles + H100SpreadChart + GpuSmallMultiples (chart header: "The cheapest price and the cheapest safe price are not the same.")
+7. `Provider Explorer` — sortable table + decision presets (7 quick filters)
+8. `Load Balancer teaser` — short block linking to /load-balancer, framed as future automation
+9. `Methodology` — 3-column: what we track · observed vs reliable definitions · freshness (daily)
+10. `Footer` — provider count · Load Balancer beta link · API/llms.txt/OpenAPI links · last updated
 
-**Removed from homepage:** `FunnelBanner`, `MarketBrief`, `WhatWeKnow`, `CostDesk`, `Market Signals` (cards), `PriceByFamily`, standalone `SectionHead` headers. Audit math lives in `AuditTool.tsx`. Signal is inline in The Market section.
+**Removed from homepage:** `FunnelBanner`, `MarketBrief`, `WhatWeKnow`, `CostDesk`, `Market Signals` cards, `PriceByFamily`, `SectionHead`. Signal content is inline in sections 5 and 6. Audit math lives in `AuditTool.tsx`.
 
-**Premium tile removed** — hyperscaler premium stat appears only in MarketHero. No duplicate.
+**Freshness language**: "Updated daily" everywhere. No "live", "just now", or "5-minute" claims. Cron is daily (Hobby max).
 
 ---
 
@@ -264,9 +266,11 @@ RLS: disabled on all tables — known, not yet remediated.
 |---------|---------|
 | SiteNav | "Run a cost audit" |
 | MarketHero primary | "Run a cost audit →" |
-| MarketHero secondary | "Explore the index ↓" |
-| AuditTool email capture | "Email me the full breakdown →" |
-| DemandForm (load-balancer) | "Join the beta" |
+| MarketHero secondary | "View live market ↓" |
+| AuditTool email capture | "Get my compute audit →" |
+| DemandForm (cost-audit) | "Get my compute audit" |
+| DemandForm (load-balancer) | "Request beta access" |
+| Load Balancer beta teaser (homepage) | "Learn about routing beta →" |
 
 ---
 
