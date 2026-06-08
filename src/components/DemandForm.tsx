@@ -108,9 +108,10 @@ export default function DemandForm({
           Request received.
         </h3>
         <p style={{ ...SANS, fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.65, maxWidth: 400, margin: "0 auto" }}>
-          We review each request manually. If your spend profile fits, we'll reply to{" "}
-          <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong>{" "}
-          within 1–2 business days with next steps.
+          {source === "cost-audit"
+            ? <>We'll email the full provider-by-provider breakdown to <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong>.</>
+            : <>We review beta requests manually. If your workload fits, we'll reply to <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong> within 1–2 business days.</>
+          }
         </p>
         <div style={{ marginTop: 20, ...MONO, fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.06em" }}>
           {source === "cost-audit" ? "COST AUDIT EARLY ACCESS" : "LOAD BALANCER BETA"}
@@ -220,7 +221,7 @@ export default function DemandForm({
       <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
         <p style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>
           {source === "cost-audit"
-            ? "Early access · Manual audit · Response within 1–2 business days for qualified teams."
+            ? "Provider-by-provider breakdown, region options, spot vs. reserved, contract notes — analyst-reviewed."
             : "Beta · Architecture review included · We prioritise teams with $50k+ monthly compute spend."}
         </p>
       </div>

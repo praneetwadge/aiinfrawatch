@@ -66,7 +66,7 @@ export default function SiteNav() {
             textDecoration: "none", letterSpacing: "0.01em",
             whiteSpace: "nowrap" as const,
           }}>
-            Request cost audit
+            Run a cost audit
           </Link>
         </div>
       </div>

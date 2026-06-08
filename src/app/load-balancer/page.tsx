@@ -33,16 +33,6 @@ const USE_CASES = [
     desc: "When your primary provider is at capacity, automatically spill over to a secondary. No manual intervention required.",
     badge: "Risk reduction",
   },
-  {
-    title: "Multi-provider API routing",
-    desc: "Route inference API calls across OpenAI, Anthropic, and self-hosted endpoints by cost, latency, and reliability — at the token level.",
-    badge: "In scope",
-  },
-  {
-    title: "Regional routing",
-    desc: "Route by region based on data residency requirements, latency targets, and per-region spot pricing.",
-    badge: "In scope",
-  },
 ];
 
 const HOW_IT_WORKS = [
@@ -76,10 +66,10 @@ export default function LoadBalancerPage() {
             }}>EARLY CONCEPT</span>
           </div>
           <h1 style={{ ...SERIF, fontSize: 46, fontWeight: 400, lineHeight: 1.1, color: "var(--text-primary)", marginBottom: 20 }}>
-            Route AI workloads by cost,<br />capacity, and reliability.
+            Route AI workloads to the cheapest<br />reliable provider — automatically.
           </h1>
-          <p style={{ ...SANS, fontSize: 16, color: "var(--text-secondary)", lineHeight: 1.75, maxWidth: 600, marginBottom: 24 }}>
-            Compare providers and route jobs across APIs, GPU clouds, and regions based on price, availability, latency, and interruption risk — automatically, in real time.
+          <p style={{ ...SANS, fontSize: 16, color: "var(--text-secondary)", lineHeight: 1.75, maxWidth: 560, marginBottom: 24 }}>
+            Dispatch and reroute jobs across GPU clouds, APIs, and regions based on live price, capacity, and interruption risk.
           </p>
 
           {/* Signal strip */}
@@ -162,7 +152,7 @@ export default function LoadBalancerPage() {
         <div style={{ marginTop: 40, padding: "20px 22px", background: "var(--elevated)", border: "1px solid var(--border)", borderLeft: "2px solid var(--blue)" }}>
           <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.08em", marginBottom: 6 }}>WHERE THIS IS RIGHT NOW</div>
           <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-            The load balancer is a concept being validated with real teams. The market intelligence side (this site) is live. The routing layer is not yet built. If you join the beta, you'll get architecture conversations and early access when we launch. We're building the right thing with the right early customers — not shipping prematurely.
+            The routing layer is not yet built — this page captures demand from teams with real routing problems. If you join the beta, you'll get architecture conversations and early access when we launch.
           </p>
         </div>
       </div>

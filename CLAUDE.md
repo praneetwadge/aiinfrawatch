@@ -1,6 +1,6 @@
 # AIInfraWatch
 
-AI compute cost intelligence platform — public market index + enterprise cost audit + load balancer (beta).
+AI compute cost intelligence platform — public market index + self-serve instant audit + load balancer (beta).
 
 **Stack**: Next.js 14 · TypeScript · Supabase · Vercel Hobby  
 **Live**: https://aiinfrawatch.vercel.app  
@@ -26,8 +26,8 @@ next.config.js  → typescript.ignoreBuildErrors: true   (keep)
                 → eslint.ignoreDuringBuilds: true       (keep)
 src/lib/**      → // @ts-nocheck on every file          (keep)
 vercel.json     → "0 0 * * *" cron schedule             (Hobby max — never increase)
-queries.ts      → 25hr query window                     (never change)
-page.tsx        → getLatestGpuListings({ limit: 2000 }) (never lower — H100 data lives above rank 500)
+queries.ts      → 25hr window on fetched_at             (never change)
+page.tsx        → getLatestGpuListings({ limit: 2000 }) (never lower — H100 lives above rank 500)
 src/**          → no puppeteer, no dotenv               (banned)
 ```
 
@@ -40,10 +40,10 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 | Route | Purpose | Status |
 |-------|---------|--------|
 | `/` | Public market index — trust/traffic hook | Live |
-| `/cost-audit` | Enterprise cost audit — paid wedge, demand test | Early access |
+| `/cost-audit` | Self-serve instant audit — cheapest reliable deployment + savings from live data | Live |
 | `/load-balancer` | Multi-provider job routing — future automation | Beta concept |
 
-**North star**: Optimise for teams asking "Am I overpaying for AI compute, and what should I do next?" — not GPU-price browsers.
+**North star**: Optimise for teams asking "Am I overpaying for AI compute, and what should I do next?"
 
 ---
 
@@ -52,16 +52,18 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 | Path | Purpose |
 |------|---------|
 | `src/app/page.tsx` | Server component — fetches DB, passes props to DashboardClient |
-| `src/app/cost-audit/page.tsx` | Cost audit landing + demand form ("use client") |
+| `src/app/cost-audit/page.tsx` | Server component — fetches listings, renders `<AuditTool />` |
 | `src/app/load-balancer/page.tsx` | Load balancer beta landing + demand form ("use client") |
 | `src/app/layout.tsx` | Google Fonts preconnect, shared metadata |
 | `src/app/globals.css` | CSS variables, keyframes — light editorial theme |
-| `src/components/DashboardClient.tsx` | Full market UI (~1300 lines, "use client") |
-| `src/components/SiteNav.tsx` | Sticky nav shared across all pages (logo, 3 links, CTA) |
-| `src/components/DemandForm.tsx` | Demand form — POSTs to `/api/audit-request`, success state names submitted email |
+| `src/components/DashboardClient.tsx` | Full market UI (~1480 lines, "use client") |
+| `src/components/AuditTool.tsx` | Self-serve instant audit — GPU family + count + hours → cheapest reliable + savings |
+| `src/components/SiteNav.tsx` | Sticky nav shared across all pages (logo, 3 links, "Run a cost audit" CTA) |
+| `src/components/DemandForm.tsx` | Optional post-result email capture — POSTs to `/api/audit-request` |
 | `src/app/api/audit-request/route.ts` | POST handler — zod validation → supabaseAdmin insert → `audit_requests` |
-| `src/lib/db/queries.ts` | DB queries — 25hr window, limit 2000 |
+| `src/lib/db/queries.ts` | DB queries — 25hr window, limit 2000, dual-priority DC fetch |
 | `src/lib/db/supabase.ts` | Supabase clients (`supabase` anon, `supabaseAdmin` service-role) |
+| `src/lib/market-helpers.ts` | Shared: GpuListing type, PROVIDER_META, HYPERSCALERS, getMeta, fmtP, fmtMoney, minsAgo |
 | `src/lib/scrapers/{slug}.ts` | One scraper per provider |
 | `src/app/api/scrape/{slug}/route.ts` | Individual scraper endpoints |
 | `src/app/api/cron/route.ts` | Master cron (runs subset of scrapers) |
@@ -78,26 +80,25 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 
 ## Homepage section order (locked)
 
-1. `MarketRibbon` — 30px dark ticker, decision metrics only (no vanity counts)
-2. `SiteNav` — sticky nav, links to all 3 routes, "Request cost audit" CTA always visible
-3. `FunnelBanner` — dark (#171717) panel, above-the-fold product hook
+1. `MarketRibbon` — 30px dark ticker, decision metrics, "N of 16 tracked · N listings"
+2. `SiteNav` — sticky nav, "Run a cost audit" CTA always visible
+3. `MarketHero` — light panel hero: eyebrow + H1 + one subline + 3-stat strip (H100 price · hyperscaler premium · capacity confidence) + exactly 2 CTAs ("Run a cost audit →" / "Explore the index ↓")
 4. `#market-data` anchor
-5. `MarketBrief` — editorial hero + Today's Brief card (5 buyer-signal metrics)
-6. `WhatWeKnow` — 3-column strip: supply leader, where prices are lower, H100 coverage status
-7. `CostDesk` — amber-accented, first section in body (before index tiles)
-8. `Market Index` — 5 promoted tiles (cheapest any GPU, cheapest reliable H100, hyperscaler premium, capacity confidence, A100 avg)
-9. `Price Analysis` — H100SpreadChart + GpuSmallMultiples + PriceByFamily bar chart
-10. `Market Signals` — auto-generated signal cards
-11. `Provider Explorer` — sortable table, best-data tab default, DC-GPU filter toggle, concentration chip
-12. `Methodology` — demoted 3-column text block
-13. `Footer` — API / llms.txt / OpenAPI links, freshness timestamp
+5. `Market Index` — 5 promoted tiles
+6. `Price Analysis` — H100SpreadChart + GpuSmallMultiples + PriceByFamily
+7. `Market Signals` — auto-generated signal cards
+8. `Provider Explorer` — sortable table, best-data tab default (H100 > A100 > All)
+9. `Methodology` — 3-column text block
+10. `Footer` — API / llms.txt / OpenAPI links, freshness timestamp
+
+**Removed from homepage:** `FunnelBanner`, `MarketBrief`, `WhatWeKnow`, `CostDesk`. Definitions remain in `DashboardClient.tsx` but do not render. Audit math lives in `AuditTool.tsx`.
 
 ---
 
 ## Design system — light editorial
 
 **Light mode only. Never dark backgrounds in content area.**  
-`#171717` is reserved for MarketRibbon, FunnelBanner, and SiteNav CTA button only.
+`#171717` is reserved for MarketRibbon, SiteNav CTA button, and the MarketHero "Run a cost audit" button only.
 
 ### CSS variables (`globals.css`)
 
@@ -112,7 +113,7 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 --text-muted:     #858B94;
 --blue:           #1E5EFF;   /* neocloud / primary action / load balancer */
 --green:          #087F5B;   /* cheapest / high availability / savings */
---amber:          #B7791F;   /* hyperscaler / cost desk / warnings */
+--amber:          #B7791F;   /* hyperscaler / warnings */
 --red:            #B42318;
 --violet:         #6741D9;   /* marketplace / spread */
 /* -dim variants: rgba at 0.08 opacity for backgrounds */
@@ -122,14 +123,14 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 
 ```
 --font-serif: 'Playfair Display', 'Source Serif 4', Georgia, serif  → hero headings only
---font-body:  'Source Serif 4', Georgia, serif                       → body copy, MarketBrief
+--font-body:  'Source Serif 4', Georgia, serif                       → body copy
 --font-mono:  'DM Mono', 'Fira Code', monospace                      → prices, tickers, badges
 --font-sans:  system-ui, -apple-system, sans-serif                   → ALL functional UI
 ```
 
-**Rule**: `SERIF`/`BODY` for editorial headlines and hero copy only. `SANS` for every label, table cell, chart axis, badge, button, and form field. `MONO` for prices, timestamps, and tickers.
+**Rule**: SERIF/BODY for editorial headlines only. SANS for every label, table cell, button, form field. MONO for prices, timestamps, tickers.
 
-### Inline style constants (used in all components)
+### Inline style constants
 
 ```typescript
 const MONO:  React.CSSProperties = { fontFamily: "var(--font-mono)" };
@@ -143,10 +144,10 @@ const BODY:  React.CSSProperties = { fontFamily: "var(--font-body)" };
 | Color | Meaning |
 |-------|---------|
 | green | Cheapest price, high availability, savings, reliable |
-| amber | Hyperscaler premium, Cost Desk accent, warnings, pending |
+| amber | Hyperscaler premium, warnings |
 | blue | Neocloud, primary action, Load Balancer accent, selected state |
 | violet | Marketplace, spread metrics |
-| `#171717` | FunnelBanner, MarketRibbon, SiteNav CTA — never content area |
+| `#171717` | MarketRibbon, SiteNav CTA, MarketHero primary CTA — never content area |
 
 ---
 
@@ -158,11 +159,11 @@ All computation is **client-side** from a flat `listings: GpuListing[]` array pa
 
 - `activeProviders` — `new Set(listings.map(l => l.provider)).size` — single source of truth for all provider counts
 - `totalListings` — `listings.length` — single source of truth for all listing counts
-- `TOTAL_TRACKED = 16` — constant, used for "N of 16 tracked" label when activeProviders < 16
-- `DATA_CAVEAT` — shared caveat string used in WhatWeKnow, Methodology, and empty states
+- `TOTAL_TRACKED = 16` — constant, used for "N of 16 tracked" label
+- `DATA_CAVEAT` — shared caveat string used in Methodology and empty states
 - `cheapestH100High` — cheapest H100 with `availability === "high"`, falls back to observed
 - `a100OnDemandReliable` — fallback when A100 spot data is absent
-- `premiumPct` — H100 hyperscaler vs specialist premium; falls back to `a100PremiumPct` if absent
+- `premiumPct` — H100 hyperscaler vs specialist premium; falls back to `a100PremiumPct`
 - `capacityConf` — `% of listings with availability === "high"`
 - `fmtP(n)` — price formatter: `$X.XX` for n < 10, `$N` for larger (fixes "$0" axis bug)
 
@@ -172,10 +173,7 @@ All computation is **client-side** from a flat `listings: GpuListing[]` array pa
 |-----------|---------|
 | `MarketRibbon` | Scrolling dark ticker — leads with reliable price, shows "N of 16 providers" |
 | `SiteNav` | Sticky shared nav — imported from `@/components/SiteNav` |
-| `FunnelBanner` | Dark above-fold hook — "Public prices show the market. A cost audit shows your decision." |
-| `MarketBrief` | Editorial hero + Today's Brief card (5 buyer signals with ConfidenceBadge) |
-| `WhatWeKnow` | 3-column market facts strip (supply leader, pricing, H100 coverage) |
-| `CostDesk` | Amber-accented estimator + "Request cost audit" CTA |
+| `MarketHero` | Light above-fold hero — eyebrow, H1, subline, 3-stat strip, 2 CTAs only |
 | `IndexTile` | 5 promoted metric tiles — never show "—", always fallback to best available data |
 | `H100SpreadChart` | Custom bar chart — provider spread, hyperscaler multiple |
 | `GpuSmallMultiples` | 2×2 GPU family cards with reliable-from price |
@@ -184,6 +182,7 @@ All computation is **client-side** from a flat `listings: GpuListing[]` array pa
 | `ProviderExplorer` | Sortable table — default tab = first family with data (H100 > A100 > All) |
 | `ConfidenceBadge` | Inline trust signals: `high-avail` / `observed` / `partial` / `pending` / `reliable` |
 | `FreshnessBadge` | Colour-coded age of listing (green < 2h, amber < 12h, red > 12h) |
+| `AuditTool` | Self-serve instant audit on `/cost-audit` — GPU family + count + hours → cheapest reliable + savings + optional email capture |
 
 ### DC GPU filter (`isDcGpu`)
 
@@ -205,16 +204,33 @@ Never auto-lands on an empty table.
 
 ---
 
+## AuditTool
+
+`src/components/AuditTool.tsx` — client component, receives `listings: GpuListing[]` from the `/cost-audit` server page.
+
+**Inputs:** GPU family chips (H100/A100/L40S/A10G) · GPU count · Hours/month · Current situation (hyperscaler / neocloud / marketplace / unsure).
+
+**Computation (instantaneous, no submit):**
+- `cheapestReliable` = cheapest with `availability === "high"` for family; falls back to cheapest observed
+- `baseline` = cheapest in the user's current situation category (hyperscaler assumed for "unsure")
+- `savings` = `(baseline - cheapestReliable) * hours * gpuCount` per month
+- Credibility guard: if no reliable listing, labels result "cheapest observed — not reliability-verified" in amber; if no listings at all, shows honest empty state
+
+**Output:** current cost vs cheapest reliable + savings card + one-sentence advice + optional "Email me the full breakdown" capture (no submit gate before result).
+
+**Email capture** POSTs to `/api/audit-request` with `source: "cost-audit"` and prefilled spend/workload from tool inputs.
+
+---
+
 ## DemandForm
 
-`src/components/DemandForm.tsx` — shared across `/cost-audit` and `/load-balancer`.
+`src/components/DemandForm.tsx` — optional post-result capture on `/cost-audit`; primary form on `/load-balancer`.
 
 - **Wired to backend** — POSTs to `/api/audit-request`, stores in `audit_requests` table
 - Fields: work email · monthly AI infra spend (dropdown) · current stack (dropdown) · workload type (chip select) · notes (optional)
 - Props: `source: "cost-audit" | "load-balancer"`, `ctaLabel`, `accent`
-- Default `ctaLabel`: `"Request cost audit"` for cost-audit, `"Join the beta"` for load-balancer
-- On success: shows confirmation naming the submitted email address
-- On failure: shows retry error message with specific reason
+- On `/cost-audit`: success copy = "We'll email the full breakdown to {email}"
+- On `/load-balancer`: success copy = "We'll reply to {email} within 1–2 business days"
 
 ## API: `/api/audit-request`
 
@@ -244,10 +260,10 @@ RLS: disabled on all tables — known, not yet remediated.
 
 | Surface | CTA text |
 |---------|---------|
-| SiteNav | "Request cost audit" |
-| FunnelBanner | "Request cost audit →" |
-| CostDesk | "Request cost audit" |
-| DemandForm (cost-audit) | "Request cost audit" |
+| SiteNav | "Run a cost audit" |
+| MarketHero primary | "Run a cost audit →" |
+| MarketHero secondary | "Explore the index ↓" |
+| AuditTool email capture | "Email me the full breakdown →" |
 | DemandForm (load-balancer) | "Join the beta" |
 
 ---

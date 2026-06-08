@@ -239,7 +239,128 @@ function MarketRibbon({ listings, summary, activeProviders, totalListings }: {
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
-// ── Funnel Banner (above the fold — paid product hook) ────────────────────────
+// ── Market Hero ───────────────────────────────────────────────────────────────
+
+interface MarketHeroProps {
+  listings: GpuListing[];
+  summary: MarketSummary | null;
+  activeProviders: number;
+  cheapestH100High: GpuListing | undefined;
+  h100Prices: number[];
+  premiumPct: number | null;
+  a100PremiumPct: number | null;
+  capacityConf: number;
+}
+
+function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100Prices, premiumPct, a100PremiumPct, capacityConf }: MarketHeroProps) {
+  const effectivePremium = premiumPct ?? a100PremiumPct;
+
+  // H100 stat
+  const h100Value = cheapestH100High
+    ? fmtP(cheapestH100High.price_per_hour)
+    : h100Prices.length ? fmtP(h100Prices[0])
+    : null;
+  const h100Sub = cheapestH100High
+    ? `${getMeta(cheapestH100High.provider).short} · high avail.`
+    : h100Prices.length ? "Observed only"
+    : null;
+  const h100Color = cheapestH100High ? "var(--green)" : "var(--amber)";
+
+  return (
+    <div style={{ background: "var(--panel)", borderBottom: "2px solid var(--border)" }}>
+      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "44px 32px 36px" }}>
+        {/* Eyebrow */}
+        <p style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 16 }}>
+          LIVE · {activeProviders} of {TOTAL_TRACKED} providers · updated {minsAgo(summary?.last_updated)}
+        </p>
+
+        <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 52, alignItems: "center" }}>
+          {/* Left: headline + CTAs */}
+          <div>
+            <h1 style={{ ...SERIF, fontSize: 40, fontWeight: 400, lineHeight: 1.12, color: "var(--text-primary)", marginBottom: 14 }}>
+              What you should actually pay<br />for AI compute.
+            </h1>
+            <p style={{ ...BODY, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 520, marginBottom: 24 }}>
+              Live GPU prices across {TOTAL_TRACKED} cloud providers — and the cheapest reliable place to run your workload.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <Link href="/cost-audit" style={{
+                ...SANS, fontSize: 13.5, fontWeight: 600,
+                color: "#F7F3EA", background: "#171717",
+                padding: "11px 22px", borderRadius: 3, textDecoration: "none",
+                letterSpacing: "0.01em", whiteSpace: "nowrap" as const,
+              }}>
+                Run a cost audit →
+              </Link>
+              <a href="#market-data" style={{
+                ...SANS, fontSize: 13, color: "var(--text-secondary)",
+                padding: "11px 20px", borderRadius: 3, textDecoration: "none",
+                border: "1px solid var(--border-mid)", whiteSpace: "nowrap" as const,
+              }}>
+                Explore the index ↓
+              </a>
+            </div>
+          </div>
+
+          {/* Right: 3-stat strip */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 1, border: "1px solid var(--border)", background: "var(--border)" }}>
+            {/* Stat 1: Cheapest reliable H100 */}
+            <div style={{ background: "var(--bg)", padding: "14px 18px" }}>
+              <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
+                {cheapestH100High ? "Cheapest reliable H100" : h100Prices.length ? "Cheapest observed H100" : "H100"}
+              </div>
+              {h100Value ? (
+                <>
+                  <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: h100Color, letterSpacing: "-0.02em", lineHeight: 1 }}>
+                    {h100Value}<span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 300 }}>/hr</span>
+                  </div>
+                  {h100Sub && <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>{h100Sub}</div>}
+                </>
+              ) : (
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Not in current snapshot</div>
+              )}
+            </div>
+
+            {/* Stat 2: Hyperscaler premium */}
+            <div style={{ background: "var(--bg)", padding: "14px 18px" }}>
+              <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
+                {premiumPct !== null ? "Hyperscaler premium (H100)" : "Hyperscaler premium (A100)"}
+              </div>
+              {effectivePremium !== null ? (
+                <>
+                  <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>
+                    +{effectivePremium.toFixed(0)}%
+                  </div>
+                  <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>vs. specialist clouds</div>
+                </>
+              ) : (
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Insufficient data</div>
+              )}
+            </div>
+
+            {/* Stat 3: Capacity confidence */}
+            <div style={{ background: "var(--bg)", padding: "14px 18px" }}>
+              <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
+                Capacity confidence
+              </div>
+              <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: capacityConf >= 60 ? "var(--green)" : "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>
+                {capacityConf}%
+              </div>
+              <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
+                of {listings.length.toLocaleString()} listings high-avail.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Deleted: FunnelBanner, MarketBrief, WhatWeKnow, CostDesk
+// Their audit math lives in AuditTool.tsx; hero stats are in MarketHero above.
+
+// ── [PLACEHOLDER — keeps compiler happy, immediately below is the next real component]
 
 function FunnelBanner({ listings }: { listings: GpuListing[] }) {
   const cheapestHigh = listings.filter(l => l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
@@ -1218,11 +1339,9 @@ export default function DashboardClient({ summary, listings }: Props) {
         select option { background: #fff; color: #171717; }
         input::placeholder { color: var(--text-muted); }
         @media (max-width: 900px) {
-          .brief-grid  { grid-template-columns: 1fr !important; gap: 28px !important; }
+          .hero-grid   { grid-template-columns: 1fr !important; gap: 28px !important; }
           .charts-grid { grid-template-columns: 1fr !important; }
           .tiles-grid  { grid-template-columns: repeat(2, 1fr) !important; }
-          .facts-grid  { grid-template-columns: 1fr !important; gap: 20px !important; }
-          .funnel-grid { grid-template-columns: 1fr !important; gap: 28px !important; }
         }
         @media (max-width: 540px) {
           .tiles-grid { grid-template-columns: 1fr !important; }
@@ -1231,19 +1350,18 @@ export default function DashboardClient({ summary, listings }: Props) {
 
       <MarketRibbon listings={listings} summary={summary} activeProviders={activeProviders} totalListings={totalListings} />
       <SiteNav />
-      <FunnelBanner listings={listings} />
+      <MarketHero
+        listings={listings}
+        summary={summary}
+        activeProviders={activeProviders}
+        cheapestH100High={cheapestH100High}
+        h100Prices={h100Prices}
+        premiumPct={premiumPct}
+        a100PremiumPct={a100PremiumPct}
+        capacityConf={capacityConf}
+      />
       <div id="market-data">
-      <MarketBrief listings={listings} summary={summary} activeProviders={activeProviders} />
-      <WhatWeKnow listings={listings} />
-
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "40px 32px 80px" }}>
-
-        {/* ── Cost Desk (high placement) ── */}
-        <div style={{ marginBottom: 44 }}>
-          <CostDesk listings={listings} />
-        </div>
-
-        {/* ── Market Index ── */}
         <div style={{ marginBottom: 44 }}>
           <SectionHead title="Market Index" sub="Decision-relevant benchmarks — credibility-guarded" />
           <div className="tiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
