@@ -1,5 +1,5 @@
 import React from "react";
-import { getLatestGpuListings } from "@/lib/db/queries";
+import { computeMarketSummary, getLatestGpuListings } from "@/lib/db/queries";
 import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
 import AuditTool from "@/components/AuditTool";
@@ -11,92 +11,69 @@ const SANS: React.CSSProperties = { fontFamily: "var(--font-sans)" };
 const SERIF: React.CSSProperties = { fontFamily: "var(--font-serif)" };
 const MONO: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 
-const OUTCOMES = [
-  "Estimated current monthly spend",
-  "Cheapest reliable alternative",
-  "Savings range and migration risk",
-  "Provider options by workload type",
-];
-
 export default async function CostAuditPage() {
-  let listings: GpuListing[] = [];
-  try {
-    listings = await getLatestGpuListings({ limit: 2000 }) as GpuListing[];
-  } catch {
-    // Render intake with empty listings — AuditTool handles the empty state gracefully.
-  }
+  const [listingsResult, summaryResult] = await Promise.allSettled([
+    getLatestGpuListings({ limit: 2000 }),
+    computeMarketSummary(),
+  ]);
+
+  const listings: GpuListing[] =
+    listingsResult.status === "fulfilled" ? listingsResult.value as GpuListing[] : [];
+  const summary = summaryResult.status === "fulfilled" ? summaryResult.value : null;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+      <MarketTicker listings={listings} summary={summary} />
       <SiteNav />
-      <MarketTicker listings={listings} />
 
-      <div style={{ background: "var(--panel)", borderBottom: "2px solid var(--border)" }}>
-        <div style={{ maxWidth: 960, margin: "0 auto", padding: "54px 32px 44px" }}>
-          <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 16 }}>
-            Cost Audit
+      <main>
+        <section style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ maxWidth: 920, margin: "0 auto", padding: "44px 32px 30px" }}>
+            <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 14 }}>
+              Cost Audit
+            </div>
+            <h1 style={{ ...SERIF, fontSize: 44, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 14 }}>
+              Find out if your AI infrastructure is overpriced.
+            </h1>
+            <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 620 }}>
+              Paste what you have — a bill summary, architecture notes, provider quote, or plain-English setup.
+              AIInfraWatch turns live market prices into a workload-specific savings read.
+            </p>
           </div>
-          <h1 style={{ ...SERIF, fontSize: 44, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 16 }}>
-            Find out if your AI infrastructure is overpriced.
-          </h1>
-          <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.72, maxWidth: 620 }}>
-            Paste your current setup, bill summary, or architecture notes. Public prices show the market; the audit turns that market into your workload decision.
+        </section>
+
+        <section style={{ maxWidth: 920, margin: "0 auto", padding: "28px 32px 72px" }}>
+          <AuditTool listings={listings} />
+
+          <div style={{
+            marginTop: 18,
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 12,
+          }} className="audit-value-grid">
+            {[
+              ["01", "Current spend", "Estimate whether your setup is above market for the workload."],
+              ["02", "Better options", "Compare reliable alternatives by provider, region, and GPU family."],
+              ["03", "Next action", "Separate what can move now from what should stay production-stable."],
+            ].map(([step, title, body]) => (
+              <div key={title} style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "16px 18px" }}>
+                <div style={{ ...MONO, fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>{step}</div>
+                <div style={{ ...SANS, fontSize: 13, fontWeight: 650, color: "var(--text-primary)", marginBottom: 5 }}>{title}</div>
+                <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.55 }}>{body}</div>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.65, marginTop: 18, maxWidth: 720 }}>
+            Public prices are indicative. The useful answer depends on workload shape, reliability needs,
+            utilization, contract terms, and whether jobs can run asynchronously.
           </p>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "36px 32px 84px" }}>
-        <div className="audit-value-grid" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start", marginBottom: 28 }}>
-          <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "22px 24px", boxShadow: "var(--shadow-sm)" }}>
-            <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>
-              What you get back
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }} className="audit-outcome-grid">
-              {OUTCOMES.map(item => (
-                <div key={item} style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.55, padding: "10px 12px", background: "var(--elevated)", border: "1px solid var(--border)" }}>
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ background: "#171717", color: "#F7F3EA", border: "1px solid rgba(247,243,234,0.08)", padding: "20px 22px", boxShadow: "var(--shadow-sm)" }}>
-            <div style={{ ...MONO, fontSize: 9.5, color: "rgba(247,243,234,0.44)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12 }}>
-              Example audit result
-            </div>
-            <div style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.58)", marginBottom: 12 }}>
-              8×H100 mixed batch/eval workload
-            </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              <div>
-                <div style={{ ...MONO, fontSize: 10, color: "rgba(247,243,234,0.4)", marginBottom: 3 }}>CURRENT EST.</div>
-                <div style={{ ...MONO, fontSize: 22, color: "#F7F3EA" }}>$214k<span style={{ fontSize: 11, color: "rgba(247,243,234,0.4)" }}>/mo</span></div>
-              </div>
-              <div>
-                <div style={{ ...MONO, fontSize: 10, color: "rgba(247,243,234,0.4)", marginBottom: 3 }}>OPTIMIZED RELIABLE</div>
-                <div style={{ ...MONO, fontSize: 22, color: "var(--green)" }}>$128k<span style={{ fontSize: 11, color: "rgba(247,243,234,0.4)" }}>/mo</span></div>
-              </div>
-              <div style={{ ...SANS, fontSize: 12, color: "rgba(247,243,234,0.62)", lineHeight: 1.55, borderTop: "1px solid rgba(247,243,234,0.1)", paddingTop: 10 }}>
-                Save ~40% by moving async batch/eval jobs while keeping latency-critical serving on the current stack.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <AuditTool listings={listings} />
-
-        <div style={{ marginTop: 32, padding: "16px 20px", background: "var(--elevated)", border: "1px solid var(--border)", borderLeft: "2px solid var(--blue)" }}>
-          <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.08em", marginBottom: 5 }}>HOW THIS WORKS</div>
-          <p style={{ ...SANS, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-            The instant preview uses indexed public prices across {listings.length > 0 ? `${new Set(listings.map(l => l.provider)).size} providers` : "our provider index"}. The useful audit is workload-specific: provider-by-provider options, regional pricing, workload split, migration risk, and contract notes.
-          </p>
-        </div>
-      </div>
+        </section>
+      </main>
 
       <style>{`
-        @media (max-width: 800px) {
+        @media (max-width: 760px) {
           .audit-value-grid { grid-template-columns: 1fr !important; }
-          .audit-outcome-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

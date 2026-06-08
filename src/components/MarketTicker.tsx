@@ -1,91 +1,105 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { GpuListing, getMeta, fmtP } from "@/lib/market-helpers";
+import { GpuListing, fmtP, getMeta, minsAgo } from "@/lib/market-helpers";
 
 const MONO: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 
-type MarketTickerProps = {
-  listings?: GpuListing[];
-  compact?: boolean;
-};
+interface MarketSummaryLike {
+  last_updated?: string;
+  total_listings?: number;
+  active_providers?: number;
+}
+
+interface MarketTickerProps {
+  listings: GpuListing[];
+  summary?: MarketSummaryLike | null;
+}
 
 const minPrice = (items: GpuListing[]) =>
   items.length ? Math.min(...items.map(item => item.price_per_hour)) : null;
 
-export default function MarketTicker({ listings = [], compact = false }: MarketTickerProps) {
+export default function MarketTicker({ listings, summary }: MarketTickerProps) {
   const items = useMemo(() => {
-    const live = listings.length > 0;
-    const h100 = listings.filter(l => l.gpu_model.toUpperCase().includes("H100"));
-    const h100High = h100.filter(l => l.availability === "high");
-    const a100 = listings.filter(l => l.gpu_model.toUpperCase().includes("A100"));
-    const a100High = a100.filter(l => l.availability === "high");
-    const l40s = listings.filter(l => l.gpu_model.toUpperCase().includes("L40S"));
-    const highAvail = listings.filter(l => l.availability === "high");
-    const cheapestHigh = [...highAvail].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+    const h100 = listings.filter(item => item.gpu_model.toUpperCase().includes("H100"));
+    const a100 = listings.filter(item => item.gpu_model.toUpperCase().includes("A100"));
+    const l40s = listings.filter(item => item.gpu_model.toUpperCase().includes("L40S"));
+    const reliable = listings.filter(item => item.availability === "high");
+    const cheapestReliable = [...reliable].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+    const cheapestObserved = [...listings].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
 
-    const providerCounts = listings.reduce<Record<string, number>>((acc, listing) => {
-      acc[listing.provider] = (acc[listing.provider] ?? 0) + 1;
+    const h100Reliable = minPrice(h100.filter(item => item.availability === "high"));
+    const h100Observed = minPrice(h100);
+    const a100Reliable = minPrice(a100.filter(item => item.availability === "high"));
+    const a100Observed = minPrice(a100);
+    const l40sLow = minPrice(l40s);
+
+    const providerCounts = listings.reduce<Record<string, number>>((acc, item) => {
+      acc[item.provider] = (acc[item.provider] ?? 0) + 1;
       return acc;
     }, {});
     const topProvider = Object.entries(providerCounts).sort((a, b) => b[1] - a[1])[0];
-    const concentration = topProvider && listings.length
-      ? `${Math.round((topProvider[1] / listings.length) * 100)}% ${getMeta(topProvider[0]).short} concentration`
+    const topProviderShare = topProvider && listings.length
+      ? Math.round((topProvider[1] / listings.length) * 100)
       : null;
 
-    const h100Reliable = minPrice(h100High);
-    const h100Observed = minPrice(h100);
-    const a100Reliable = minPrice(a100High);
-    const l40sLow = minPrice(l40s);
-    const capacityPct = listings.length ? Math.round((highAvail.length / listings.length) * 100) : null;
+    const highAvailabilityShare = listings.length
+      ? Math.round((reliable.length / listings.length) * 100)
+      : null;
 
-    const marketItems = [
-      "AI compute tape · live market signals",
+    const base = [
+      "AI Compute Market · Live",
+      cheapestReliable
+        ? `Reliable floor ${fmtP(cheapestReliable.price_per_hour)}/hr · ${getMeta(cheapestReliable.provider).short}`
+        : cheapestObserved
+          ? `Observed floor ${fmtP(cheapestObserved.price_per_hour)}/hr · ${getMeta(cheapestObserved.provider).short}`
+          : "Market snapshot loading",
       h100Reliable !== null
-        ? `H100 reliable floor ${fmtP(h100Reliable)}/hr`
+        ? `H100 reliable from ${fmtP(h100Reliable)}/hr`
         : h100Observed !== null
-          ? `H100 observed floor ${fmtP(h100Observed)}/hr`
-          : "H100 availability scarce in snapshot",
-      a100Reliable !== null ? `A100 reliable floor ${fmtP(a100Reliable)}/hr` : "A100 reliable capacity fragmented",
-      l40sLow !== null ? `L40S observed from ${fmtP(l40sLow)}/hr` : "L40S spread not in snapshot",
-      cheapestHigh ? `Cheapest high-availability ${fmtP(cheapestHigh.price_per_hour)}/hr · ${getMeta(cheapestHigh.provider).short}` : null,
-      concentration,
-      capacityPct !== null ? `High-availability coverage ${capacityPct}%` : null,
-      "Cost audit converts public prices into workload decisions",
+          ? `H100 observed from ${fmtP(h100Observed)}/hr · reliability scarce`
+          : "H100 scarce in current snapshot",
+      a100Reliable !== null
+        ? `A100 reliable from ${fmtP(a100Reliable)}/hr`
+        : a100Observed !== null
+          ? `A100 observed from ${fmtP(a100Observed)}/hr`
+          : null,
+      l40sLow !== null ? `L40S floor ${fmtP(l40sLow)}/hr` : null,
+      topProvider && topProviderShare !== null
+        ? `Supply concentration: ${getMeta(topProvider[0]).short} ${topProviderShare}%`
+        : null,
+      highAvailabilityShare !== null
+        ? `High-availability capacity: ${highAvailabilityShare}%`
+        : null,
+      summary?.last_updated ? `Updated ${minsAgo(summary.last_updated)}` : null,
     ].filter(Boolean) as string[];
 
-    const fallback = [
-      "AI compute tape · market signals",
-      "H100 reliable floor changing by provider and region",
-      "A100 spot vs reliable gap creates audit opportunity",
-      "L40S capacity useful for evals and batch inference",
-      "High-availability supply is the real constraint",
-      "Cost audit converts public prices into workload decisions",
-    ];
-
-    const base = live ? marketItems : fallback;
     return [...base, ...base];
-  }, [listings]);
+  }, [listings, summary]);
 
   return (
     <div style={{
-      height: compact ? 28 : 30,
+      height: 30,
       background: "#171717",
-      borderBottom: "1px solid rgba(20,20,20,0.18)",
+      borderBottom: "1px solid rgba(20,20,20,0.15)",
       overflow: "hidden",
       display: "flex",
       alignItems: "center",
+      width: "100%",
     }}>
-      <div style={{ display: "flex", whiteSpace: "nowrap", animation: "ribbon-scroll 68s linear infinite" }}>
-        {items.map((item, i) => (
-          <span key={`${item}-${i}`} style={{
-            ...MONO,
-            fontSize: compact ? 10 : 10.5,
-            color: "rgba(247,243,234,0.62)",
-            padding: "0 28px",
-            borderRight: "1px solid rgba(247,243,234,0.1)",
-            letterSpacing: "0.035em",
-          }}>
+      <div style={{ display: "flex", whiteSpace: "nowrap", animation: "ribbon-scroll 70s linear infinite" }}>
+        {items.map((item, index) => (
+          <span
+            key={`${item}-${index}`}
+            style={{
+              ...MONO,
+              fontSize: 10.5,
+              color: "rgba(247,243,234,0.58)",
+              padding: "0 28px",
+              borderRight: "1px solid rgba(247,243,234,0.1)",
+              letterSpacing: "0.03em",
+            }}
+          >
             {item}
           </span>
         ))}
