@@ -81,8 +81,8 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 ## Homepage section order (locked)
 
 1. `MarketTicker` — 30px dark ticker, shared component across all routes, DC GPU prices + capacity
-2. `SiteNav` — sticky nav, 2 links (Market Index / Cost Audit) + "Run a cost audit" CTA. Load Balancer removed from primary nav (footer + post-audit only)
-3. `MarketHero` — light panel: eyebrow (UPDATED DAILY) + H1 ("Your AI compute bill is probably priced wrong.") + subheadline + support line + 3-stat strip + 2 CTAs ("Run a cost audit →" / "View live market ↓")
+2. `SiteNav` — sticky nav, 3 links (Markets / Cost Audit / Routing Beta) + "Audit my stack" CTA
+3. `MarketHero` — light panel: eyebrow (UPDATED DAILY) + H1 ("AI Infrastructure Markets") + subheadline + 3-stat strip + 2 CTAs ("Run cost audit →" / "View market data ↓")
 4. `Pain cards` — 3 cards, no headings, body font. Decision friction, not features
 5. `What buyers should do today` — 4 signal paragraphs, insight + implication, bound to live data
 6. `#market-data` anchor → Market index: 3 IndexTiles + H100SpreadChart + GpuSmallMultiples (chart header: "The cheapest price and the cheapest safe price are not the same.")
@@ -100,7 +100,7 @@ Hardcoded pricing (no live API — too large for serverless): `gcp, lambda, oci,
 ## Design system — light editorial
 
 **Light mode only. Never dark backgrounds in content area.**  
-`#171717` is reserved for MarketRibbon, SiteNav CTA button, and the MarketHero "Run a cost audit" button only.
+`#171717` is reserved for MarketRibbon, SiteNav CTA button, and the MarketHero "Run cost audit" button only.
 
 ### CSS variables (`globals.css`)
 
@@ -264,13 +264,14 @@ RLS: disabled on all tables — known, not yet remediated.
 
 | Surface | CTA text |
 |---------|---------|
-| SiteNav | "Run a cost audit" |
-| MarketHero primary | "Run a cost audit →" |
-| MarketHero secondary | "View live market ↓" |
-| AuditTool email capture | "Get my compute audit →" |
+| SiteNav | "Audit my stack" |
+| MarketHero primary | "Run cost audit →" |
+| MarketHero secondary | "View market data ↓" |
+| AuditTool primary | "Generate audit plan →" |
+| AuditTool email capture | "Send full audit" |
 | DemandForm (cost-audit) | "Get my compute audit" |
 | DemandForm (load-balancer) | "Request beta access" |
-| Load Balancer beta teaser (homepage) | "Learn about routing beta →" |
+| Routing Beta teaser (homepage) | "Learn about routing beta →" |
 
 ---
 

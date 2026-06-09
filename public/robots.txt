@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /cost-audit
+Allow: /load-balancer
+Allow: /api/gpu-prices
+Allow: /llms.txt
+Allow: /openapi.json
+Disallow: /api/cron
+Disallow: /api/scrape
+
+Sitemap: https://aiinfrawatch.vercel.app/sitemap.xml

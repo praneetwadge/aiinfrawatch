@@ -4,8 +4,14 @@ import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
 import AuditTool from "@/components/AuditTool";
 import type { GpuListing } from "@/lib/market-helpers";
+import type { Metadata } from "next";
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "Cost Audit",
+  description: "Turn your AI stack into a savings plan. Describe your workload and get a market comparison showing what to move, keep, or renegotiate.",
+};
 
 const SANS: React.CSSProperties = { fontFamily: "var(--font-sans)" };
 const SERIF: React.CSSProperties = { fontFamily: "var(--font-serif)" };

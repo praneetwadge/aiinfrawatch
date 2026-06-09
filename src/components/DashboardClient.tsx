@@ -1095,7 +1095,7 @@ export default function DashboardClient({ summary, listings }: Props) {
         <div style={{ paddingTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 10 }}>
           <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
             <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>AIInfraWatch · {activeProviders} {activeProviders === 1 ? "provider" : "providers"} · Updated daily</span>
-            <Link href="/load-balancer" style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}>Load Balancer beta</Link>
+            <Link href="/load-balancer" style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}>Routing Beta</Link>
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {[["API","/api/gpu-prices"],["llms.txt","/llms.txt"],["OpenAPI","/openapi.json"]].map(([l,h]) => (

@@ -2,9 +2,16 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "AIInfraWatch — AI Compute Cost Intelligence", template: "%s · AIInfraWatch" },
-  description: "Find out if you're overpaying for AI compute. GPU spot prices, hyperscaler premiums, and private cost audits for enterprise AI teams.",
+  title: { default: "AIInfraWatch — AI Infrastructure Markets", template: "%s · AIInfraWatch" },
+  description: "Track GPU pricing, availability, and provider shifts across the AI compute ecosystem. Run a cost audit to find out what to move, keep, or renegotiate.",
   robots: { index: true, follow: true },
+  openGraph: {
+    title: "AIInfraWatch — AI Infrastructure Markets",
+    description: "GPU pricing, availability signals, and cost audits for AI teams.",
+    url: "https://aiinfrawatch.vercel.app",
+    siteName: "AIInfraWatch",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

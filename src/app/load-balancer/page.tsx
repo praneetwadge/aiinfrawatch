@@ -4,8 +4,14 @@ import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
 import DemandForm from "@/components/DemandForm";
 import type { GpuListing } from "@/lib/market-helpers";
+import type { Metadata } from "next";
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "Routing Beta",
+  description: "Route flexible AI workloads to the best available compute. Join the beta for automated routing of evals, batch inference, fine-tuning, and overflow capacity.",
+};
 
 const SANS:  React.CSSProperties = { fontFamily: "var(--font-sans)" };
 const SERIF: React.CSSProperties = { fontFamily: "var(--font-serif)" };

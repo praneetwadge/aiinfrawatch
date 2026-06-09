@@ -1,55 +1,66 @@
-# AIInfraWatch — AI Infrastructure Market Intelligence
+# AIInfraWatch
 
-> An independent index of public GPU pricing across major cloud providers.
+> AI Infrastructure Markets — GPU pricing, availability signals, and cost audits for AI teams.
 
-## What this site provides
+AIInfraWatch is an independent market intelligence platform tracking GPU instance pricing
+and availability across major cloud providers. It helps engineering and finance teams
+understand what they should be paying for AI compute, identify overpayment, and decide
+what workloads can safely move to cheaper capacity.
 
-AIInfraWatch tracks GPU instance pricing across 16 tracked cloud providers (15 active, 1 partial),
-updated daily. Data includes spot prices, on-demand rates, and availability signals.
+## Product
 
-## Public APIs (no authentication required)
+Three surfaces:
 
-### GPU Prices
-GET /api/gpu-prices
-Returns current GPU listings across all providers.
-Query params: gpu (H100|A100|L40S|A10G), provider, type (spot|on-demand), limit, format (json|csv)
-Example: /api/gpu-prices?gpu=H100&type=spot
+1. **Markets** (/) — Live GPU price index. Provider comparison, availability signals,
+   observed vs reliable capacity, hyperscaler premium vs specialist clouds.
 
-### Energy & Grid Data
-GET /api/energy
-Experimental. Energy data is seed/indicative and not refreshed on a fixed schedule.
+2. **Cost Audit** (/cost-audit) — Self-serve audit tool. Describe your stack, get a
+   market comparison showing what to move, keep, or renegotiate. Instant on-page result;
+   optional analyst-reviewed breakdown via email.
 
-### Market Summary
-GET /api/providers
-Returns market-wide averages, cheapest options, and provider count.
+3. **Routing Beta** (/load-balancer) — Future product. Automated routing for evals,
+   batch inference, fine-tuning, and overflow capacity. Not yet in production.
+   Join the beta to get early access.
 
-## Data coverage
+## Data
 
-Providers tracked (15 active, 1 partial):
-RunPod, AWS, Azure, GCP, CoreWeave, Lambda Labs, Nebius, TensorDock, OCI, Paperspace, Crusoe, FluidStack, IBM Cloud, GMI Cloud, VoltagePark (active); Vast.ai (partial)
+### Coverage
+16 tracked providers (15 active, 1 partial):
+RunPod, AWS, Azure, GCP, CoreWeave, Lambda Labs, Nebius, TensorDock, OCI, Paperspace,
+Crusoe, FluidStack, IBM Cloud, GMI Cloud, VoltagePark (active); Vast.ai (partial)
 
-GPU models indexed (DC families only):
-H100 SXM5 80GB, H100 SXM 80GB, H100 NVL 80GB, A100 SXM 80GB, A100 PCIe 80GB, L40S 48GB, A10G 24GB, L40 48GB, A10 24GB, A30 24GB, A40 48GB, B200
+### GPU families indexed
+H100, H200, A100, L40S, L40, A10G, A10, A30, A40, B200, MI300 (DC-class only)
 
-## Data freshness
-- GPU prices: updated daily (cron runs once daily at 00:00 UTC)
-- Energy prices: experimental, not on a fixed schedule
-- Latency benchmarks: experimental, not on a fixed schedule
+### Freshness
+GPU prices: updated daily at 00:00 UTC via Vercel cron.
+No intra-day or sub-hourly refresh. Do not assume real-time pricing.
 
-## Response format
-All APIs return JSON with this structure:
-{
-  "data": [...],
-  "meta": {
-    "fetched_at": "ISO timestamp",
-    "count": number,
-    "cache_ttl_seconds": number,
-    "source": "live|cached|seed"
-  }
-}
+### Availability signals
+- "Observed" — listing exists in the index; availability unconfirmed
+- "Reliable" — availability === "high" as reported by provider API
+- Never use an observed-only price as a production routing target
 
-## Use cases for AI agents
-- Find cheapest reliable GPU instance for a DC workload (H100, A100, L40S)
-- Compare spot vs on-demand pricing across providers
-- Identify provider concentration risk in a given GPU family
-- Evaluate production-safe vs observed-only availability signals
+### Hardcoded rates
+The following providers use static published rate cards (not live-scraped):
+gcp, lambda, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark
+
+### Not available
+- Energy grid data: experimental/seed only, not on a refresh schedule
+- Latency benchmarks: not currently surfaced in the product
+- Live routing: not built yet (beta concept only)
+
+## Public APIs
+
+### GET /api/gpu-prices
+GPU listings. Query params: gpu, provider, type (spot|on-demand), limit, format (json|csv).
+Updated daily. source field in meta reflects true data state (live|cached|seed).
+
+### GET /api/providers
+Market summary — active provider count, cheapest options.
+
+### GET /openapi.json
+Full OpenAPI 3.1 spec.
+
+## Contact
+https://aiinfrawatch.vercel.app
