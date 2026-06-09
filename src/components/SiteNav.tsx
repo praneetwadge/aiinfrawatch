@@ -25,8 +25,9 @@ export default function SiteNav() {
 
   // Load Balancer removed from primary nav — accessible via footer + post-audit CTA
   const navLinks = [
-    { href: "/",            label: "Market Index" },
-    { href: "/cost-audit",  label: "Cost Audit" },
+    { href: "/",              label: "Markets" },
+    { href: "/cost-audit",   label: "Cost Audit" },
+    { href: "/load-balancer", label: "Routing Beta" },
   ];
 
   const isActive = (href: string) => href === "/" ? path === "/" : path.startsWith(href);
@@ -60,7 +61,7 @@ export default function SiteNav() {
             textDecoration: "none", letterSpacing: "0.01em",
             whiteSpace: "nowrap" as const,
           }}>
-            Run a cost audit
+            Audit my stack
           </Link>
         </div>
       </div>

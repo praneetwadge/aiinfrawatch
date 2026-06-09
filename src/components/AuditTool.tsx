@@ -264,7 +264,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
         <div style={{ padding: "20px 24px 16px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 20, alignItems: "start" }} className="audit-intake-grid">
             <div>
-              <label style={labelStyle}>Paste your current setup</label>
+              <label style={labelStyle}>Describe your current stack</label>
               <textarea
                 value={setupText}
                 onChange={e => setSetupText(e.target.value)}
@@ -273,7 +273,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 style={{ ...inputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.55 }}
               />
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                {["Architecture notes", "Cloud bill summary", "Provider quote", "Plain English is fine"].map(t => (
+                {["Cloud bill", "Architecture notes", "Provider quote", "Plain English"].map(t => (
                   <span key={t} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "var(--elevated)", border: "1px solid var(--border)", padding: "3px 8px", borderRadius: 3 }}>{t}</span>
                 ))}
               </div>
@@ -294,7 +294,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
             color: "var(--text-secondary)", padding: "12px 24px", textAlign: "left",
             fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
-            <span>Enter details instead</span>
+            <span>Add structured details</span>
             <span style={{ ...MONO, fontSize: 12 }}>{showManual ? "−" : "+"}</span>
           </button>
 
@@ -368,7 +368,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "#171717",
                 padding: "9px 20px", borderRadius: 3, border: "none", cursor: "pointer",
               }}>
-                Get my compute audit →
+                Generate audit plan →
               </button>
               <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
                 Provider-by-provider breakdown, region options, and what to move first.
@@ -386,7 +386,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   background: loading ? "var(--text-muted)" : "#171717",
                   padding: "10px 22px", borderRadius: 3, border: "none", cursor: loading ? "not-allowed" : "pointer",
                 }}>
-                  {loading ? "Sending…" : "Get my compute audit"}
+                  {loading ? "Sending…" : "Send full audit"}
                 </button>
                 <button onClick={() => setShowCapture(false)} style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>Cancel</button>
               </div>

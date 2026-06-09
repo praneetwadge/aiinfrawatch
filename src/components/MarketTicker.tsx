@@ -46,25 +46,26 @@ export default function MarketTicker({ listings, summary }: MarketTickerProps) {
       : null;
 
     const base = [
-      "AI Compute Market · Live",
+      "AI COMPUTE MARKET",
+      "MARKET SNAPSHOT",
       h100Reliable !== null
-        ? `H100 reliable from ${fmtP(h100Reliable)}/hr`
+        ? `H100 FLOOR ${fmtP(h100Reliable)}/hr`
         : h100Observed !== null
-          ? `H100 observed from ${fmtP(h100Observed)}/hr · reliability scarce`
-          : "H100 scarce in current snapshot",
+          ? `H100 ${fmtP(h100Observed)}/hr (OBSERVED)`
+          : "H100 SCARCE",
       a100Reliable !== null
-        ? `A100 reliable from ${fmtP(a100Reliable)}/hr`
+        ? `A100 FLOOR ${fmtP(a100Reliable)}/hr`
         : a100Observed !== null
-          ? `A100 observed from ${fmtP(a100Observed)}/hr`
+          ? `A100 ${fmtP(a100Observed)}/hr (OBSERVED)`
           : null,
-      l40sLow !== null ? `L40S from ${fmtP(l40sLow)}/hr` : null,
+      l40sLow !== null ? `L40S FLOOR ${fmtP(l40sLow)}/hr` : null,
       topProvider && topProviderShare !== null
-        ? `Supply concentration: ${getMeta(topProvider[0]).short} ${topProviderShare}%`
+        ? `TOP SUPPLY ${getMeta(topProvider[0]).short} ${topProviderShare}%`
         : null,
       highAvailabilityShare !== null
-        ? `High-availability capacity: ${highAvailabilityShare}%`
+        ? `SCARCITY SIGNAL ${highAvailabilityShare}%`
         : null,
-      summary?.last_updated ? `Updated ${minsAgo(summary.last_updated)}` : null,
+      summary?.last_updated ? `UPDATED ${minsAgo(summary.last_updated)}` : null,
     ].filter(Boolean) as string[];
 
     return [...base, ...base];

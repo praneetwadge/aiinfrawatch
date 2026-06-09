@@ -160,10 +160,10 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
           {/* Left: headline + CTAs */}
           <div>
             <h1 style={{ ...SERIF, fontSize: 40, fontWeight: 400, lineHeight: 1.12, color: "var(--text-primary)", marginBottom: 14 }}>
-              Your AI compute bill is probably priced wrong.
+              AI Infrastructure Markets
             </h1>
             <p style={{ ...BODY, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 520, marginBottom: 24 }}>
-              AIInfraWatch compares live GPU prices, availability, and workload fit so you know what to keep, what to move, and where you may be overpaying.
+              Track GPU pricing, availability, and provider shifts across the AI compute ecosystem — then turn market movement into infrastructure decisions.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
               <Link href="/cost-audit" style={{
@@ -172,14 +172,14 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
                 padding: "11px 22px", borderRadius: 3, textDecoration: "none",
                 letterSpacing: "0.01em", whiteSpace: "nowrap" as const,
               }}>
-                Run a cost audit →
+                Run cost audit →
               </Link>
               <a href="#market-data" style={{
                 ...SANS, fontSize: 13, color: "var(--text-secondary)",
                 padding: "11px 20px", borderRadius: 3, textDecoration: "none",
                 border: "1px solid var(--border-mid)", whiteSpace: "nowrap" as const,
               }}>
-                View live market ↓
+                View market data ↓
               </a>
             </div>
           </div>
@@ -804,6 +804,8 @@ export default function DashboardClient({ summary, listings }: Props) {
   const capacityConf   = listings.length > 0 ? Math.round((highAvailCount / listings.length) * 100) : 0;
 
   const updatedAgo = minsAgo(summary?.last_updated);
+  const effectivePremiumForRead = (premiumPct !== null && premiumPct > 0) ? premiumPct
+    : (a100PremiumPct !== null && a100PremiumPct > 0) ? a100PremiumPct : 0;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text-primary)" }}>
@@ -813,10 +815,11 @@ export default function DashboardClient({ summary, listings }: Props) {
         select option { background: #fff; color: #171717; }
         input::placeholder { color: var(--text-muted); }
         @media (max-width: 900px) {
-          .hero-grid    { grid-template-columns: 1fr !important; gap: 28px !important; }
-          .charts-grid  { grid-template-columns: 1fr !important; }
-          .tiles-grid   { grid-template-columns: repeat(2, 1fr) !important; }
-          .status-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+          .hero-grid       { grid-template-columns: 1fr !important; gap: 28px !important; }
+          .charts-grid     { grid-template-columns: 1fr !important; }
+          .tiles-grid      { grid-template-columns: repeat(2, 1fr) !important; }
+          .status-grid     { grid-template-columns: repeat(2, 1fr) !important; }
+          .market-read-grid{ grid-template-columns: 1fr !important; gap: 16px !important; }
         }
         @media (max-width: 540px) {
           .tiles-grid   { grid-template-columns: 1fr !important; }
@@ -836,6 +839,44 @@ export default function DashboardClient({ summary, listings }: Props) {
         a100PremiumPct={a100PremiumPct}
         capacityConf={capacityConf}
       />
+
+      {/* ── Today's Market Read ── */}
+      <div style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ maxWidth: 1360, margin: "0 auto", padding: "24px 32px" }}>
+          <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 16 }}>Today's Market Read</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }} className="market-read-grid">
+            {/* Card 1: H100 floor */}
+            <div style={{ borderLeft: "3px solid var(--blue)", paddingLeft: 16 }}>
+              <div style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>H100 floor</div>
+              <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                {cheapestH100High
+                  ? `Production-safe H100 capacity starts around ${fmtP(cheapestH100High.price_per_hour)}/hr.`
+                  : h100Prices.length
+                    ? "H100 pricing is visible, but reliable capacity is thin in the current snapshot."
+                    : "H100 not present in the current snapshot."}
+              </div>
+            </div>
+            {/* Card 2: Provider spread */}
+            <div style={{ borderLeft: "3px solid " + (effectivePremiumForRead > 0 ? "var(--amber)" : "var(--border-mid)"), paddingLeft: 16 }}>
+              <div style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>Provider spread</div>
+              <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                {effectivePremiumForRead > 0
+                  ? "Hyperscalers are pricing materially above specialist clouds for this GPU class."
+                  : "No major hyperscaler premium detected in this snapshot."}
+              </div>
+            </div>
+            {/* Card 3: Supply signal */}
+            <div style={{ borderLeft: "3px solid " + (capacityConf >= 60 ? "var(--green)" : "var(--amber)"), paddingLeft: 16 }}>
+              <div style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>Supply signal</div>
+              <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                {capacityConf >= 60
+                  ? "Availability looks healthy enough to compare routing options."
+                  : "Availability is thin. Verify capacity before committing spend."}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ── AI compute market today ── */}
       {(() => {

@@ -33,11 +33,10 @@ export default async function CostAuditPage() {
               Cost Audit
             </div>
             <h1 style={{ ...SERIF, fontSize: 44, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 14 }}>
-              Find out if your AI infrastructure is overpriced.
+              Turn your AI stack into a savings plan.
             </h1>
             <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 620 }}>
-              Paste what you have — a bill summary, architecture notes, provider quote, or plain-English setup.
-              AIInfraWatch turns live market prices into a workload-specific savings read.
+              Describe your workload, paste a cloud bill, or drop in a provider quote. AIInfraWatch compares it against current compute markets and shows what to move, keep, or renegotiate.
             </p>
           </div>
         </section>
@@ -52,9 +51,9 @@ export default async function CostAuditPage() {
             gap: 12,
           }} className="audit-value-grid">
             {[
-              ["01", "Current spend", "Estimate whether your setup is above market for the workload."],
-              ["02", "Better options", "Compare reliable alternatives by provider, region, and GPU family."],
-              ["03", "Next action", "Separate what can move now from what should stay production-stable."],
+              ["01", "Describe", "Paste your stack, bill summary, quote, or architecture notes in plain English."],
+              ["02", "Compare", "See current market alternatives by GPU family, provider type, and availability risk."],
+              ["03", "Act", "Get a clear first move: migrate, renegotiate, reserve, or leave production untouched."],
             ].map(([step, title, body]) => (
               <div key={title} style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "16px 18px" }}>
                 <div style={{ ...MONO, fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>{step}</div>
