@@ -10,25 +10,30 @@ export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Routing Beta",
-  description: "Route flexible AI workloads to the best available compute. Join the beta for automated routing of evals, batch inference, fine-tuning, and overflow capacity.",
+  description: "Route AI workloads when compute is cheapest and capacity is available. Join the beta for automated routing of evals, batch inference, fine-tuning, and overflow capacity.",
 };
 
 const SANS:  React.CSSProperties = { fontFamily: "var(--font-sans)" };
 const SERIF: React.CSSProperties = { fontFamily: "var(--font-serif)" };
 const MONO:  React.CSSProperties = { fontFamily: "var(--font-mono)" };
 
-const ILLUSTRATIVE_ROUTES = [
-  { provider: "RunPod",     price: "$1.89/hr", latency: "82ms", avail: "High",   tag: "Best cost",       tagColor: "var(--green)"  },
-  { provider: "Lambda",     price: "$2.25/hr", latency: "74ms", avail: "Medium", tag: "Stable fallback", tagColor: "var(--amber)"  },
-  { provider: "CoreWeave",  price: "$2.70/hr", latency: "61ms", avail: "High",   tag: "Lowest latency",  tagColor: "var(--blue)"   },
+const ROUTER_STEPS = [
+  { n: "01", title: "Classifies workload flexibility", body: "Determines whether a job is async-safe, interruption-tolerant, or latency-critical before routing." },
+  { n: "02", title: "Finds viable compute",           body: "Scans current availability across providers, filtered by GPU family, pricing type, and capacity signal." },
+  { n: "03", title: "Routes flexible jobs",           body: "Dispatches evals, batch, and fine-tuning to the lowest reliable option that satisfies job constraints." },
+  { n: "04", title: "Learns from every audit",        body: "Stack audits inform the router's model of which workloads are movable and which providers are viable." },
 ];
 
-const USE_CASES = [
-  { rank: "01", title: "Evals & benchmarking", note: "Interruption-tolerant, high volume, obvious savings." },
-  { rank: "02", title: "Batch inference",       note: "Async by nature — route to cheapest reliable at submission time." },
-  { rank: "03", title: "Fine-tuning",           note: "Savings are real once checkpointing and data-handling are set." },
-  { rank: "04", title: "Overflow capacity",     note: "Spill to a secondary automatically when primary is at capacity." },
-  { rank: "05", title: "Production inference",  note: "Future. Highest trust bar. Not the starting point." },
+const ILLUSTRATIVE_ROUTES = [
+  { provider: "RunPod",    price: "$1.89/hr", latency: "82ms", avail: "High",   tag: "Best cost",       tagColor: "var(--green)" },
+  { provider: "Lambda",    price: "$2.25/hr", latency: "74ms", avail: "Medium", tag: "Stable fallback", tagColor: "var(--amber)" },
+  { provider: "CoreWeave", price: "$2.70/hr", latency: "61ms", avail: "High",   tag: "Lowest latency",  tagColor: "var(--blue)"  },
+];
+
+const ENERGY_CARDS = [
+  { title: "Time-shift",       body: "Run non-urgent jobs when compute and energy are cheaper — shifting demand across time without touching production schedules." },
+  { title: "Region-shift",     body: "Route toward available capacity and better power conditions across regions and providers." },
+  { title: "Aggregate demand", body: "Coordinate many flexible AI jobs into a meaningful load signal — the basis for demand-response participation." },
 ];
 
 export default async function LoadBalancerPage() {
@@ -53,42 +58,52 @@ export default async function LoadBalancerPage() {
               Routing Beta
             </div>
             <h1 style={{ ...SERIF, fontSize: 42, fontWeight: 400, lineHeight: 1.1, color: "var(--text-primary)", marginBottom: 16 }}>
-              Route flexible AI workloads to the best available compute.
+              Route AI workloads when compute is cheapest and capacity is available.
             </h1>
-            <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 600 }}>
-              Start with evals, batch inference, fine-tuning, and overflow capacity — the workloads where price and availability matter more than millisecond latency.
+            <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 640 }}>
+              AIInfraWatch starts with flexible jobs — evals, batch inference, fine-tuning, and overflow — then routes them across providers based on price, availability, latency tolerance, and eventually energy conditions.
             </p>
           </div>
         </section>
 
         <section style={{ maxWidth: 920, margin: "0 auto", padding: "32px 32px 72px" }}>
+
+          {/* What the router does */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 14 }}>What the router does</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }} className="router-steps-grid">
+              {ROUTER_STEPS.map(({ n, title, body }) => (
+                <div key={n} style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "16px 18px" }}>
+                  <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", marginBottom: 7 }}>{n}</div>
+                  <div style={{ ...SANS, fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 5 }}>{title}</div>
+                  <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>{body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 24, alignItems: "start" }} className="lb-grid">
 
-            {/* Left: routing simulation + use cases */}
+            {/* Left: simulation + energy section */}
             <div>
-              {/* Simulation card */}
+              {/* Simulation */}
               <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "22px 24px", marginBottom: 16 }}>
                 <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 16 }}>
-                  Illustrative example — beta, not live routing
+                  Illustrative beta example — not live routing yet.
                 </div>
 
-                {/* Workload input */}
-                <div style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", textAlign: "center" as const, padding: "8px 12px", background: "var(--elevated)", border: "1px solid var(--border)", marginBottom: 10 }}>
-                  Batch jobs / evals
+                <div style={{ ...SANS, fontSize: 12, color: "var(--text-secondary)", textAlign: "center" as const, padding: "8px 12px", background: "var(--elevated)", border: "1px solid var(--border)", marginBottom: 10 }}>
+                  Batch eval job · async · H100 not required
                 </div>
-
-                {/* Arrow */}
                 <div style={{ textAlign: "center" as const, ...MONO, fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>↓</div>
-
-                {/* Router */}
-                <div style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "#F7F3EA", background: "#171717", textAlign: "center" as const, padding: "8px 12px", marginBottom: 10, letterSpacing: "0.02em" }}>
+                <div style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "#F7F3EA", background: "#171717", textAlign: "center" as const, padding: "8px 12px", marginBottom: 4, letterSpacing: "0.02em" }}>
                   AIInfraWatch Router
                 </div>
-
-                {/* Arrow */}
+                <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", textAlign: "center" as const, marginBottom: 10 }}>
+                  Choose lowest reliable A100/L40S capacity that satisfies job constraints.
+                </div>
                 <div style={{ textAlign: "center" as const, ...MONO, fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>↓</div>
 
-                {/* Route options */}
                 <div style={{ display: "grid", gap: 8 }}>
                   {ILLUSTRATIVE_ROUTES.map((r, i) => (
                     <div key={r.provider} style={{
@@ -99,7 +114,7 @@ export default async function LoadBalancerPage() {
                       border: `1px solid ${i === 0 ? "rgba(39,103,73,0.2)" : "var(--border)"}`,
                     }}>
                       <span style={{ ...SANS, fontSize: 12, fontWeight: i === 0 ? 600 : 400, color: "var(--text-primary)" }}>{r.provider}</span>
-                      <span style={{ ...MONO, fontSize: 11.5, color: "var(--text-primary)" }}>{r.price}</span>
+                      <span style={{ ...MONO, fontSize: 11.5 }}>{r.price}</span>
                       <span style={{ ...MONO, fontSize: 11, color: "var(--text-muted)" }}>{r.latency}</span>
                       <span style={{ ...SANS, fontSize: 11, color: "var(--text-muted)" }}>{r.avail} avail.</span>
                       <span style={{ ...SANS, fontSize: 11, fontWeight: 600, color: r.tagColor }}>{r.tag}</span>
@@ -108,19 +123,22 @@ export default async function LoadBalancerPage() {
                 </div>
               </div>
 
-              {/* Use cases secondary */}
-              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "18px 22px" }}>
-                <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 14 }}>Routing priority order</div>
-                <div style={{ display: "grid", gap: 10 }}>
-                  {USE_CASES.map(({ rank, title, note }) => (
-                    <div key={rank} style={{ display: "grid", gridTemplateColumns: "24px 1fr", gap: 10, alignItems: "start" }}>
-                      <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", paddingTop: 2 }}>{rank}</div>
-                      <div>
-                        <div style={{ ...SANS, fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 1 }}>{title}</div>
-                        <div style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>{note}</div>
-                      </div>
+              {/* Why this matters beyond cloud cost */}
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "20px 22px" }}>
+                <div style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 10 }}>Why this matters beyond cloud cost</div>
+                <p style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, marginBottom: 16 }}>
+                  Flexible AI workloads can become controllable demand. If jobs can move across time, providers, and regions, AIInfraWatch can eventually act as a load-shaping layer between AI demand, compute supply, and energy markets.
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }} className="energy-grid">
+                  {ENERGY_CARDS.map(({ title, body }) => (
+                    <div key={title} style={{ background: "var(--elevated)", border: "1px solid var(--border)", padding: "12px 14px" }}>
+                      <div style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 5 }}>{title}</div>
+                      <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.55 }}>{body}</div>
                     </div>
                   ))}
+                </div>
+                <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", borderTop: "1px solid var(--border)", paddingTop: 10, lineHeight: 1.55 }}>
+                  Current beta focuses on compute routing first. Energy-market participation is the long-term wedge.
                 </div>
               </div>
             </div>
@@ -133,6 +151,9 @@ export default async function LoadBalancerPage() {
                 ctaLabel="Request beta access"
                 accent="var(--blue)"
               />
+              <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.07em", textTransform: "uppercase" as const, marginTop: 12, textAlign: "center" as const }}>
+                Beta · Evals, batch, fine-tuning, overflow first
+              </div>
             </div>
           </div>
         </section>
@@ -141,6 +162,8 @@ export default async function LoadBalancerPage() {
       <style>{`
         @media (max-width: 820px) {
           .lb-grid { grid-template-columns: 1fr !important; }
+          .router-steps-grid { grid-template-columns: 1fr !important; }
+          .energy-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

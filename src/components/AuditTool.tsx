@@ -279,8 +279,8 @@ export default function AuditTool({ listings }: AuditToolProps) {
               </div>
             </div>
             <div style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "14px 16px" }}>
-              <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>What you get</div>
-              {["Current spend estimate", "Cheapest reliable alternatives", "What to move vs keep", "Availability risk signal", "First recommended action"].map(item => (
+              <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>What this unlocks</div>
+              {["Market benchmark", "Safe-to-move workload map", "Provider alternatives", "Routing beta fit", "Future savings alerts"].map(item => (
                 <div key={item} style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.45, marginBottom: 7 }}>→ {item}</div>
               ))}
             </div>
@@ -368,7 +368,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "#171717",
                 padding: "9px 20px", borderRadius: 3, border: "none", cursor: "pointer",
               }}>
-                Generate audit plan →
+                Audit my stack
               </button>
               <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
                 Provider-by-provider breakdown, region options, and what to move first.
@@ -386,7 +386,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   background: loading ? "var(--text-muted)" : "#171717",
                   padding: "10px 22px", borderRadius: 3, border: "none", cursor: loading ? "not-allowed" : "pointer",
                 }}>
-                  {loading ? "Sending…" : "Send full audit"}
+                  {loading ? "Sending…" : "Send stack audit"}
                 </button>
                 <button onClick={() => setShowCapture(false)} style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>Cancel</button>
               </div>

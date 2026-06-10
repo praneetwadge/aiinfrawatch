@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "AIInfraWatch — AI Infrastructure Markets", template: "%s · AIInfraWatch" },
-  description: "Track GPU pricing, availability, and provider shifts across the AI compute ecosystem. Run a cost audit to find out what to move, keep, or renegotiate.",
+  description: "Benchmark your AI stack against the market. GPU pricing, availability signals, and workload routing intelligence for AI infrastructure teams.",
   robots: { index: true, follow: true },
   openGraph: {
     title: "AIInfraWatch — AI Infrastructure Markets",

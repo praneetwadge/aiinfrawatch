@@ -39,10 +39,10 @@ export default async function CostAuditPage() {
               Cost Audit
             </div>
             <h1 style={{ ...SERIF, fontSize: 44, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 14 }}>
-              Are you overpaying for AI compute?
+              Benchmark your AI stack against the market.
             </h1>
             <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 620 }}>
-              Paste your stack, bill, or provider quote. We compare it against live market prices and tell you what to keep, what to move, and what to renegotiate.
+              Paste your stack, bill, or provider quote. AIInfraWatch maps what can stay, what can move, and what could eventually route automatically.
             </p>
           </div>
         </section>
@@ -50,29 +50,21 @@ export default async function CostAuditPage() {
         <section style={{ maxWidth: 920, margin: "0 auto", padding: "28px 32px 72px" }}>
           <AuditTool listings={listings} />
 
-          <div style={{
-            marginTop: 18,
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 12,
-          }} className="audit-value-grid">
-            {[
-              ["01", "Describe", "Paste your stack, bill summary, quote, or architecture notes in plain English."],
-              ["02", "Compare", "See current market alternatives by GPU family, provider type, and availability risk."],
-              ["03", "Act", "Get a clear first move: migrate, renegotiate, reserve, or leave production untouched."],
-            ].map(([step, title, body]) => (
-              <div key={title} style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "16px 18px" }}>
-                <div style={{ ...MONO, fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>{step}</div>
-                <div style={{ ...SANS, fontSize: 13, fontWeight: 650, color: "var(--text-primary)", marginBottom: 5 }}>{title}</div>
-                <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.55 }}>{body}</div>
-              </div>
-            ))}
+          {/* Audits make the router smarter */}
+          <div style={{ marginTop: 28, background: "var(--elevated)", border: "1px solid var(--border)", borderLeft: "3px solid var(--blue)", padding: "18px 22px" }}>
+            <div style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--blue)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 8 }}>
+              Audits make the router smarter.
+            </div>
+            <p style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 620, marginBottom: 12 }}>
+              Every submitted stack helps AIInfraWatch learn which workloads are movable, which providers are viable, and where routing can save money without touching production-critical paths.
+            </p>
+            <a href="/load-balancer" style={{
+              ...SANS, fontSize: 13, fontWeight: 600, color: "var(--blue)",
+              textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
+            }}>
+              Join routing beta →
+            </a>
           </div>
-
-          <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.65, marginTop: 18, maxWidth: 720 }}>
-            Public prices are indicative. The useful answer depends on workload shape, reliability needs,
-            utilization, contract terms, and whether jobs can run asynchronously.
-          </p>
         </section>
       </main>
 
