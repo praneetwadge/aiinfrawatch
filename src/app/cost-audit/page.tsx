@@ -10,7 +10,7 @@ export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Cost Audit",
-  description: "Paste your stack, bill, or provider quote. We compare it against live GPU market prices and tell you what to keep, what to move, and what to renegotiate.",
+  description: "Stop wasting money on AI compute. Paste your stack, bill, or provider quote and find out where you're overpaying and what can safely move.",
 };
 
 const SANS: React.CSSProperties = { fontFamily: "var(--font-sans)" };
@@ -39,10 +39,10 @@ export default async function CostAuditPage() {
               Cost Audit
             </div>
             <h1 style={{ ...SERIF, fontSize: 44, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 14 }}>
-              Benchmark your AI stack against the market.
+              Stop wasting money on AI compute.
             </h1>
             <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 620 }}>
-              Paste your stack, bill, or provider quote. AIInfraWatch maps what can stay, what can move, and what could eventually route automatically.
+              Paste your stack, bill, or provider quote. AIInfraWatch finds where you are overpaying, what can safely move, and what could eventually route automatically.
             </p>
           </div>
         </section>

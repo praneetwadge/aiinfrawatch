@@ -280,7 +280,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
             </div>
             <div style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "14px 16px" }}>
               <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>What this unlocks</div>
-              {["Market benchmark", "Safe-to-move workload map", "Provider alternatives", "Routing beta fit", "Future savings alerts"].map(item => (
+              {["Wasted spend signal", "Safe-to-move workload map", "Provider alternatives", "Routing beta fit", "Future savings alerts"].map(item => (
                 <div key={item} style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.45, marginBottom: 7 }}>→ {item}</div>
               ))}
             </div>
