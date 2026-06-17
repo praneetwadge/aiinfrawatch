@@ -1,48 +1,45 @@
 // @ts-nocheck
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { supabaseAdmin } from "@/lib/db/supabase";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const schema = z.object({
-  email:        z.string().email("Valid work email required"),
-  monthlySpend: z.string().min(1, "Monthly spend is required"),
-  stack:        z.string().optional(),
-  workload:     z.string().min(1, "Workload type is required"),
-  notes:        z.string().optional(),
-  source:       z.enum(["cost-audit", "load-balancer"]),
-});
-
-export async function POST(request: NextRequest) {
-  let body: unknown;
+// POST /api/audit-request
+// Stores a qualified lead the moment they unlock the migration plan, with the
+// savings figure already attached — so follow-up is anchored to their number.
+export async function POST(req: Request) {
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 });
-  }
+    const body = await req.json();
+    const email = String(body?.email || "").trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return NextResponse.json({ ok: false, error: "invalid_email" }, { status: 400 });
+    }
 
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    const msg = parsed.error.errors[0]?.message ?? "Validation error";
-    return NextResponse.json({ success: false, error: msg }, { status: 422 });
-  }
-
-  const { email, monthlySpend, stack, workload, notes, source } = parsed.data;
-
-  const { error } = await supabaseAdmin
-    .from("audit_requests")
-    .insert({
+    const row = {
       email,
-      monthly_spend: monthlySpend,
-      stack:   stack   || null,
-      workload,
-      notes:   notes   || null,
-      source,
-    });
+      gpu: body?.gpu ?? null,
+      count: body?.count ?? null,
+      current_monthly: body?.currentMonthly ?? null,
+      overpay_monthly: body?.overpayMonthly ?? null,
+      overpay_yearly: body?.overpayYearly ?? null,
+      confidence: body?.confidence ?? null,
+      source: body?.source ?? "cost-audit",
+      created_at: new Date().toISOString(),
+    };
 
-  if (error) {
-    console.error("[audit-request] Supabase insert error:", error.message);
-    return NextResponse.json({ success: false, error: "Failed to save request. Please try again." }, { status: 500 });
+    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (url && key) {
+      const supabase = createClient(url, key);
+      // Table: audit_leads (create once — see INTEGRATION.md)
+      await supabase.from("audit_leads").insert(row);
+    } else {
+      // No secret configured at build/runtime — don't 500 the user; log instead.
+      console.log("[audit-request] (no supabase env) lead:", row);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("[audit-request] error", e);
+    // Never block the unlock on our storage failing.
+    return NextResponse.json({ ok: true });
   }
-
-  return NextResponse.json({ success: true, email });
 }
