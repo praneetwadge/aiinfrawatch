@@ -2,10 +2,6 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell,
-} from "recharts";
 import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
 import {
@@ -360,85 +356,6 @@ function H100SpreadChart({ listings }: { listings: GpuListing[] }) {
   );
 }
 
-// ── Price by GPU Family (horizontal bar) ──────────────────────────────────────
-
-function PriceByFamily({ listings }: { listings: GpuListing[] }) {
-  const data = useMemo(() => {
-    const families = ["H100 SXM5 80GB","H100 SXM 80GB","H100 PCIe 80GB","H100 NVL 80GB","A100 SXM 80GB","A100 PCIe 80GB","A100 SXM 40GB","L40S 48GB","L40 48GB","A10G 24GB","A40","L4 24GB"];
-    return families
-      .map(fam => {
-        const ls = listings.filter(l => l.gpu_model === fam || l.gpu_model.includes(fam.split(" ")[0] + " " + fam.split(" ")[1]));
-        const exact = listings.filter(l => l.gpu_model === fam);
-        const pool  = exact.length ? exact : ls;
-        if (!pool.length) return null;
-        const prices  = pool.map(l => l.price_per_hour);
-        const highAvL = pool.filter(l => l.availability === "high");
-        const minHighAv = highAvL.length ? Math.min(...highAvL.map(l => l.price_per_hour)) : null;
-        const cat = getMeta(pool.sort((a, b) => a.price_per_hour - b.price_per_hour)[0].provider).cat;
-        return { name: fam, min: Math.min(...prices), minReliable: minHighAv, cat, count: pool.length };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a!.min - b!.min) as { name: string; min: number; minReliable: number | null; cat: string; count: number }[];
-  }, [listings]);
-
-  if (!data.length) return null;
-
-  const catColor = (cat: string): string => {
-    if (cat === "Hyperscaler") return "#B7791F";
-    if (cat === "Neocloud")    return "#1E5EFF";
-    return "#6741D9";
-  };
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
-    return (
-      <div style={{ background: "var(--panel)", border: "1px solid var(--border-mid)", padding: "8px 12px", boxShadow: "var(--shadow-md)" }}>
-        <div style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 3 }}>{d.name}</div>
-        <div style={{ ...MONO, fontSize: 11, color: "var(--text-muted)" }}>From {fmtP(d.min)}/hr · {d.count} listings</div>
-        {d.minReliable !== null && <div style={{ ...MONO, fontSize: 11, color: "var(--green)" }}>Reliable from {fmtP(d.minReliable)}/hr</div>}
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", padding: "24px 28px" }}>
-      <div style={{ marginBottom: 14 }}>
-        <h3 style={{ ...SANS, fontSize: 13.5, fontWeight: 600, color: "var(--text-primary)" }}>Posted price vs capacity signal</h3>
-        <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>Lowest observed price per GPU family — bars show cheapest available, dots show cheapest high-availability</p>
-      </div>
-      <ResponsiveContainer width="100%" height={data.length * 28 + 40}>
-        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 80, bottom: 0, left: 110 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(20,20,20,0.06)" horizontal={false} />
-          <XAxis
-            type="number"
-            tickFormatter={v => fmtP(v)}
-            tick={{ fontFamily: "var(--font-sans)", fontSize: 10, fill: "#858B94" }}
-            tickCount={5}
-            domain={[0, "dataMax + 1"]}
-          />
-          <YAxis
-            type="category" dataKey="name" width={110}
-            tick={{ fontFamily: "var(--font-sans)", fontSize: 10.5, fill: "#555B63" }}
-          />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(20,20,20,0.04)" }} />
-          <Bar dataKey="min" radius={[0, 2, 2, 0]} maxBarSize={12}>
-            {data.map((d, i) => <Cell key={i} fill={catColor(d.cat)} fillOpacity={0.8} />)}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" as const, marginTop: 10 }}>
-        {[["Hyperscaler","#B7791F"],["Neocloud","#1E5EFF"],["Marketplace","#6741D9"]].map(([l,c]) => (
-          <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 10, height: 10, background: c, opacity: 0.8, borderRadius: 1 }} />
-            <span style={{ ...SANS, fontSize: 11, color: "var(--text-muted)" }}>{l}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── GPU Small Multiples ───────────────────────────────────────────────────────
 
 function GpuSmallMultiples({ listings }: { listings: GpuListing[] }) {
@@ -495,23 +412,6 @@ function GpuSmallMultiples({ listings }: { listings: GpuListing[] }) {
           )}
         </div>
       ))}
-    </div>
-  );
-}
-
-// ── Signal Cards ──────────────────────────────────────────────────────────────
-
-function SignalCard({ headline, body, sub, type }: {
-  headline: string; body: string; sub?: string;
-  type: "info" | "warn" | "success" | "neutral";
-}) {
-  const colors = { info: "var(--blue)", warn: "var(--amber)", success: "var(--green)", neutral: "var(--text-muted)" } as const;
-  const c = colors[type];
-  return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: `3px solid ${c}`, boxShadow: "var(--shadow-sm)", padding: "14px 18px", flex: "1 1 190px", minWidth: 180 }}>
-      <div style={{ ...SANS, fontSize: 10.5, fontWeight: 600, color: c, textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 6 }}>{headline}</div>
-      <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.6 }}>{body}</div>
-      {sub && <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -815,11 +715,10 @@ export default function DashboardClient({ summary, listings }: Props) {
         select option { background: #fff; color: #171717; }
         input::placeholder { color: var(--text-muted); }
         @media (max-width: 900px) {
-          .hero-grid       { grid-template-columns: 1fr !important; gap: 28px !important; }
-          .charts-grid     { grid-template-columns: 1fr !important; }
-          .tiles-grid      { grid-template-columns: repeat(2, 1fr) !important; }
-          .status-grid     { grid-template-columns: repeat(2, 1fr) !important; }
-          .market-read-grid{ grid-template-columns: 1fr !important; gap: 16px !important; }
+          .hero-grid    { grid-template-columns: 1fr !important; gap: 28px !important; }
+          .charts-grid  { grid-template-columns: 1fr !important; }
+          .tiles-grid   { grid-template-columns: repeat(2, 1fr) !important; }
+          .status-grid  { grid-template-columns: repeat(2, 1fr) !important; }
         }
         @media (max-width: 540px) {
           .tiles-grid   { grid-template-columns: 1fr !important; }
