@@ -707,8 +707,6 @@ export default function DashboardClient({ summary, listings }: Props) {
   const capacityConf   = listings.length > 0 ? Math.round((highAvailCount / listings.length) * 100) : 0;
 
   const updatedAgo = minsAgo(summary?.last_updated);
-  const effectivePremiumForRead = (premiumPct !== null && premiumPct > 0) ? premiumPct
-    : (a100PremiumPct !== null && a100PremiumPct > 0) ? a100PremiumPct : 0;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text-primary)" }}>
@@ -741,77 +739,6 @@ export default function DashboardClient({ summary, listings }: Props) {
         a100PremiumPct={a100PremiumPct}
         capacityConf={capacityConf}
       />
-
-      {/* ── Today's Market Signals ── */}
-      <div style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ maxWidth: 1360, margin: "0 auto", padding: "20px 32px" }}>
-          <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 14 }}>Today's Market Signals</div>
-          <div style={{ display: "grid", gap: 0 }}>
-            {(() => {
-              const counts: Record<string, number> = {};
-              listings.forEach(l => { counts[l.provider] = (counts[l.provider] || 0) + 1; });
-              const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-              const topPct = top ? Math.round((top[1] / listings.length) * 100) : 0;
-              const h100Floor = cheapestH100High ? cheapestH100High.price_per_hour : null;
-              const h100Obs   = h100Prices.length ? h100Prices[0] : null;
-              const a100Floor = a100OnDemandReliable?.price_per_hour ?? null;
-
-              const signals = [
-                h100Floor && h100Obs ? {
-                  headline: `H100 production floor: ${fmtP(h100Floor)}/hr`,
-                  implication: `Reliable H100 capacity is ${fmtP(h100Floor - h100Obs)} above cheapest observed — the reliability premium is real.`,
-                  color: "var(--blue)",
-                } : h100Obs ? {
-                  headline: `H100 observed from ${fmtP(h100Obs)}/hr — no reliability-confirmed listings`,
-                  implication: "Treat current H100 floor as experimental capacity only.",
-                  color: "var(--amber)",
-                } : null,
-                effectivePremiumForRead > 0 ? {
-                  headline: `Hyperscalers priced ~${Math.round(effectivePremiumForRead)}% above specialists`,
-                  implication: "Large clouds carry a material premium for the same GPU class.",
-                  color: "var(--amber)",
-                } : {
-                  headline: "No material hyperscaler premium in this snapshot",
-                  implication: "Specialist and hyperscaler pricing are close — compare on availability and SLAs.",
-                  color: "var(--text-muted)",
-                },
-                a100Floor ? {
-                  headline: `A100 reliable from ${fmtP(a100Floor)}/hr — value tier for batch and evals`,
-                  implication: "Strong fit when H100 is unnecessary or unavailable.",
-                  color: "var(--green)",
-                } : null,
-                top ? {
-                  headline: `Supply concentration: ${getMeta(top[0]).short} ${topPct}% of index`,
-                  implication: topPct >= 40
-                    ? "High concentration — provider failure is a routing risk for any dependent workload."
-                    : "Moderate concentration — maintain a tested fallback provider.",
-                  color: topPct >= 40 ? "var(--red)" : "var(--amber)",
-                } : null,
-                {
-                  headline: `Capacity confidence: ${capacityConf}%`,
-                  implication: capacityConf >= 60
-                    ? "Enough confirmed supply to compare providers. Not a signal to blindly migrate production."
-                    : "Thin availability — verify capacity before committing spend.",
-                  color: capacityConf >= 60 ? "var(--green)" : "var(--amber)",
-                },
-              ].filter(Boolean) as { headline: string; implication: string; color: string }[];
-
-              return signals.map((s, i) => (
-                <div key={i} style={{
-                  display: "grid", gridTemplateColumns: "3px 1fr",
-                  borderBottom: i < signals.length - 1 ? "1px solid var(--border)" : "none",
-                }}>
-                  <div style={{ background: s.color }} />
-                  <div style={{ padding: "10px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "baseline" }}>
-                    <div style={{ ...SANS, fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{s.headline}</div>
-                    <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>{s.implication}</div>
-                  </div>
-                </div>
-              ));
-            })()}
-          </div>
-        </div>
-      </div>
 
       {/* ── AI compute market today (status module) ── */}
       {(() => {
