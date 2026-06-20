@@ -367,51 +367,54 @@ function GpuSmallMultiples({ listings }: { listings: GpuListing[] }) {
     const minReliable = highLs.length ? Math.min(...highLs.map(l => l.price_per_hour)) : null;
     const gapPct   = minReliable && prices[0] > 0
       ? Math.round(((minReliable - prices[0]) / prices[0]) * 100) : null;
-    return { family, count: ls.length, min: prices[0], max: prices[prices.length - 1], minReliable, gapPct };
-  }).filter(Boolean) as { family: string; count: number; min: number; max: number; minReliable: number | null; gapPct: number | null }[];
+    return { family, count: ls.length, min: prices[0], minReliable, gapPct };
+  }).filter(Boolean) as { family: string; count: number; min: number; minReliable: number | null; gapPct: number | null }[];
 
   if (!cards.length) return <div style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", padding: "20px 0" }}>No DC GPU data.</div>;
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-      {cards.map(c => (
-        <div key={c.family} style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "16px 18px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
-            <span style={{ ...MONO, fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{c.family}</span>
-            <span style={{ ...SANS, fontSize: 10, color: "var(--text-muted)" }}>{c.count} listings</span>
-          </div>
-
-          {/* The gap is the story */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div>
-              <div style={{ ...SANS, fontSize: 9.5, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 3 }}>Cheapest observed</div>
-              <div style={{ ...MONO, fontSize: 20, fontWeight: 500, color: "var(--text-secondary)", letterSpacing: "-0.02em" }}>{fmtP(c.min)}</div>
+      {cards.map(c => {
+        const hasGap = c.gapPct !== null && c.gapPct > 0;
+        const verdictColor = !c.minReliable ? "var(--amber)" : hasGap ? "var(--amber)" : "var(--green)";
+        return (
+          <div key={c.family} style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "16px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+              <span style={{ ...MONO, fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{c.family}</span>
+              <span style={{ ...SANS, fontSize: 10, color: "var(--text-muted)" }}>{c.count} listings</span>
             </div>
-            <div>
-              <div style={{ ...SANS, fontSize: 9.5, color: c.minReliable ? "var(--green)" : "var(--amber)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 3 }}>
-                {c.minReliable ? "Reliable from" : "No reliable listings"}
+
+            {/* Headline verdict — the gap (or lack of one) is the story */}
+            {!c.minReliable ? (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ ...MONO, fontSize: 26, fontWeight: 600, color: "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>No reliable supply</div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--amber)", marginTop: 5 }}>Cheapest observed {fmtP(c.min)}/hr is not a production routing target.</div>
               </div>
-              {c.minReliable ? (
-                <div style={{ ...MONO, fontSize: 20, fontWeight: 500, color: "var(--green)", letterSpacing: "-0.02em" }}>{fmtP(c.minReliable)}</div>
-              ) : (
-                <div style={{ ...SANS, fontSize: 11, color: "var(--amber)", marginTop: 2 }}>Observed only</div>
-              )}
+            ) : hasGap ? (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ ...MONO, fontSize: 26, fontWeight: 600, color: "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>+{c.gapPct}%</div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-secondary)", marginTop: 5 }}>for confirmed availability — {fmtP(c.min)} observed vs {fmtP(c.minReliable)} reliable</div>
+              </div>
+            ) : (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ ...MONO, fontSize: 26, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.02em", lineHeight: 1 }}>No premium</div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-secondary)", marginTop: 5 }}>Cheapest observed price is already reliable, at {fmtP(c.min)}/hr.</div>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 16, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+              <div>
+                <div style={{ ...SANS, fontSize: 9.5, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 2 }}>Observed</div>
+                <div style={{ ...MONO, fontSize: 13.5, fontWeight: 500, color: "var(--text-secondary)" }}>{fmtP(c.min)}</div>
+              </div>
+              <div>
+                <div style={{ ...SANS, fontSize: 9.5, color: c.minReliable ? "var(--green)" : "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 2 }}>Reliable</div>
+                <div style={{ ...MONO, fontSize: 13.5, fontWeight: 500, color: c.minReliable ? "var(--green)" : "var(--text-muted)" }}>{c.minReliable ? fmtP(c.minReliable) : "—"}</div>
+              </div>
             </div>
           </div>
-
-          {/* Gap annotation */}
-          {c.gapPct !== null && c.gapPct > 0 && (
-            <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)", ...SANS, fontSize: 11, color: "var(--text-muted)" }}>
-              +{c.gapPct}% for confirmed availability
-            </div>
-          )}
-          {!c.minReliable && (
-            <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)", ...SANS, fontSize: 11, color: "var(--amber)" }}>
-              Not a production routing target.
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
