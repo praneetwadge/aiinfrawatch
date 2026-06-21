@@ -90,23 +90,6 @@ function ConfidenceBadge({ level }: { level: ConfidenceLevel }) {
   );
 }
 
-// ── Sparkline ─────────────────────────────────────────────────────────────────
-
-function Sparkline({ values, color = "var(--blue)", width = 56, height = 22 }: {
-  values: number[]; color?: string; width?: number; height?: number;
-}) {
-  if (values.length < 2) return <span style={{ display: "inline-block", width, height }} />;
-  const min = Math.min(...values), max = Math.max(...values), range = max - min || 1;
-  const pts = values
-    .map((v, i) => `${(i / (values.length - 1)) * width},${height - ((v - min) / range) * (height - 3) - 1}`)
-    .join(" ");
-  return (
-    <svg width={width} height={height} style={{ display: "block", overflow: "visible" }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
-    </svg>
-  );
-}
-
 const Rule = ({ my = 0 }: { my?: number }) => (
   <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: `${my}px 0` }} />
 );
@@ -237,31 +220,6 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
   );
 }
 
-
-// ── Market Index Tiles ────────────────────────────────────────────────────────
-
-function IndexTile({ label, value, note, color, spark, footnote, badge }: {
-  label: string; value: string; note?: string; color: string;
-  spark?: number[]; footnote?: string; badge?: ConfidenceLevel;
-}) {
-  const showBadge = badge && badge !== "high-avail" && badge !== "reliable";
-  return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "20px 22px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 10 }}>
-        <div style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", fontWeight: 600 }}>{label}</div>
-        {showBadge && <ConfidenceBadge level={badge} />}
-      </div>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 8 }}>
-        <div>
-          <div style={{ ...MONO, fontSize: 32, fontWeight: 500, color, lineHeight: 1, letterSpacing: "-0.03em" }}>{value}</div>
-          {note && <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 5 }}>{note}</div>}
-        </div>
-        {spark && spark.length >= 2 && <Sparkline values={spark} color={color} width={60} height={28} />}
-      </div>
-      {footnote && <div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", lineHeight: 1.5, marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>{footnote}</div>}
-    </div>
-  );
-}
 
 // ── H100 Spread Chart ─────────────────────────────────────────────────────────
 
@@ -681,14 +639,6 @@ export default function DashboardClient({ summary, listings }: Props) {
 
   const cheapestH100High = [...h100High].sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
 
-  // A100 on-demand reliable — fallback when A100 spot is absent
-  const a100OnDemandReliable = listings
-    .filter(l => l.gpu_model.includes("A100") && l.availability === "high" && l.pricing_type === "on-demand")
-    .sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
-
-  // Credibility-guarded averages
-  const a100Avg = a100Prices.length ? a100Prices.reduce((s, p) => s + p, 0) / a100Prices.length : 0;
-
   // Hyperscaler premium — H100 preferred, falls back to A100
   const h100Hyper  = listings.filter(l => l.gpu_model.includes("H100") && HYPERSCALERS.includes(l.provider.toLowerCase()));
   const h100Spec   = listings.filter(l => l.gpu_model.includes("H100") && !HYPERSCALERS.includes(l.provider.toLowerCase()));
@@ -703,8 +653,7 @@ export default function DashboardClient({ summary, listings }: Props) {
   const a100SpecAvg  = a100Spec.length  ? a100Spec.reduce((s, l)  => s + l.price_per_hour, 0) / a100Spec.length  : 0;
   const a100PremiumPct = a100SpecAvg > 0 && a100HyperAvg > 0 ? ((a100HyperAvg / a100SpecAvg - 1) * 100) : null;
 
-  const highAvailCount = listings.filter(l => l.availability === "high").length;
-  const capacityConf   = listings.length > 0 ? Math.round((highAvailCount / listings.length) * 100) : 0;
+  const capacityConf   = listings.length > 0 ? Math.round((listings.filter(l => l.availability === "high").length / listings.length) * 100) : 0;
 
   const updatedAgo = minsAgo(summary?.last_updated);
 
@@ -718,12 +667,6 @@ export default function DashboardClient({ summary, listings }: Props) {
         @media (max-width: 900px) {
           .hero-grid    { grid-template-columns: 1fr !important; gap: 28px !important; }
           .charts-grid  { grid-template-columns: 1fr !important; }
-          .tiles-grid   { grid-template-columns: repeat(2, 1fr) !important; }
-          .status-grid  { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-        @media (max-width: 540px) {
-          .tiles-grid   { grid-template-columns: 1fr !important; }
-          .status-grid  { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
@@ -740,81 +683,6 @@ export default function DashboardClient({ summary, listings }: Props) {
         capacityConf={capacityConf}
       />
 
-      {/* ── AI compute market today (status module) ── */}
-      {(() => {
-        const counts: Record<string, number> = {};
-        listings.forEach(l => { counts[l.provider] = (counts[l.provider] || 0) + 1; });
-        const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-        const topPct = top ? Math.round((top[1] / listings.length) * 100) : 0;
-
-        const h100Status = cheapestH100High ? "healthy" : h100Prices.length ? "caution" : "unavailable";
-        const a100Reliable = a100OnDemandReliable ?? (a100Prices.length ? { price_per_hour: a100Prices[0], provider: "unknown" } as GpuListing : null);
-        const a100Status = a100Reliable ? "healthy" : "caution";
-        const capacityStatus = capacityConf >= 60 ? "healthy" : capacityConf >= 40 ? "caution" : "risk";
-        const concentrationStatus = topPct >= 50 ? "risk" : topPct >= 35 ? "caution" : "healthy";
-
-        const dot = (s: string) => ({
-          healthy: "var(--green)", caution: "var(--amber)", risk: "var(--red)", unavailable: "var(--text-muted)"
-        } as Record<string, string>)[s] ?? "var(--text-muted)";
-
-        const rows = [
-          {
-            status: h100Status,
-            label: "H100",
-            state: h100Status === "healthy" ? `Reliable from ${fmtP(cheapestH100High!.price_per_hour)}/hr · ${getMeta(cheapestH100High!.provider).short}`
-              : h100Status === "caution" ? `${h100Prices.length} listings — none availability-confirmed`
-              : "Not in current snapshot",
-            action: h100Status === "healthy" ? `${h100High.length} high-availability ${h100High.length === 1 ? "listing" : "listings"}. Production routing viable.`
-              : h100Status === "caution" ? "Observed-only. Treat as experimental capacity."
-              : "Not in snapshot. Request audit for regional options.",
-          },
-          {
-            status: a100Status,
-            label: "A100",
-            state: a100Reliable ? `Reliable from ${fmtP(a100Reliable.price_per_hour)}/hr · ${getMeta(a100Reliable.provider).short}`
-              : "Reliable supply thin this snapshot",
-            action: a100Status === "healthy"
-              ? "Value tier for evals, batch, and fine-tuning when H100 is unnecessary."
-              : "Spot listings exist but reliable supply is limited.",
-          },
-          {
-            status: capacityStatus,
-            label: "Capacity",
-            state: `${capacityConf}% of ${listings.length.toLocaleString()} ${listings.length === 1 ? "listing" : "listings"} confirmed high-availability`,
-            action: capacityStatus === "healthy" ? "Compare on price and region."
-              : capacityStatus === "caution" ? "Verify before committing to spot."
-              : "Availability risk elevated. Prefer on-demand.",
-          },
-          {
-            status: concentrationStatus,
-            label: "Concentration",
-            state: top ? `${getMeta(top[0]).short} is ${topPct}% of the index` : "Supply spread across providers",
-            action: concentrationStatus === "risk" ? "Identify a fallback before routing critical workloads."
-              : concentrationStatus === "caution" ? "Have a secondary provider tested and ready."
-              : "Supply reasonably distributed.",
-          },
-        ];
-
-        return (
-          <div style={{ borderBottom: "1px solid var(--border)" }}>
-            <div style={{ maxWidth: 1360, margin: "0 auto", padding: "0 32px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", borderLeft: "1px solid var(--border)" }} className="status-grid">
-                {rows.map(r => (
-                  <div key={r.label} style={{ padding: "20px 22px", borderRight: "1px solid var(--border)", borderTop: "3px solid " + dot(r.status) }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot(r.status), flexShrink: 0, display: "inline-block" }} />
-                      <span style={{ ...MONO, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>{r.label}</span>
-                    </div>
-                    <div style={{ ...SANS, fontSize: 12.5, fontWeight: 600, color: "var(--text-primary)", marginBottom: 5, lineHeight: 1.3 }}>{r.state}</div>
-                    <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-secondary)", lineHeight: 1.55 }}>{r.action}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* ── Market data ── */}
       <div id="market-data">
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "40px 32px 0" }}>
@@ -828,44 +696,21 @@ export default function DashboardClient({ summary, listings }: Props) {
           </div>
         </div>
 
-        {/* 3 tiles */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 14 }}>Current prices</div>
-          <div className="tiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-            <IndexTile
-              label={cheapestH100High ? "Cheapest reliable H100" : h100Prices.length ? "Cheapest observed H100" : "H100"}
-              value={cheapestH100High ? fmtP(cheapestH100High.price_per_hour) : h100Prices.length ? fmtP(h100Prices[0]) : "Not in snapshot"}
-              note={cheapestH100High
-                ? `${getMeta(cheapestH100High.provider).short} · ${h100High.length} reliable ${h100High.length === 1 ? "listing" : "listings"}`
-                : h100Prices.length ? `${h100Prices.length} ${h100Prices.length === 1 ? "listing" : "listings"} — observed only`
-                : "Not in current snapshot"}
-              color={cheapestH100High ? "var(--blue)" : h100Prices.length ? "var(--amber)" : "var(--text-muted)"}
-              spark={h100Prices.slice(0, 10)}
-              badge={!cheapestH100High && h100Prices.length ? "observed" : !h100Prices.length ? "pending" : undefined}
-              footnote={h100Prices.length >= 2 ? `Range ${fmtP(h100Prices[0])} – ${fmtP(h100Prices[h100Prices.length - 1])}` : undefined}
-            />
-            <IndexTile
-              label={a100Avg > 0 ? "A100 spot floor" : a100OnDemandReliable ? "A100 reliable floor" : "A100"}
-              value={a100Avg > 0 ? fmtP(a100Prices[0]) : a100OnDemandReliable ? fmtP(a100OnDemandReliable.price_per_hour) : "Not in snapshot"}
-              note={a100Avg > 0
-                ? `${a100Prices.length} spot ${a100Prices.length === 1 ? "listing" : "listings"} · avg ${fmtP(a100Avg)}`
-                : a100OnDemandReliable
-                  ? `${getMeta(a100OnDemandReliable.provider).short} · on-demand`
-                  : "Not in current snapshot"}
-              color={a100Avg > 0 ? "var(--blue)" : a100OnDemandReliable ? "var(--green)" : "var(--text-muted)"}
-              spark={a100Prices.length ? a100Prices.slice(0, 10) : undefined}
-              badge={a100Prices.length < 3 && !a100OnDemandReliable ? "pending" : undefined}
-            />
-            <IndexTile
-              label="Capacity confidence"
-              value={`${capacityConf}%`}
-              note={`${highAvailCount.toLocaleString()} of ${listings.length.toLocaleString()} ${listings.length === 1 ? "listing" : "listings"} high-avail.`}
-              color={capacityConf >= 60 ? "var(--green)" : "var(--amber)"}
-              badge={capacityConf < 60 ? "observed" : undefined}
-            />
+        {/* Audit CTA — right after the proof, before the deep-dive table */}
+        <div style={{ marginBottom: 36, background: "#171717", padding: "26px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" as const }}>
+          <div>
+            <div style={{ ...SERIF, fontSize: 21, fontWeight: 400, color: "#F7F3EA", marginBottom: 5 }}>This is the market. What's your stack actually costing you?</div>
+            <div style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.65)" }}>Paste your bill or quote — see the gap, what can safely move, and your first action. No email required to see it.</div>
           </div>
+          <Link href="/cost-audit" style={{
+            ...SANS, fontSize: 13.5, fontWeight: 600,
+            color: "#171717", background: "#F7F3EA",
+            padding: "12px 24px", borderRadius: 3, textDecoration: "none",
+            letterSpacing: "0.01em", whiteSpace: "nowrap" as const, flexShrink: 0,
+          }}>
+            Audit my stack →
+          </Link>
         </div>
-
 
         {/* Provider Explorer — collapsed by default */}
         <div style={{ marginBottom: 44 }}>

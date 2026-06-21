@@ -42,7 +42,7 @@ export default async function CostAuditPage() {
               Stop wasting money on AI compute.
             </h1>
             <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 620 }}>
-              Paste your stack, bill, or provider quote. AIInfraWatch finds where you are overpaying, what can safely move, and what could eventually route automatically.
+              Paste your stack, bill, or provider quote. AIInfraWatch shows the gap, what can safely move, and your first action — before you give us an email.
             </p>
           </div>
         </section>

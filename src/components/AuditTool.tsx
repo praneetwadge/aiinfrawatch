@@ -283,18 +283,36 @@ export default function AuditTool({ listings }: AuditToolProps) {
               {["Wasted spend signal", "Safe-to-move workload map", "Provider alternatives", "Routing beta fit", "Future savings alerts"].map(item => (
                 <div key={item} style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.45, marginBottom: 7 }}>→ {item}</div>
               ))}
+              <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+                Flexible workloads you flag here become candidates for automated routing — eventually against energy pricing, not just compute pricing.
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* ── Live result — always visible, refines as inputs change ── */}
+        <div style={{ padding: "0 24px 20px" }}>
+          <div style={{ ...SANS, fontSize: 10.5, fontWeight: 650, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 8 }}>
+            Preview — based on {showManual ? "your details" : `default ${family}, ${gpuCountStr}×, ${hoursStr}h/mo`}
+          </div>
+          <ResultCard
+            listings={listings}
+            family={family}
+            gpuCount={gpuCount}
+            hours={hours}
+            situation={situation}
+            workload={workload}
+          />
         </div>
 
         {/* ── Manual entry expand ── */}
         <div style={{ borderTop: "1px solid var(--border)" }}>
           <button onClick={() => setShowManual(o => !o)} style={{
             ...SANS, width: "100%", background: "transparent", border: "none",
-            color: "var(--text-secondary)", padding: "12px 24px", textAlign: "left",
-            fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center",
+            color: "var(--blue)", padding: "12px 24px", textAlign: "left",
+            fontSize: 13, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
-            <span>Add structured details</span>
+            <span>Refine with structured details (GPU count, hours, workload type)</span>
             <span style={{ ...MONO, fontSize: 12 }}>{showManual ? "−" : "+"}</span>
           </button>
 
@@ -328,7 +346,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={labelStyle}>GPU count</label>
                   <input type="number" min={1} value={gpuCountStr}
@@ -344,16 +362,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
                     style={inputStyle} />
                 </div>
               </div>
-
-              {/* Instant result — no submit needed */}
-              <ResultCard
-                listings={listings}
-                family={family}
-                gpuCount={gpuCount}
-                hours={hours}
-                situation={situation}
-                workload={workload}
-              />
             </div>
           )}
         </div>
