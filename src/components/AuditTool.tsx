@@ -39,6 +39,80 @@ const parseNum = (v: string, fallback: number) => {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
+interface ParsedStack {
+  family: GpuFamily | null;
+  gpuCount: number | null;
+  hours: number | null;
+  situation: Situation | null;
+  workload: WorkloadType | null;
+  matchedTerms: string[];
+}
+
+// Lightweight free-text parser — extracts structured signals from a pasted
+// stack description so the result reflects what the visitor actually typed,
+// not just default dropdown state. Best-effort; falls back to manual fields.
+function parseStackText(text: string): ParsedStack {
+  const t = text.toLowerCase();
+  const matched: string[] = [];
+
+  // GPU family — check longer/more specific tokens first (H100 before H1, etc.)
+  let family: GpuFamily | null = null;
+  const familyPatterns: [RegExp, GpuFamily][] = [
+    [/\bh100\b/, "H100"],
+    [/\ba100\b/, "A100"],
+    [/\bl40s?\b/, "L40S"],
+    [/\ba10g?\b/, "A10G"],
+  ];
+  for (const [re, fam] of familyPatterns) {
+    if (re.test(t)) { family = fam; matched.push(fam); break; }
+  }
+
+  // GPU count — "8x", "8 x", "8×", "8 H100s"
+  let gpuCount: number | null = null;
+  const countMatch = t.match(/(\d+)\s*[x×]\s*(?:h100|a100|l40s?|a10g?|gpu)/)
+    ?? t.match(/(\d+)\s+(?:h100|a100|l40s?|a10g?)s?\b/);
+  if (countMatch) {
+    const n = parseInt(countMatch[1], 10);
+    if (n > 0 && n <= 10000) { gpuCount = n; matched.push(`${n}×`); }
+  }
+
+  // Hours/month — "500 hours", "500-700 hours/month", "~600 hrs"
+  let hours: number | null = null;
+  const hoursMatch = t.match(/(\d+)\s*(?:-\s*\d+\s*)?\s*(?:hours?|hrs?)(?:\s*\/\s*month|\s*per\s*month|\/mo)?/);
+  if (hoursMatch) {
+    const n = parseInt(hoursMatch[1], 10);
+    if (n > 0 && n <= 8760) { hours = n; matched.push(`${n}h/mo`); }
+  }
+
+  // Current provider/situation
+  let situation: Situation | null = null;
+  if (/\b(aws|amazon web services|gcp|google cloud|azure|microsoft azure)\b/.test(t)) {
+    situation = "hyperscaler"; matched.push("hyperscaler");
+  } else if (/\b(coreweave|lambda|lambda labs|nebius)\b/.test(t)) {
+    situation = "neocloud"; matched.push("neocloud");
+  } else if (/\b(runpod|vast\.?ai|vastai)\b/.test(t)) {
+    situation = "marketplace"; matched.push("marketplace");
+  }
+
+  // Workload type
+  let workload: WorkloadType | null = null;
+  if (/\b(real-?time|production serving|inference serving|live inference)\b/.test(t)) {
+    workload = "inference"; matched.push("real-time inference");
+  } else if (/\bbatch\b/.test(t)) {
+    workload = "batch"; matched.push("batch");
+  } else if (/\b(eval|evals|benchmark)/.test(t)) {
+    workload = "evals"; matched.push("evals");
+  } else if (/\bfine-?tun/.test(t)) {
+    workload = "finetuning"; matched.push("fine-tuning");
+  } else if (/\btraining\b/.test(t)) {
+    workload = "training"; matched.push("training");
+  } else if (/\b(notebook|dev|development)\b/.test(t)) {
+    workload = "dev"; matched.push("dev");
+  }
+
+  return { family, gpuCount, hours, situation, workload, matchedTerms: matched };
+}
+
 function ResultCard({ listings, family, gpuCount, hours, situation, workload }: {
   listings: GpuListing[]; family: GpuFamily; gpuCount: number; hours: number;
   situation: Situation; workload: WorkloadType;
@@ -202,6 +276,20 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const gpuCount = parseNum(gpuCountStr, 1);
   const hours    = parseNum(hoursStr, 720);
 
+  // Parse the pasted text for structured signals. If the visitor hasn't
+  // touched the manual fields, the parsed values drive the result — so
+  // typing "8x H100 on GCP, 500 hours/month" actually changes the output.
+  const parsed = useMemo(() => parseStackText(setupText), [setupText]);
+
+  const effectiveFamily: GpuFamily   = showManual ? family    : (parsed.family    ?? family);
+  const effectiveCount:  number      = showManual ? gpuCount  : (parsed.gpuCount  ?? gpuCount);
+  const effectiveHours:  number      = showManual ? hours     : (parsed.hours     ?? hours);
+  const effectiveSituation: Situation = showManual ? situation : (parsed.situation ?? situation);
+  const effectiveWorkload: WorkloadType = showManual ? workload : (parsed.workload ?? workload);
+
+  const usingParsedText = !showManual && parsed.matchedTerms.length > 0;
+  const hasInput = setupText.trim().length > 0 || showManual;
+
   // Worked example — computed from live A100 data (most practical market)
   const workedExample = useMemo(() => {
     const a100Hyper = listings.filter(l => l.gpu_model.includes("A100") && HYPERSCALERS.includes(l.provider.toLowerCase()) && l.availability === "high")
@@ -229,11 +317,13 @@ export default function AuditTool({ listings }: AuditToolProps) {
     if (!email || !email.includes("@")) { setError("Enter a valid work email."); return; }
     setError(""); setLoading(true);
     try {
+      const summary = `Audit basis: ${effectiveCount}×${effectiveFamily}, ${effectiveHours}h/mo, ${effectiveSituation}, ${effectiveWorkload}` +
+        (usingParsedText ? ` (parsed from pasted text: ${parsed.matchedTerms.join(", ")})` : showManual ? " (manual entry)" : " (defaults)");
       const res = await fetch("/api/audit-request", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email, monthlySpend: "Unknown / audit needed", workload: workload,
-          notes: [setupText.trim(), showManual ? `Manual: ${gpuCountStr}×${family}, ${hoursStr}h/mo, ${situation}` : ""].filter(Boolean).join("\n\n"),
+          email, monthlySpend: "Unknown / audit needed", workload: effectiveWorkload,
+          notes: [setupText.trim(), summary].filter(Boolean).join("\n\n"),
           source: "cost-audit",
         }),
       });
@@ -273,41 +363,92 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 style={{ ...inputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.55 }}
               />
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                {["Cloud bill", "Architecture notes", "Provider quote", "Plain English"].map(t => (
-                  <span key={t} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "var(--elevated)", border: "1px solid var(--border)", padding: "3px 8px", borderRadius: 3 }}>{t}</span>
+                {[
+                  ["Cloud bill", "Our monthly cloud bill for AI compute is roughly $___. We run "],
+                  ["Architecture notes", "We run "],
+                  ["Provider quote", "We got a quote of $___/hr for "],
+                  ["Plain English", "We use "],
+                ].map(([label, prefix]) => (
+                  <button key={label} type="button"
+                    onClick={() => setSetupText(t => t.trim().length ? t : prefix)}
+                    style={{
+                      ...SANS, fontSize: 11, color: "var(--text-secondary)", cursor: "pointer",
+                      background: "var(--elevated)", border: "1px solid var(--border)",
+                      padding: "3px 8px", borderRadius: 3,
+                    }}>{label}</button>
                 ))}
               </div>
             </div>
             <div style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "14px 16px" }}>
               <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>What this unlocks</div>
-              {["Wasted spend signal", "Safe-to-move workload map", "Provider alternatives", "Routing beta fit", "Future savings alerts"].map(item => (
+              {[
+                "Where you're overpaying",
+                "What can safely move",
+                "Routing fit — incl. future energy pricing",
+              ].map(item => (
                 <div key={item} style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.45, marginBottom: 7 }}>→ {item}</div>
               ))}
-              <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
-                Flexible workloads you flag here become candidates for automated routing — eventually against energy pricing, not just compute pricing.
-              </div>
             </div>
           </div>
         </div>
 
-        {/* ── Live result — always visible, refines as inputs change ── */}
+        {/* ── Live result — appears once there's real input ── */}
         <div style={{ padding: "0 24px 20px" }}>
-          <div style={{ ...SANS, fontSize: 10.5, fontWeight: 650, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 8 }}>
-            Preview — based on {showManual ? "your details" : `default ${family}, ${gpuCountStr}×, ${hoursStr}h/mo`}
-          </div>
-          <ResultCard
-            listings={listings}
-            family={family}
-            gpuCount={gpuCount}
-            hours={hours}
-            situation={situation}
-            workload={workload}
-          />
+          {!hasInput ? (
+            <div style={{ background: "var(--bg)", border: "1px dashed var(--border-mid)", padding: "20px", textAlign: "center" as const }}>
+              <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)" }}>
+                Start typing above, or <button type="button" onClick={() => setShowManual(true)} style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>enter structured details</button> to see your audit preview.
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 8, marginBottom: 8 }}>
+                <div style={{ ...SANS, fontSize: 10.5, fontWeight: 650, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em" }}>
+                  Preview — {showManual ? "based on your structured details" : "detected from your text"}
+                </div>
+                {usingParsedText && (
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const }}>
+                    {parsed.matchedTerms.map(term => (
+                      <span key={term} style={{ ...MONO, fontSize: 10, color: "var(--blue)", background: "var(--blue-dim)", border: "1px solid rgba(43,108,176,0.2)", padding: "2px 7px", borderRadius: 2 }}>{term}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {!showManual && !usingParsedText ? (
+                <div style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "16px 20px" }}>
+                  <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)" }}>
+                    Couldn't detect a GPU family, count, or hours from that text yet.{" "}
+                    <button type="button" onClick={() => setShowManual(true)} style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>Enter structured details</button> for an accurate preview.
+                  </div>
+                </div>
+              ) : (
+                <ResultCard
+                  listings={listings}
+                  family={effectiveFamily}
+                  gpuCount={effectiveCount}
+                  hours={effectiveHours}
+                  situation={effectiveSituation}
+                  workload={effectiveWorkload}
+                />
+              )}
+            </>
+          )}
         </div>
 
         {/* ── Manual entry expand ── */}
         <div style={{ borderTop: "1px solid var(--border)" }}>
-          <button onClick={() => setShowManual(o => !o)} style={{
+          <button onClick={() => {
+            if (!showManual) {
+              // Seed manual fields with parsed values on first open, so the
+              // visitor refines from what we detected rather than resetting to defaults.
+              if (parsed.family) setFamily(parsed.family);
+              if (parsed.gpuCount) setGpuCount(String(parsed.gpuCount));
+              if (parsed.hours) setHours(String(parsed.hours));
+              if (parsed.situation) setSituation(parsed.situation);
+              if (parsed.workload) setWorkload(parsed.workload);
+            }
+            setShowManual(o => !o);
+          }} style={{
             ...SANS, width: "100%", background: "transparent", border: "none",
             color: "var(--blue)", padding: "12px 24px", textAlign: "left",
             fontSize: 13, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center",
