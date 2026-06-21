@@ -52,17 +52,19 @@ export default function SiteNav() {
           </nav>
         </div>
 
-        {/* Right: primary CTA */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <Link href="/cost-audit" style={{
-            ...SANS, fontSize: 12.5, fontWeight: 600,
-            color: "#F7F3EA", background: "#171717",
-            padding: "7px 16px", borderRadius: 3,
-            textDecoration: "none", letterSpacing: "0.01em",
-            whiteSpace: "nowrap" as const,
-          }}>
-            Audit my stack
-          </Link>
+        {/* Right: primary CTA — hidden on /cost-audit since the page CTA does the job */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: isActive("/cost-audit") ? 0 : undefined }}>
+          {!isActive("/cost-audit") && (
+            <Link href="/cost-audit" style={{
+              ...SANS, fontSize: 12.5, fontWeight: 600,
+              color: "#F7F3EA", background: "#171717",
+              padding: "7px 16px", borderRadius: 3,
+              textDecoration: "none", letterSpacing: "0.01em",
+              whiteSpace: "nowrap" as const,
+            }}>
+              Audit my stack
+            </Link>
+          )}
         </div>
       </div>
     </header>

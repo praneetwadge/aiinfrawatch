@@ -517,7 +517,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "#171717",
                 padding: "9px 20px", borderRadius: 3, border: "none", cursor: "pointer",
               }}>
-                Audit my stack
+                Email me the full breakdown
               </button>
               <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
                 Provider-by-provider breakdown, region options, and what to move first.
