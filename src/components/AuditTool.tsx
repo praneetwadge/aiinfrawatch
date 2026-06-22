@@ -267,6 +267,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const [hoursStr,    setHours]       = useState("720");
   const [situation,   setSituation]   = useState<Situation>("hyperscaler");
   const [workload,    setWorkload]     = useState<WorkloadType>("evals");
+  const [manualTouched, setManualTouched] = useState(false);
   const [showCapture, setShowCapture] = useState(false);
   const [submitted,   setSubmitted]   = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
@@ -288,7 +289,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const effectiveWorkload: WorkloadType = showManual ? workload : (parsed.workload ?? workload);
 
   const usingParsedText = !showManual && parsed.matchedTerms.length > 0;
-  const hasInput = setupText.trim().length > 0 || showManual;
+  const hasInput = setupText.trim().length > 0 || (showManual && manualTouched);
 
   // Worked example — computed from live A100 data (most practical market)
   const workedExample = useMemo(() => {
@@ -397,7 +398,9 @@ export default function AuditTool({ listings }: AuditToolProps) {
           {!hasInput ? (
             <div style={{ background: "var(--bg)", border: "1px dashed var(--border-mid)", padding: "20px", textAlign: "center" as const }}>
               <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)" }}>
-                Start typing above, or <button type="button" onClick={() => setShowManual(true)} style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>enter structured details</button> to see your audit preview.
+                {showManual
+                  ? "Set your GPU family, count, and hours below to see your audit preview."
+                  : <>Start typing above, or <button type="button" onClick={() => setShowManual(true)} style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>enter structured details</button> to see your audit preview.</>}
               </div>
             </div>
           ) : (
@@ -462,13 +465,13 @@ export default function AuditTool({ listings }: AuditToolProps) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 }} className="manual-grid">
                 <div>
                   <label style={labelStyle}>Workload type</label>
-                  <select value={workload} onChange={e => setWorkload(e.target.value as WorkloadType)} style={{ ...inputStyle, appearance: "auto" }}>
+                  <select value={workload} onChange={e => { setWorkload(e.target.value as WorkloadType); setManualTouched(true); }} style={{ ...inputStyle, appearance: "auto" }}>
                     {WORKLOAD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={labelStyle}>Current setup</label>
-                  <select value={situation} onChange={e => setSituation(e.target.value as Situation)} style={{ ...inputStyle, appearance: "auto" }}>
+                  <select value={situation} onChange={e => { setSituation(e.target.value as Situation); setManualTouched(true); }} style={{ ...inputStyle, appearance: "auto" }}>
                     {SETUP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
@@ -476,7 +479,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   <label style={labelStyle}>GPU family</label>
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                     {(["H100","A100","L40S","A10G","other"] as GpuFamily[]).map(f => (
-                      <button key={f} onClick={() => setFamily(f)} style={{
+                      <button key={f} onClick={() => { setFamily(f); setManualTouched(true); }} style={{
                         ...MONO, fontSize: 11, padding: "6px 10px", borderRadius: 3,
                         border: `1px solid ${family === f ? "var(--blue)" : "var(--border-mid)"}`,
                         background: family === f ? "var(--blue-dim)" : "var(--panel)",
@@ -491,14 +494,14 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 <div>
                   <label style={labelStyle}>GPU count</label>
                   <input type="number" min={1} value={gpuCountStr}
-                    onChange={e => setGpuCount(e.target.value)}
+                    onChange={e => { setGpuCount(e.target.value); setManualTouched(true); }}
                     onBlur={() => setGpuCount(String(parseNum(gpuCountStr, 1)))}
                     style={inputStyle} />
                 </div>
                 <div>
                   <label style={labelStyle}>Hours / month</label>
                   <input type="number" min={1} max={8760} value={hoursStr}
-                    onChange={e => setHours(e.target.value)}
+                    onChange={e => { setHours(e.target.value); setManualTouched(true); }}
                     onBlur={() => setHours(String(parseNum(hoursStr, 720)))}
                     style={inputStyle} />
                 </div>
