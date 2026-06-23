@@ -9,10 +9,9 @@ const MONO:  React.CSSProperties = { fontFamily: "var(--font-mono)" };
 const SANS:  React.CSSProperties = { fontFamily: "var(--font-sans)" };
 const SERIF: React.CSSProperties = { fontFamily: "var(--font-serif)" };
 
-type Situation   = "hyperscaler" | "neocloud" | "marketplace" | "unsure";
+type Situation    = "hyperscaler" | "neocloud" | "marketplace" | "unsure";
 type WorkloadType = "inference" | "batch" | "evals" | "finetuning" | "training" | "dev" | "unsure";
-type GpuFamily   = "H100" | "A100" | "L40S" | "A10G" | "other";
-type InputTab    = "plain" | "diagram" | "bill" | "structured";
+type GpuFamily    = "H100" | "A100" | "L40S" | "A10G" | "other";
 
 const WORKLOAD_OPTIONS: { value: WorkloadType; label: string; batchFriendly: boolean }[] = [
   { value: "inference",  label: "Real-time inference",  batchFriendly: false },
@@ -107,26 +106,31 @@ function capacityConfFromListings(ls: GpuListing[]) {
   return Math.round(ls.filter(l => l.availability === "high").length / ls.length * 100);
 }
 
-function ResultSection({ listings, family, gpuCount, hours, situation, workload, onEmail }: {
-  listings: GpuListing[]; family: GpuFamily; gpuCount: number; hours: number;
-  situation: Situation; workload: WorkloadType; onEmail: () => void;
-}) {
+/* ── Result computation (pure) ── */
+interface ComputedResult {
+  baseline: GpuListing | null;
+  recommendation: GpuListing;
+  isReliable: boolean;
+  currentMonthly: number | null;
+  recommendedMonthly: number;
+  savings: number | null;
+  savingsPct: number | null;
+  reliabilityRisk: "Low" | "Medium" | "High";
+  isBatchFriendly: boolean;
+  workloadLabel: string;
+  advice: string;
+}
+
+function computeResult(
+  listings: GpuListing[], family: GpuFamily, gpuCount: number, hours: number,
+  situation: Situation, workload: WorkloadType,
+): ComputedResult | null {
   const familyListings = family === "other"
     ? listings
     : listings.filter(l => l.gpu_model.toUpperCase().includes(family));
+  if (!familyListings.length) return null;
 
-  if (!familyListings.length) {
-    return (
-      <div style={{ border: "1px solid var(--border)", background: "var(--panel)", padding: "24px" }}>
-        <div style={{ ...SANS, fontSize: 13, color: "var(--text-muted)" }}>
-          No {family === "other" ? "GPU" : family} listings in the current snapshot.{" "}
-          Submit your stack and we'll find current pricing for this GPU family.
-        </div>
-      </div>
-    );
-  }
-
-  const sorted  = [...familyListings].sort((a, b) => a.price_per_hour - b.price_per_hour);
+  const sorted   = [...familyListings].sort((a, b) => a.price_per_hour - b.price_per_hour);
   const reliable = familyListings.filter(l => l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour);
   const cheapestObserved = sorted[0];
   const cheapestReliable = reliable[0] ?? null;
@@ -150,7 +154,7 @@ function ResultSection({ listings, family, gpuCount, hours, situation, workload,
   const savings    = currentMonthly && currentMonthly > recommendedMonthly ? currentMonthly - recommendedMonthly : null;
   const savingsPct = currentMonthly && savings ? Math.round((savings / currentMonthly) * 100) : null;
 
-  const workloadObj    = WORKLOAD_OPTIONS.find(w => w.value === workload);
+  const workloadObj     = WORKLOAD_OPTIONS.find(w => w.value === workload);
   const isBatchFriendly = workloadObj?.batchFriendly ?? false;
   const reliabilityRisk = !isReliable ? "High" : capacityConfFromListings(familyListings) >= 60 ? "Low" : "Medium";
 
@@ -162,13 +166,62 @@ function ResultSection({ listings, family, gpuCount, hours, situation, workload,
   } else if (savingsPct !== null) {
     advice = `You're near market floor for reliable ${family === "other" ? "GPU" : family}. Focus on utilisation and reserved pricing rather than provider switching.`;
   } else if (!baseline) {
-    advice = `No ${situation} listings found for ${family === "other" ? "this GPU" : family} in the current snapshot. The audit can surface region-specific options not in the daily index.`;
+    advice = `No ${situation} listings found for ${family === "other" ? "this GPU" : family} in the current snapshot. The full audit can surface region-specific options not in the daily index.`;
   }
+
+  return {
+    baseline, recommendation, isReliable, currentMonthly, recommendedMonthly,
+    savings, savingsPct, reliabilityRisk, isBatchFriendly,
+    workloadLabel: workloadObj?.label ?? "this workload", advice,
+  };
+}
+
+/* ── Result display ── */
+function ResultSection({ r, family, gpuCount, hours, situation, workload }: {
+  r: ComputedResult; family: GpuFamily; gpuCount: number; hours: number;
+  situation: Situation; workload: WorkloadType;
+}) {
+  const { baseline, recommendation, isReliable, currentMonthly, recommendedMonthly, savings, savingsPct, reliabilityRisk, isBatchFriendly, workloadLabel, advice } = r;
+
+  // Headline number — the artifact.
+  let headline: React.ReactNode;
+  if (savings && savingsPct) {
+    headline = (
+      <>
+        <span style={{ ...MONO, fontSize: 34, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>
+          ≈ {fmtMoney(savings)}/mo
+        </span>
+        <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", marginLeft: 10 }}>
+          over market for this workload ({savingsPct}% above the cheapest {isReliable ? "reliable" : "observed"} option)
+        </span>
+      </>
+    );
+  } else if (currentMonthly) {
+    headline = (
+      <span style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)" }}>
+        You're at market floor for reliable {family === "other" ? "GPU" : family}. The win here is utilisation and reserved pricing, not switching providers.
+      </span>
+    );
+  } else {
+    headline = (
+      <span style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)" }}>
+        Add your current provider to size the gap — we couldn't find a {situation} baseline for {family === "other" ? "this GPU" : family} in today's snapshot.
+      </span>
+    );
+  }
+
+  // Keep-in-place line — the differentiator made explicit.
+  const keepLine = !isBatchFriendly && workload !== "unsure";
 
   return (
     <div>
-      {/* ── Numbers ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", background: "var(--panel)", border: "1px solid var(--border)", marginBottom: 1 }} className="result-grid">
+      {/* Headline */}
+      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: `3px solid ${savings ? "var(--green)" : "var(--border-mid)"}`, padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 4 }}>
+        {headline}
+      </div>
+
+      {/* Numbers grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", marginBottom: 1 }} className="result-grid">
         {/* Current */}
         <div style={{ padding: "20px 24px", borderRight: "1px solid var(--border)" }}>
           <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 8 }}>
@@ -176,7 +229,7 @@ function ResultSection({ listings, family, gpuCount, hours, situation, workload,
           </div>
           {currentMonthly ? (
             <>
-              <div style={{ ...MONO, fontSize: 30, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+              <div style={{ ...MONO, fontSize: 28, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.03em", lineHeight: 1 }}>
                 {fmtMoney(currentMonthly)}<span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 300 }}>/mo</span>
               </div>
               <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>
@@ -191,12 +244,12 @@ function ResultSection({ listings, family, gpuCount, hours, situation, workload,
         </div>
 
         {/* Recommended */}
-        <div style={{ padding: "20px 24px", borderRight: "1px solid var(--border)", borderTop: `3px solid ${isReliable ? "var(--green)" : "var(--amber)"}` }}>
+        <div style={{ padding: "20px 24px", borderRight: "1px solid var(--border)" }}>
           <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: isReliable ? "var(--green)" : "var(--amber)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 8 }}>
             {isReliable ? "Cheapest reliable" : "Cheapest observed"}
             {!isReliable && <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 400, background: "rgba(151,90,22,0.08)", border: "1px solid rgba(151,90,22,0.2)", padding: "1px 5px", borderRadius: 2 }}>observed only</span>}
           </div>
-          <div style={{ ...MONO, fontSize: 30, fontWeight: 500, color: isReliable ? "var(--green)" : "var(--amber)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+          <div style={{ ...MONO, fontSize: 28, fontWeight: 500, color: isReliable ? "var(--green)" : "var(--amber)", letterSpacing: "-0.03em", lineHeight: 1 }}>
             {fmtMoney(recommendedMonthly)}<span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 300 }}>/mo</span>
           </div>
           <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-secondary)", marginTop: 6 }}>
@@ -209,7 +262,7 @@ function ResultSection({ listings, family, gpuCount, hours, situation, workload,
           <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 8 }}>Savings</div>
           {savings ? (
             <>
-              <div style={{ ...MONO, fontSize: 24, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.02em", lineHeight: 1 }}>{fmtMoney(savings)}</div>
+              <div style={{ ...MONO, fontSize: 22, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.02em", lineHeight: 1 }}>{fmtMoney(savings)}</div>
               <div style={{ ...MONO, fontSize: 13, color: "var(--green)", marginTop: 4 }}>{savingsPct}% less</div>
               <div style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>per month</div>
             </>
@@ -221,7 +274,7 @@ function ResultSection({ listings, family, gpuCount, hours, situation, workload,
         </div>
       </div>
 
-      {/* ── Risk + advice ── */}
+      {/* Risk + advice */}
       <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "16px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start" }}>
         <div>
           <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>Availability risk</div>
@@ -232,19 +285,14 @@ function ResultSection({ listings, family, gpuCount, hours, situation, workload,
         )}
       </div>
 
-      {/* ── Email CTA ── */}
-      <div style={{ marginTop: 16, background: "#171717", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" as const }}>
-        <div>
-          <div style={{ ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", marginBottom: 2 }}>Get the full breakdown</div>
-          <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.55)" }}>Provider-by-provider analysis, region options, and what to move first — analyst reviewed.</div>
+      {/* Keep-in-place — the line nobody else gives */}
+      {keepLine && (
+        <div style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderTop: "none", borderLeft: "3px solid var(--amber)", padding: "14px 24px" }}>
+          <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            <strong style={{ color: "var(--text-primary)" }}>Don't move this one.</strong> {workloadLabel} is latency- or continuity-sensitive — keep it on production-stable capacity even if a cheaper listing exists. The savings above are for interruption-tolerant work.
+          </div>
         </div>
-        <button onClick={onEmail} style={{
-          ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: "#F7F3EA",
-          padding: "10px 22px", borderRadius: 3, border: "none", cursor: "pointer", whiteSpace: "nowrap" as const,
-        }}>
-          Email me the full breakdown →
-        </button>
-      </div>
+      )}
 
       <style>{`@media (max-width:700px){.result-grid{grid-template-columns:1fr !important;}}`}</style>
     </div>
@@ -252,39 +300,63 @@ function ResultSection({ listings, family, gpuCount, hours, situation, workload,
 }
 
 export default function AuditTool({ listings }: AuditToolProps) {
-  const [setupText,     setSetupText]     = useState("");
-  const [email,         setEmail]         = useState("");
-  const [showCapture,   setShowCapture]   = useState(false);
-  const [submitted,     setSubmitted]     = useState(false);
-  const [submittedEmail,setSubmittedEmail]= useState("");
-  const [error,         setError]         = useState("");
-  const [loading,       setLoading]       = useState(false);
-  const [activeTab,     setActiveTab]     = useState<InputTab>("plain");
-  const [billFileName,  setBillFileName]  = useState<string | null>(null);
-  const [diagramName,   setDiagramName]   = useState<string | null>(null);
-  // Structured tab fields
-  const [family,        setFamily]        = useState<GpuFamily>("H100");
-  const [gpuCountStr,   setGpuCount]      = useState("8");
-  const [hoursStr,      setHours]         = useState("720");
-  const [situation,     setSituation]     = useState<Situation>("hyperscaler");
-  const [workload,      setWorkload]      = useState<WorkloadType>("evals");
-  // Submission state
-  const [submitted_audit, setSubmittedAudit] = useState(false);
-  const [auditSnapshot,   setAuditSnapshot]  = useState<{
-    family: GpuFamily; gpuCount: number; hours: number;
-    situation: Situation; workload: WorkloadType;
-    text: string; fromParsed: boolean;
-  } | null>(null);
+  const [setupText,      setSetupText]      = useState("");
+  const [showManual,     setShowManual]     = useState(false);
+  const [manualTouched,  setManualTouched]  = useState(false);
+  // Upload (routes to emailed full audit — source of truth on real spend)
+  const [billFileName,   setBillFileName]   = useState<string | null>(null);
+  // Structured fields
+  const [family,         setFamily]         = useState<GpuFamily>("H100");
+  const [gpuCountStr,    setGpuCount]       = useState("8");
+  const [hoursStr,       setHours]          = useState("720");
+  const [situation,      setSituation]      = useState<Situation>("hyperscaler");
+  const [workload,       setWorkload]       = useState<WorkloadType>("evals");
+  // Email capture
+  const [email,          setEmail]          = useState("");
+  const [wantsAlerts,    setWantsAlerts]    = useState(true);
+  const [loading,        setLoading]        = useState(false);
+  const [error,          setError]          = useState("");
+  const [submitted,      setSubmitted]      = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  // WTP anchor
+  const [earlyAccessSent, setEarlyAccessSent] = useState(false);
 
   const gpuCount = parseNum(gpuCountStr, 1);
   const hours    = parseNum(hoursStr, 720);
   const parsed   = useMemo(() => parseStackText(setupText), [setupText]);
 
-  const canRunFromText      = activeTab !== "structured" && setupText.trim().length > 0;
-  const canRunFromStructured = activeTab === "structured";
-  const canRun = canRunFromText || canRunFromStructured;
+  const touchManual = () => { if (!manualTouched) setManualTouched(true); };
 
-  // Worked example — computed from live A100 data.
+  // Auto-render: result exists whenever there's real input (no button).
+  const hasTextOrManual = setupText.trim().length > 0 || (showManual && manualTouched);
+  const hasUpload       = !!billFileName;
+
+  // Effective stack + whether we can show a confident number.
+  const snapshot = useMemo(() => {
+    if (showManual && manualTouched) {
+      return { family, gpuCount, hours, situation, workload, fromParsed: false, hasFamily: true };
+    }
+    return {
+      family:    parsed.family    ?? family,
+      gpuCount:  parsed.gpuCount  ?? gpuCount,
+      hours:     parsed.hours     ?? hours,
+      situation: parsed.situation ?? situation,
+      workload:  parsed.workload  ?? workload,
+      fromParsed: parsed.matchedTerms.length > 0,
+      hasFamily:  parsed.family !== null,
+    };
+  }, [showManual, manualTouched, parsed, family, gpuCount, hours, situation, workload]);
+
+  const computed = useMemo(
+    () => hasTextOrManual ? computeResult(listings, snapshot.family, snapshot.gpuCount, snapshot.hours, snapshot.situation, snapshot.workload) : null,
+    [hasTextOrManual, listings, snapshot],
+  );
+
+  // Data-integrity guard: typed text that parsed nothing must NOT yield a defaults-derived number.
+  const showGuard  = hasTextOrManual && !showManual && !snapshot.hasFamily;
+  const showResult = hasTextOrManual && !showGuard && !!computed;
+
+  // Worked example — live A100 data.
   const workedExample = useMemo(() => {
     const a100Hyper = listings.filter(l => l.gpu_model.includes("A100") && HYPERSCALERS.includes(l.provider.toLowerCase()) && l.availability === "high")
       .sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
@@ -310,58 +382,41 @@ export default function AuditTool({ listings }: AuditToolProps) {
     textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6,
   };
 
-  const handleRunAudit = () => {
-    if (!canRun) return;
-    let effectiveFamily: GpuFamily    = family;
-    let effectiveCount: number        = gpuCount;
-    let effectiveHours: number        = hours;
-    let effectiveSituation: Situation = situation;
-    let effectiveWorkload: WorkloadType = workload;
-    let fromParsed = false;
+  // Build the concierge notes payload (also carries alert + bill intent for manual fulfilment).
+  const buildNotes = (extra?: string) => {
+    const snap = `Stack: ${snapshot.gpuCount}×${snapshot.family}, ${snapshot.hours}h/mo, ${snapshot.situation}, ${snapshot.workload}`;
+    const flags = [
+      wantsAlerts ? "wantsAlerts:true" : "wantsAlerts:false",
+      hasUpload ? `billAttached:${billFileName}` : null,
+      extra ?? null,
+    ].filter(Boolean).join(" · ");
+    return [setupText.trim(), snap, flags].filter(Boolean).join("\n\n");
+  };
 
-    if (activeTab !== "structured") {
-      effectiveFamily    = parsed.family    ?? family;
-      effectiveCount     = parsed.gpuCount  ?? gpuCount;
-      effectiveHours     = parsed.hours     ?? hours;
-      effectiveSituation = parsed.situation ?? situation;
-      effectiveWorkload  = parsed.workload  ?? workload;
-      fromParsed = parsed.matchedTerms.length > 0;
-    }
-
-    setAuditSnapshot({ family: effectiveFamily, gpuCount: effectiveCount, hours: effectiveHours, situation: effectiveSituation, workload: effectiveWorkload, text: setupText, fromParsed });
-    setSubmittedAudit(true);
-    // Scroll to results after tick
-    setTimeout(() => document.getElementById("audit-results")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  const post = async (notes: string) => {
+    const res = await fetch("/api/audit-request", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email, monthlySpend: "Unknown / audit needed",
+        workload: snapshot.workload, notes, source: "cost-audit",
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
   };
 
   const handleCapture = async () => {
     if (!email || !email.includes("@")) { setError("Enter a valid work email."); return; }
     setError(""); setLoading(true);
-    try {
-      const snap = auditSnapshot;
-      const summary = snap ? `Audit basis: ${snap.gpuCount}×${snap.family}, ${snap.hours}h/mo, ${snap.situation}, ${snap.workload}` : "";
-      const res = await fetch("/api/audit-request", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email, monthlySpend: "Unknown / audit needed",
-          workload: snap?.workload ?? workload,
-          notes: [snap?.text?.trim(), summary].filter(Boolean).join("\n\n"),
-          source: "cost-audit",
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) { setError(json.error ?? "Something went wrong."); setLoading(false); return; }
-      setSubmittedEmail(email); setSubmitted(true);
-    } catch { setError("Network error — try again."); }
+    try { await post(buildNotes()); setSubmittedEmail(email); setSubmitted(true); }
+    catch (e: any) { setError(e?.message ?? "Network error — try again."); }
     finally { setLoading(false); }
   };
 
-  const TABS: { id: InputTab; label: string }[] = [
-    { id: "plain",      label: "Plain English" },
-    { id: "diagram",    label: "Architecture diagram" },
-    { id: "bill",       label: "Cloud bill" },
-    { id: "structured", label: "Structured details" },
-  ];
+  const handleEarlyAccess = async () => {
+    try { await post(buildNotes("EARLY_ACCESS_$99_MONITORING")); setEarlyAccessSent(true); }
+    catch { /* non-blocking */ setEarlyAccessSent(true); }
+  };
 
   return (
     <div>
@@ -379,219 +434,174 @@ export default function AuditTool({ listings }: AuditToolProps) {
       )}
 
       {/* ── Input card ── */}
-      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", marginBottom: 16 }}>
+      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", marginBottom: 16, padding: "20px 24px" }}>
+        <label style={labelStyle}>Describe your current stack — or paste a quote</label>
+        <textarea
+          value={setupText}
+          onChange={e => setSetupText(e.target.value)}
+          placeholder="Example: We run 8×H100 on GCP for batch inference and evals, around 500–700 hours/month. Production serving stays on AWS. Want to know what can safely move."
+          rows={6}
+          style={{ ...inputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.55 }}
+        />
 
-        {/* Tab bar */}
-        <div style={{ display: "flex", borderBottom: "1px solid var(--border)" }}>
-          {TABS.map(tab => (
-            <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} style={{
-              ...SANS, fontSize: 12.5, fontWeight: activeTab === tab.id ? 600 : 400,
-              color: activeTab === tab.id ? "var(--text-primary)" : "var(--text-muted)",
-              background: "none", border: "none",
-              borderBottom: `2px solid ${activeTab === tab.id ? "var(--text-primary)" : "transparent"}`,
-              padding: "10px 18px 11px", cursor: "pointer", marginBottom: -1, whiteSpace: "nowrap" as const,
-            }}>{tab.label}</button>
-          ))}
-        </div>
+        {/* Detected chips */}
+        {!showManual && parsed.matchedTerms.length > 0 && (
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const, marginTop: 10 }}>
+            {parsed.matchedTerms.map(term => (
+              <span key={term} style={{ ...MONO, fontSize: 10, color: "var(--blue)", background: "rgba(43,108,176,0.07)", border: "1px solid rgba(43,108,176,0.18)", padding: "2px 7px", borderRadius: 2 }}>{term}</span>
+            ))}
+          </div>
+        )}
 
-        {/* Tab content */}
-        <div style={{ padding: "20px 24px 0" }}>
-
-          {activeTab === "plain" && (
-            <>
-              <label style={labelStyle}>Describe your current stack</label>
-              <textarea
-                value={setupText}
-                onChange={e => setSetupText(e.target.value)}
-                placeholder="Example: We run 8×H100 on GCP for batch inference and evals, around 500–700 hours/month. Production serving stays on AWS. We have a quote around $X/hr and want to know what can safely move."
-                rows={6}
-                style={{ ...inputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.55 }}
-              />
-            </>
-          )}
-
-          {activeTab === "diagram" && (
-            <>
-              <label style={labelStyle}>Architecture diagram</label>
-              <label style={{
-                display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center",
-                gap: 8, minHeight: 140, border: "1px dashed var(--border-mid)", borderRadius: 3,
-                background: "var(--bg)", cursor: "pointer", padding: "24px 20px",
-              }}>
-                <input type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) { setDiagramName(file.name); setSetupText(t => t || `[Architecture diagram: ${file.name}] `); }
-                }} />
-                {diagramName ? (
-                  <><span style={{ fontSize: 20 }}>✓</span><span style={{ ...SANS, fontSize: 13, color: "var(--text-primary)", fontWeight: 600 }}>{diagramName}</span><span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Click to replace</span></>
-                ) : (
-                  <><span style={{ fontSize: 22, opacity: 0.4 }}>⬆</span><span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>Upload architecture diagram</span><span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>PNG, JPG, or PDF</span></>
-                )}
-              </label>
-              {diagramName && (
-                <textarea value={setupText} onChange={e => setSetupText(e.target.value)} placeholder="Add notes — GPU types, providers, hours used..." rows={3}
-                  style={{ ...inputStyle, minHeight: 72, resize: "vertical", lineHeight: 1.55, marginTop: 10 }} />
-              )}
-            </>
-          )}
-
-          {activeTab === "bill" && (
-            <>
-              <label style={labelStyle}>Cloud bill</label>
-              <label style={{
-                display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center",
-                gap: 8, minHeight: 140, border: "1px dashed var(--border-mid)", borderRadius: 3,
-                background: "var(--bg)", cursor: "pointer", padding: "24px 20px",
-              }}>
-                <input type="file" accept=".csv,.pdf,.xlsx,.xls,image/*" style={{ display: "none" }} onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) { setBillFileName(file.name); setSetupText(t => t || `[Cloud bill: ${file.name}] `); }
-                }} />
-                {billFileName ? (
-                  <><span style={{ fontSize: 20 }}>✓</span><span style={{ ...SANS, fontSize: 13, color: "var(--text-primary)", fontWeight: 600 }}>{billFileName}</span><span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Click to replace</span></>
-                ) : (
-                  <><span style={{ fontSize: 22, opacity: 0.4 }}>⬆</span><span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>Upload your cloud bill</span><span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>CSV, PDF, or screenshot — AWS Cost Explorer, GCP billing, Azure invoices</span></>
-                )}
-              </label>
-              {billFileName && (
-                <textarea value={setupText} onChange={e => setSetupText(e.target.value)} placeholder="Anything else to note — GPU types, hours, workload mix..." rows={3}
-                  style={{ ...inputStyle, minHeight: 72, resize: "vertical", lineHeight: 1.55, marginTop: 10 }} />
-              )}
-            </>
-          )}
-
-          {activeTab === "structured" && (
-            <div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }} className="manual-grid">
-                <div>
-                  <label style={labelStyle}>Workload type</label>
-                  <select value={workload} onChange={e => setWorkload(e.target.value as WorkloadType)} style={{ ...inputStyle, appearance: "auto" }}>
-                    {WORKLOAD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Current provider</label>
-                  <select value={situation} onChange={e => setSituation(e.target.value as Situation)} style={{ ...inputStyle, appearance: "auto" }}>
-                    {SETUP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>GPU family</label>
-                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const }}>
-                    {(["H100","A100","L40S","A10G","other"] as GpuFamily[]).map(f => (
-                      <button key={f} type="button" onClick={() => setFamily(f)} style={{
-                        ...MONO, fontSize: 11, padding: "6px 10px", borderRadius: 3, cursor: "pointer",
-                        border: `1px solid ${family === f ? "var(--blue)" : "var(--border-mid)"}`,
-                        background: family === f ? "rgba(43,108,176,0.08)" : "var(--panel)",
-                        color: family === f ? "var(--blue)" : "var(--text-secondary)",
-                      }}>{f}</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <div>
-                  <label style={labelStyle}>GPU count</label>
-                  <input type="number" min={1} value={gpuCountStr}
-                    onChange={e => setGpuCount(e.target.value)}
-                    onBlur={() => setGpuCount(String(parseNum(gpuCountStr, 1)))}
-                    style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Hours / month</label>
-                  <input type="number" min={1} max={8760} value={hoursStr}
-                    onChange={e => setHours(e.target.value)}
-                    onBlur={() => setHours(String(parseNum(hoursStr, 720)))}
-                    style={inputStyle} />
-                </div>
-              </div>
-            </div>
-          )}
-
-        </div>
-
-        {/* CTA row */}
-        <div style={{ padding: "16px 24px 20px", display: "flex", alignItems: "center", gap: 16, marginTop: 8 }}>
-          <button
-            type="button"
-            onClick={handleRunAudit}
-            disabled={!canRun}
-            style={{
-              ...SANS, fontSize: 13.5, fontWeight: 600,
-              color: canRun ? "#F7F3EA" : "rgba(247,243,234,0.4)",
-              background: canRun ? "#171717" : "rgba(26,26,26,0.4)",
-              padding: "11px 28px", borderRadius: 3, border: "none",
-              cursor: canRun ? "pointer" : "not-allowed",
-              transition: "opacity 0.15s",
-            }}
-          >
-            Run audit →
-          </button>
-          {activeTab !== "structured" && !canRun && (
-            <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
-              Describe your stack above to continue
+        {/* Secondary affordances: bill upload + manual */}
+        <div style={{ display: "flex", gap: 18, flexWrap: "wrap" as const, alignItems: "center", marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+          <label style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <input type="file" accept=".csv,.pdf,.xlsx,.xls,image/*" style={{ display: "none" }} onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) setBillFileName(file.name);
+            }} />
+            <span style={{ fontSize: 14 }}>⬆</span> Upload cloud bill or diagram
+          </label>
+          {billFileName && (
+            <span style={{ ...SANS, fontSize: 12, color: "var(--text-secondary)" }}>
+              ✓ {billFileName}
+              <button onClick={() => setBillFileName(null)} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", marginLeft: 8 }}>remove</button>
             </span>
           )}
-          {activeTab !== "structured" && canRun && parsed.matchedTerms.length > 0 && (
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const }}>
-              {parsed.matchedTerms.map(term => (
-                <span key={term} style={{ ...MONO, fontSize: 10, color: "var(--blue)", background: "rgba(43,108,176,0.07)", border: "1px solid rgba(43,108,176,0.18)", padding: "2px 7px", borderRadius: 2 }}>{term}</span>
-              ))}
-            </div>
-          )}
+          <button type="button" onClick={() => { setShowManual(s => !s); }} style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            {showManual ? "− Hide manual details" : "+ Enter details manually"}
+          </button>
         </div>
+
+        {/* Structured panel */}
+        {showManual && (
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }} className="manual-grid">
+              <div>
+                <label style={labelStyle}>Workload type</label>
+                <select value={workload} onChange={e => { setWorkload(e.target.value as WorkloadType); touchManual(); }} style={{ ...inputStyle, appearance: "auto" }}>
+                  {WORKLOAD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Current provider</label>
+                <select value={situation} onChange={e => { setSituation(e.target.value as Situation); touchManual(); }} style={{ ...inputStyle, appearance: "auto" }}>
+                  {SETUP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>GPU family</label>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const }}>
+                  {(["H100","A100","L40S","A10G","other"] as GpuFamily[]).map(f => (
+                    <button key={f} type="button" onClick={() => { setFamily(f); touchManual(); }} style={{
+                      ...MONO, fontSize: 11, padding: "6px 10px", borderRadius: 3, cursor: "pointer",
+                      border: `1px solid ${family === f ? "var(--blue)" : "var(--border-mid)"}`,
+                      background: family === f ? "rgba(43,108,176,0.08)" : "var(--panel)",
+                      color: family === f ? "var(--blue)" : "var(--text-secondary)",
+                    }}>{f}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div>
+                <label style={labelStyle}>GPU count</label>
+                <input type="number" min={1} value={gpuCountStr}
+                  onChange={e => { setGpuCount(e.target.value); touchManual(); }}
+                  onBlur={() => setGpuCount(String(parseNum(gpuCountStr, 1)))}
+                  style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Hours / month</label>
+                <input type="number" min={1} max={8760} value={hoursStr}
+                  onChange={e => { setHours(e.target.value); touchManual(); }}
+                  onBlur={() => setHours(String(parseNum(hoursStr, 720)))}
+                  style={inputStyle} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Results ── */}
-      {submitted_audit && auditSnapshot && (
+      {/* ── Guard: input present but nothing parsed ── */}
+      {showGuard && !hasUpload && (
+        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderLeft: "3px solid var(--amber)", padding: "18px 24px", marginBottom: 16 }}>
+          <div style={{ ...SANS, fontSize: 13.5, color: "var(--text-primary)", fontWeight: 600, marginBottom: 4 }}>Add your GPU type and provider to get your number.</div>
+          <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
+            We won't guess — a number from assumptions isn't worth anything. Name a GPU (H100, A100, L40S, A10G) and a provider in the box above, or{" "}
+            <button onClick={() => { setShowManual(true); }} style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>enter details manually</button>.
+          </div>
+        </div>
+      )}
+
+      {/* ── Result ── */}
+      {showResult && computed && (
         <div id="audit-results">
           <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 10 }}>
-            Audit preview — {auditSnapshot.fromParsed ? "detected from your text" : "structured details"} · {auditSnapshot.gpuCount}×{auditSnapshot.family} · {auditSnapshot.hours}h/mo · {auditSnapshot.situation}
+            Audit preview — {snapshot.fromParsed ? "detected from your text" : "your details"} · {snapshot.gpuCount}×{snapshot.family} · {snapshot.hours}h/mo · {snapshot.situation}
+          </div>
+          <ResultSection r={computed} family={snapshot.family} gpuCount={snapshot.gpuCount} hours={snapshot.hours} situation={snapshot.situation} workload={snapshot.workload} />
+        </div>
+      )}
+
+      {/* ── Email + alerts (always below result/upload, never before) ── */}
+      {(showResult || hasUpload) && !submitted && (
+        <div style={{ marginTop: 16, background: "#171717", padding: "20px 24px" }}>
+          <div style={{ ...SANS, fontSize: 13.5, fontWeight: 600, color: "#F7F3EA", marginBottom: 4 }}>
+            {hasUpload ? "Get your bill read against the live market" : "Get the full breakdown"}
+          </div>
+          <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.55)", lineHeight: 1.55, marginBottom: 14 }}>
+            {hasUpload
+              ? `Provider-by-provider analysis from your actual ${billFileName} — region options, what to move first, what to keep. Analyst reviewed.`
+              : "Provider-by-provider analysis, region options, and what to move first — analyst reviewed."}
           </div>
 
-          {!submitted ? (
-            <ResultSection
-              listings={listings}
-              family={auditSnapshot.family}
-              gpuCount={auditSnapshot.gpuCount}
-              hours={auditSnapshot.hours}
-              situation={auditSnapshot.situation}
-              workload={auditSnapshot.workload}
-              onEmail={() => setShowCapture(true)}
-            />
-          ) : (
-            <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "32px", textAlign: "center" as const }}>
-              <div style={{ fontSize: 24, color: "var(--green)", marginBottom: 12 }}>✓</div>
-              <div style={{ ...SERIF, fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 10 }}>On its way.</div>
-              <div style={{ ...SANS, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
-                We'll email the full provider-by-provider breakdown to <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong> within one business day.
-              </div>
-              <div style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", marginTop: 14 }}>
-                Want this routed automatically?{" "}
-                <a href="/load-balancer" style={{ color: "var(--blue)" }}>Join the routing beta →</a>
-              </div>
-            </div>
-          )}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, cursor: "pointer" }}>
+            <input type="checkbox" checked={wantsAlerts} onChange={e => setWantsAlerts(e.target.checked)} />
+            <span style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.85)" }}>Also alert me when prices for my stack move</span>
+          </label>
 
-          {/* Email capture panel */}
-          {showCapture && !submitted && (
-            <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "20px 24px" }}>
-              <label style={labelStyle}>Work email</label>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const, alignItems: "flex-start" }}>
-                <input type="email" placeholder="you@company.com" value={email}
-                  onChange={e => setEmail(e.target.value)} autoFocus
-                  style={{ ...inputStyle, width: "auto", flex: "1 1 240px" }} />
-                <button onClick={handleCapture} disabled={loading} style={{
-                  ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA",
-                  background: loading ? "var(--text-muted)" : "#171717",
-                  padding: "10px 22px", borderRadius: 3, border: "none", cursor: loading ? "not-allowed" : "pointer",
-                }}>
-                  {loading ? "Sending…" : "Send stack audit"}
-                </button>
-                <button onClick={() => setShowCapture(false)} style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>Cancel</button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const, alignItems: "flex-start" }}>
+            <input type="email" placeholder="you@company.com" value={email}
+              onChange={e => setEmail(e.target.value)}
+              style={{ ...inputStyle, width: "auto", flex: "1 1 240px", background: "rgba(247,243,234,0.06)", border: "1px solid rgba(247,243,234,0.2)", color: "#F7F3EA" }} />
+            <button onClick={handleCapture} disabled={loading} style={{
+              ...SANS, fontSize: 13, fontWeight: 600, color: "#171717",
+              background: loading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
+              padding: "10px 22px", borderRadius: 3, border: "none", cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const,
+            }}>
+              {loading ? "Sending…" : "Email me the full breakdown"}
+            </button>
+          </div>
+          {error && <p style={{ ...SANS, fontSize: 12, color: "#F2B5B5", marginTop: 8 }}>{error}</p>}
+        </div>
+      )}
+
+      {/* ── Success + WTP anchor ── */}
+      {submitted && (
+        <div style={{ marginTop: 16, background: "var(--panel)", border: "1px solid var(--border)", padding: "28px 24px", textAlign: "center" as const }}>
+          <div style={{ fontSize: 22, color: "var(--green)", marginBottom: 10 }}>✓</div>
+          <div style={{ ...SERIF, fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 8 }}>On its way.</div>
+          <div style={{ ...SANS, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6, maxWidth: 460, margin: "0 auto" }}>
+            We'll send the full breakdown to <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong> within one business day.
+            {hasUpload && <> Reply to that email with <strong style={{ color: "var(--text-primary)" }}>{billFileName}</strong> attached and we'll price it against the live market.</>}
+          </div>
+
+          {!earlyAccessSent ? (
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
+              <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 12 }}>
+                Automated weekly monitoring of your stack launches at <strong style={{ color: "var(--text-primary)" }}>$99/mo</strong> — we alert you the moment a cheaper reliable option appears. Want in early?
               </div>
-              {error && <p style={{ ...SANS, fontSize: 12, color: "var(--red)", marginTop: 8 }}>{error}</p>}
-              <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.05em", marginTop: 10 }}>ANALYST-REVIEWED · WITHIN ONE BUSINESS DAY</div>
+              <button onClick={handleEarlyAccess} style={{
+                ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "#171717",
+                padding: "10px 22px", borderRadius: 3, border: "none", cursor: "pointer",
+              }}>
+                Yes, I want early access →
+              </button>
+            </div>
+          ) : (
+            <div style={{ ...SANS, fontSize: 12.5, color: "var(--green)", marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
+              Noted — you're on the early-access list. We'll be in touch before launch.
             </div>
           )}
         </div>
