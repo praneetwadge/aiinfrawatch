@@ -54,12 +54,6 @@ export const fmtP = (n: number) =>
 export const fmtMoney = (n: number) =>
   n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${Math.round(n)}`;
 
-export const minsAgo = (iso?: string): string => {
-  if (!iso) return "—";
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-};
+// Data refreshes once daily via 00:00 UTC cron — always report as "Updated daily".
+// Relative timestamps ("just now", "5m ago") are misleading on a daily-refresh schedule.
+export const minsAgo = (_iso?: string): string => "Updated daily";
