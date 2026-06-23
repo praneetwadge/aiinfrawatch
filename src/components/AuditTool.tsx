@@ -291,18 +291,25 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const usingParsedText = !showManual && parsed.matchedTerms.length > 0;
   const hasInput = setupText.trim().length > 0 || (showManual && manualTouched);
 
-  // Worked example — computed from live A100 data (most practical market)
+  // Worked example — computed from live A100 data (most practical market).
+  // Falls back to observed specialist pricing if no high-avail specialist exists.
   const workedExample = useMemo(() => {
     const a100Hyper = listings.filter(l => l.gpu_model.includes("A100") && HYPERSCALERS.includes(l.provider.toLowerCase()) && l.availability === "high")
       .sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
-    const a100Spec  = listings.filter(l => l.gpu_model.includes("A100") && !HYPERSCALERS.includes(l.provider.toLowerCase()) && l.availability === "high")
+    if (!a100Hyper) return null;
+    // Prefer high-avail specialist; fall back to any specialist (observed)
+    const specHigh = listings.filter(l => l.gpu_model.includes("A100") && !HYPERSCALERS.includes(l.provider.toLowerCase()) && l.availability === "high")
       .sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
-    if (!a100Hyper || !a100Spec) return null;
+    const specAny  = listings.filter(l => l.gpu_model.includes("A100") && !HYPERSCALERS.includes(l.provider.toLowerCase()))
+      .sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
+    const a100Spec = specHigh ?? specAny;
+    if (!a100Spec) return null;
+    const isObserved = !specHigh;
     const baseline = a100Hyper.price_per_hour * 8 * 500;
     const recommended = a100Spec.price_per_hour * 8 * 500;
     const saving = baseline - recommended;
     if (saving <= 0) return null;
-    return { baseline: a100Hyper.price_per_hour, recommended: a100Spec.price_per_hour, savings: saving, provider: getMeta(a100Spec.provider).short };
+    return { baseline: a100Hyper.price_per_hour, recommended: a100Spec.price_per_hour, savings: saving, provider: getMeta(a100Spec.provider).short, isObserved };
   }, [listings]);
 
   const inputStyle: React.CSSProperties = {
@@ -343,7 +350,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
         <div style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderLeft: "3px solid var(--green)", padding: "14px 18px", marginBottom: 20 }}>
           <div style={{ ...MONO, fontSize: 10, color: "var(--green)", letterSpacing: "0.08em", marginBottom: 6 }}>EXAMPLE</div>
           <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65 }}>
-            Evals and batch inference on hyperscaler A100s (~{fmtP(workedExample.baseline)}/hr) pay a reliability premium they don't need for interruption-tolerant jobs. Moving those to reliable specialist A100s (~{fmtP(workedExample.recommended)}/hr at {workedExample.provider}) ≈{" "}
+            Evals and batch inference on hyperscaler A100s (~{fmtP(workedExample.baseline)}/hr) pay a reliability premium they don't need for interruption-tolerant jobs. Moving those to specialist A100s (~{fmtP(workedExample.recommended)}/hr at {workedExample.provider}{workedExample.isObserved ? ", observed" : ""}) ≈{" "}
             <strong style={{ color: "var(--green)" }}>{fmtMoney(workedExample.savings)}/mo saved</strong> for 8 GPUs × 500 hrs, while production serving stays put.{" "}
             <em style={{ color: "var(--text-muted)" }}>Your numbers will differ.</em>
           </div>
