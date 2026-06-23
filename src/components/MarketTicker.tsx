@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { GpuListing, fmtP, getMeta, minsAgo } from "@/lib/market-helpers";
+import { GpuListing, fmtP, getMeta } from "@/lib/market-helpers";
 
 const MONO: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 
@@ -24,11 +24,19 @@ export default function MarketTicker({ listings, summary }: MarketTickerProps) {
     const h100 = listings.filter(item => item.gpu_model.toUpperCase().includes("H100"));
     const a100 = listings.filter(item => item.gpu_model.toUpperCase().includes("A100"));
     const l40s = listings.filter(item => item.gpu_model.toUpperCase().includes("L40S"));
-    const reliable = listings.filter(item => item.availability === "high");
 
-    const h100Reliable = minPrice(h100.filter(item => item.availability === "high"));
+    // Reliable = high availability AND not spot (spot ≠ reliable even when marked high-avail)
+    const reliable = listings.filter(
+      item => item.availability === "high" && item.pricing_type !== "spot"
+    );
+
+    const h100Reliable = minPrice(
+      h100.filter(item => item.availability === "high" && item.pricing_type !== "spot")
+    );
     const h100Observed = minPrice(h100);
-    const a100Reliable = minPrice(a100.filter(item => item.availability === "high"));
+    const a100Reliable = minPrice(
+      a100.filter(item => item.availability === "high" && item.pricing_type !== "spot")
+    );
     const a100Observed = minPrice(a100);
     const l40sLow = minPrice(l40s);
 
@@ -65,7 +73,7 @@ export default function MarketTicker({ listings, summary }: MarketTickerProps) {
       highAvailabilityShare !== null
         ? `SCARCITY SIGNAL ${highAvailabilityShare}%`
         : null,
-      summary?.last_updated ? `UPDATED ${minsAgo(summary.last_updated)}` : null,
+      "UPDATED DAILY",
     ].filter(Boolean) as string[];
 
     return [...base, ...base];
