@@ -258,6 +258,8 @@ function capacityConfFromListings(ls: GpuListing[]) {
   return Math.round(ls.filter(l => l.availability === "high").length / ls.length * 100);
 }
 
+type InputTab = "plain" | "diagram" | "bill";
+
 export default function AuditTool({ listings }: AuditToolProps) {
   const [setupText,   setSetupText]   = useState("");
   const [email,       setEmail]       = useState("");
@@ -273,6 +275,9 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [error,       setError]       = useState("");
   const [loading,     setLoading]     = useState(false);
+  const [activeTab,   setActiveTab]   = useState<InputTab>("plain");
+  const [billFileName, setBillFileName] = useState<string | null>(null);
+  const [diagramName,  setDiagramName]  = useState<string | null>(null);
 
   const gpuCount = parseNum(gpuCountStr, 1);
   const hours    = parseNum(hoursStr, 720);
@@ -360,8 +365,26 @@ export default function AuditTool({ listings }: AuditToolProps) {
       {/* ── Primary input: paste ── */}
       <div style={{ background: "var(--panel)", border: "1px solid var(--border)", marginBottom: 16 }}>
         <div style={{ padding: "20px 24px 16px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 20, alignItems: "start" }} className="audit-intake-grid">
-            <div>
+
+          {/* Horizontal tabs */}
+          <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)", marginBottom: 16 }}>
+            {([
+              { id: "plain",   label: "Plain English" },
+              { id: "diagram", label: "Architecture diagram" },
+              { id: "bill",    label: "Cloud bill" },
+            ] as { id: InputTab; label: string }[]).map(tab => (
+              <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} style={{
+                ...SANS, fontSize: 12.5, fontWeight: activeTab === tab.id ? 600 : 400,
+                color: activeTab === tab.id ? "var(--text-primary)" : "var(--text-muted)",
+                background: "none", border: "none", borderBottom: `2px solid ${activeTab === tab.id ? "var(--text-primary)" : "transparent"}`,
+                padding: "8px 16px 9px", cursor: "pointer", marginBottom: -1, whiteSpace: "nowrap" as const,
+              }}>{tab.label}</button>
+            ))}
+          </div>
+
+          {/* Tab content */}
+          {activeTab === "plain" && (
+            <>
               <label style={labelStyle}>Describe your current stack</label>
               <textarea
                 value={setupText}
@@ -370,45 +393,100 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 rows={6}
                 style={{ ...inputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.55 }}
               />
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                {[
-                  ["Cloud bill", "Our monthly cloud bill for AI compute is roughly $___. We run "],
-                  ["Architecture notes", "We run "],
-                  ["Provider quote", "We got a quote of $___/hr for "],
-                  ["Plain English", "We use "],
-                ].map(([label, prefix]) => (
-                  <button key={label} type="button"
-                    onClick={() => setSetupText(t => t.trim().length ? t : prefix)}
-                    style={{
-                      ...SANS, fontSize: 11, color: "var(--text-secondary)", cursor: "pointer",
-                      background: "var(--elevated)", border: "1px solid var(--border)",
-                      padding: "3px 8px", borderRadius: 3,
-                    }}>{label}</button>
-                ))}
-              </div>
+            </>
+          )}
+
+          {activeTab === "diagram" && (
+            <div>
+              <label style={labelStyle}>Architecture diagram</label>
+              <label style={{
+                display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center",
+                gap: 8, minHeight: 140, border: "1px dashed var(--border-mid)", borderRadius: 3,
+                background: "var(--bg)", cursor: "pointer", padding: "24px 20px",
+              }}>
+                <input type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setDiagramName(file.name);
+                    setSetupText(t => t || `[Architecture diagram attached: ${file.name}] `);
+                  }
+                }} />
+                {diagramName ? (
+                  <>
+                    <span style={{ fontSize: 20 }}>✓</span>
+                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-primary)", fontWeight: 600 }}>{diagramName}</span>
+                    <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Click to replace</span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 22, opacity: 0.4 }}>⬆</span>
+                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>Upload architecture diagram</span>
+                    <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>PNG, JPG, or PDF — include notes in the text tab</span>
+                  </>
+                )}
+              </label>
+              {diagramName && (
+                <textarea
+                  value={setupText}
+                  onChange={e => setSetupText(e.target.value)}
+                  placeholder="Add any notes about GPU types, providers, or hours used..."
+                  rows={3}
+                  style={{ ...inputStyle, minHeight: 72, resize: "vertical", lineHeight: 1.55, marginTop: 10 }}
+                />
+              )}
             </div>
-            <div style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "14px 16px" }}>
-              <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>What this unlocks</div>
-              {[
-                "Where you're overpaying",
-                "What can safely move",
-                "Routing fit — incl. future energy pricing",
-              ].map(item => (
-                <div key={item} style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.45, marginBottom: 7 }}>→ {item}</div>
-              ))}
+          )}
+
+          {activeTab === "bill" && (
+            <div>
+              <label style={labelStyle}>Cloud bill</label>
+              <label style={{
+                display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center",
+                gap: 8, minHeight: 140, border: "1px dashed var(--border-mid)", borderRadius: 3,
+                background: "var(--bg)", cursor: "pointer", padding: "24px 20px",
+              }}>
+                <input type="file" accept=".csv,.pdf,.xlsx,.xls,image/*" style={{ display: "none" }} onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setBillFileName(file.name);
+                    setSetupText(t => t || `[Cloud bill attached: ${file.name}] `);
+                  }
+                }} />
+                {billFileName ? (
+                  <>
+                    <span style={{ fontSize: 20 }}>✓</span>
+                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-primary)", fontWeight: 600 }}>{billFileName}</span>
+                    <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Click to replace</span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 22, opacity: 0.4 }}>⬆</span>
+                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>Upload your cloud bill</span>
+                    <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>CSV, PDF, or screenshot — AWS Cost Explorer, GCP billing, Azure invoices</span>
+                  </>
+                )}
+              </label>
+              {billFileName && (
+                <textarea
+                  value={setupText}
+                  onChange={e => setSetupText(e.target.value)}
+                  placeholder="Anything else to note — GPU types used, hours per month, workload mix..."
+                  rows={3}
+                  style={{ ...inputStyle, minHeight: 72, resize: "vertical", lineHeight: 1.55, marginTop: 10 }}
+                />
+              )}
             </div>
-          </div>
+          )}
+
         </div>
 
         {/* ── Live result — appears once there's real input ── */}
         <div style={{ padding: "0 24px 20px" }}>
           {!hasInput ? (
-            <div style={{ background: "var(--bg)", border: "1px dashed var(--border-mid)", padding: "20px", textAlign: "center" as const }}>
-              <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)" }}>
-                {showManual
-                  ? "Set your GPU family, count, and hours below to see your audit preview."
-                  : <>Start typing above, or <button type="button" onClick={() => setShowManual(true)} style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>enter structured details</button> to see your audit preview.</>}
-              </div>
+            <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", marginBottom: 4 }}>
+              {showManual
+                ? "Set your GPU family, count, and hours below to see your audit preview."
+                : <>Describe your stack above, or <button type="button" onClick={() => setShowManual(true)} style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>enter structured details</button> to see your audit preview.</>}
             </div>
           ) : (
             <>
@@ -463,7 +541,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
             color: "var(--blue)", padding: "12px 24px", textAlign: "left",
             fontSize: 13, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
-            <span>Refine with structured details (GPU count, hours, workload type)</span>
+            <span>Refine with structured details</span>
             <span style={{ ...MONO, fontSize: 12 }}>{showManual ? "−" : "+"}</span>
           </button>
 
