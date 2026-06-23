@@ -320,6 +320,8 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const [submittedEmail, setSubmittedEmail] = useState("");
   // WTP anchor
   const [earlyAccessSent, setEarlyAccessSent] = useState(false);
+  // CTA gate — result only shows after user explicitly clicks "Run audit"
+  const [committed, setCommitted] = useState(false);
 
   const gpuCount = parseNum(gpuCountStr, 1);
   const hours    = parseNum(hoursStr, 720);
@@ -354,7 +356,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
 
   // Data-integrity guard: typed text that parsed nothing must NOT yield a defaults-derived number.
   const showGuard  = hasTextOrManual && !showManual && !snapshot.hasFamily;
-  const showResult = hasTextOrManual && !showGuard && !!computed;
+  const showResult = committed && hasTextOrManual && !showGuard && !!computed;
 
   // Worked example — live A100 data.
   const workedExample = useMemo(() => {
@@ -519,6 +521,29 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   style={inputStyle} />
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── Run audit CTA ── */}
+        {(hasTextOrManual || hasUpload) && (
+          <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
+            <button
+              type="button"
+              onClick={() => {
+                setCommitted(true);
+                setTimeout(() => {
+                  document.getElementById("audit-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 50);
+              }}
+              style={{
+                ...SANS, fontSize: 14, fontWeight: 600,
+                color: "#F7F3EA", background: "#171717",
+                padding: "12px 28px", borderRadius: 3, border: "none",
+                cursor: "pointer", letterSpacing: "0.01em",
+              }}
+            >
+              Run cost audit →
+            </button>
           </div>
         )}
       </div>
