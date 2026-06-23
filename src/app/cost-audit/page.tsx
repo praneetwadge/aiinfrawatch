@@ -49,30 +49,9 @@ export default async function CostAuditPage() {
 
         <section style={{ maxWidth: 920, margin: "0 auto", padding: "28px 32px 72px" }}>
           <AuditTool listings={listings} />
-
-          {/* Audits make the router smarter */}
-          <div style={{ marginTop: 28, background: "var(--elevated)", border: "1px solid var(--border)", borderLeft: "3px solid var(--blue)", padding: "18px 22px" }}>
-            <div style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--blue)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 8 }}>
-              Audits make the router smarter.
-            </div>
-            <p style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 620, marginBottom: 12 }}>
-              Every submitted stack helps AIInfraWatch learn which workloads are movable, which providers are viable, and where routing can save money without touching production-critical paths.
-            </p>
-            <a href="/load-balancer" style={{
-              ...SANS, fontSize: 13, fontWeight: 600, color: "var(--blue)",
-              textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
-            }}>
-              Join routing beta →
-            </a>
-          </div>
         </section>
       </main>
 
-      <style>{`
-        @media (max-width: 760px) {
-          .audit-value-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   );
 }
