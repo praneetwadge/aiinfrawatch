@@ -738,8 +738,8 @@ export default function DashboardClient({ summary, listings }: Props) {
         <div style={{ maxWidth: 1360, margin: "0 auto", padding: "28px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" as const }}>
           <div>
             <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 6 }}>Coming next</div>
-            <div style={{ ...SERIF, fontSize: 20, fontWeight: 400, color: "var(--text-primary)", marginBottom: 4 }}>Automated routing for flexible workloads.</div>
-            <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>Keep production stable. Move evals, batch, and fine-tuning to cheaper reliable capacity automatically.</div>
+            <div style={{ ...SERIF, fontSize: 20, fontWeight: 400, color: "var(--text-primary)", marginBottom: 4 }}>Like what the audit found? Let our routing act on it.</div>
+            <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}> Once you know where you're overpaying, routing beta automatically moves flexible workloads to the cheapest reliable GPU while keeping production stable— no manual work.</div>
           </div>
           <Link href="/load-balancer" style={{ ...SANS, fontSize: 13, fontWeight: 600, color: "var(--text-primary)", border: "1px solid var(--border-mid)", padding: "9px 20px", borderRadius: 3, textDecoration: "none", whiteSpace: "nowrap" as const }}>
             Learn about routing beta →
