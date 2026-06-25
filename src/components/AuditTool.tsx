@@ -372,7 +372,8 @@ export default function AuditTool({ listings }: AuditToolProps) {
 
   const showTextResult   = committed && hasText && !showGuard && !!primaryResult;
   const showManualResult = committed && !hasText && rows.length > 0 && manualResults.some(r => !!r.result);
-  const showResult       = showTextResult || showManualResult;
+  const showUploadResult = committed && hasUpload && !hasText && activeTab !== "manual";
+  const showResult       = showTextResult || showManualResult || showUploadResult;
 
   const workedExample = useMemo(() => {
     const a100Hyper = listings.filter(l => l.gpu_model.includes("A100") && HYPERSCALERS.includes(l.provider.toLowerCase()) && l.availability === "high")
@@ -672,8 +673,30 @@ export default function AuditTool({ listings }: AuditToolProps) {
       {showResult && (
         <div id="audit-results" style={{ marginBottom: 16 }}>
           <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 10 }}>
-            Audit preview — {primarySnapshot.fromParsed ? "detected from your text" : "your details"}
+            Audit preview — {showUploadResult ? "file received" : primarySnapshot.fromParsed ? "detected from your text" : "your details"}
           </div>
+
+          {showUploadResult && (
+            <div>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "3px solid var(--green)", padding: "20px 24px", marginBottom: 1 }}>
+                <span style={{ ...MONO, fontSize: 28, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>
+                  Bill received
+                </span>
+                <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", marginLeft: 12 }}>
+                  We'll read line-item GPU spend against the live market and email you the breakdown.
+                </span>
+              </div>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "18px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start" }}>
+                <div>
+                  <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>File</div>
+                  <div style={{ ...MONO, fontSize: 13, color: "var(--text-primary)" }}>{billFileName ?? diagramFileName}</div>
+                </div>
+                <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
+                  Enter your email below — we'll send a provider-by-provider breakdown with region options and what to move first, within one business day.
+                </div>
+              </div>
+            </div>
+          )}
 
           {showTextResult && primaryResult && (
             <ResultSection
@@ -705,7 +728,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
       )}
 
       {/* ── Email capture ── */}
-      {(showResult || hasUpload) && !submitted && (
+      {(showResult || (committed && hasUpload)) && !submitted && (
         <div style={{ marginTop: 16, background: "#171717", padding: "20px 24px" }}>
           <div style={{ ...SANS, fontSize: 13.5, fontWeight: 600, color: "#F7F3EA", marginBottom: 4 }}>
             {hasUpload ? "Get your bill read against the live market" : "Get the full breakdown"}
