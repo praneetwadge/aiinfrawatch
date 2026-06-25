@@ -350,7 +350,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
     };
   }, [hasText, parsed, firstRow]);
 
-  const showGuard = committed && hasText && !primarySnapshot.hasFamily;
+  const showGuard = committed && activeTab === "describe" && hasText && !primarySnapshot.hasFamily;
 
   const manualResults = useMemo(() =>
     rows.map(row => ({
@@ -370,9 +370,9 @@ export default function AuditTool({ listings }: AuditToolProps) {
       : null,
   [committed, showGuard, listings, primarySnapshot]);
 
-  const showTextResult   = committed && hasText && !showGuard && !!primaryResult;
-  const showManualResult = committed && !hasText && !hasUpload && rows.length > 0 && manualResults.some(r => !!r.result);
-  const showUploadResult = committed && hasUpload && !hasText;
+  const showTextResult   = committed && activeTab === "describe" && hasText && !showGuard && !!primaryResult;
+  const showManualResult = committed && activeTab === "manual" && rows.length > 0 && manualResults.some(r => !!r.result);
+  const showUploadResult = committed && (activeTab === "bill" || activeTab === "diagram") && hasUpload;
   const showResult       = showTextResult || showManualResult || showUploadResult;
 
   const workedExample = useMemo(() => {
