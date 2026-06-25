@@ -139,10 +139,10 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
           {/* Left: headline + CTAs */}
           <div>
             <h1 style={{ ...SERIF, fontSize: 40, fontWeight: 400, lineHeight: 1.12, color: "var(--text-primary)", marginBottom: 14 }}>
-              AI Infrastructure Markets
+              The AI compute market moves daily. Your bill doesn't.
             </h1>
             <p style={{ ...BODY, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 520, marginBottom: 24 }}>
-              Track GPU pricing, availability, and provider shifts across the AI compute ecosystem — then turn market movement into infrastructure decisions.
+              H100 floors are dropping, but most teams are still paying last year's rates. We track the market — you find out where you could be saving. 
             </p>
             <div style={{ display: "flex", gap: 10 }}>
               <Link href="/cost-audit" style={{
