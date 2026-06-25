@@ -371,8 +371,8 @@ export default function AuditTool({ listings }: AuditToolProps) {
   [committed, showGuard, listings, primarySnapshot]);
 
   const showTextResult   = committed && hasText && !showGuard && !!primaryResult;
-  const showManualResult = committed && !hasText && activeTab !== "bill" && activeTab !== "diagram" && rows.length > 0 && manualResults.some(r => !!r.result);
-  const showUploadResult = committed && hasUpload && (activeTab === "bill" || activeTab === "diagram");
+  const showManualResult = committed && !hasText && !hasUpload && rows.length > 0 && manualResults.some(r => !!r.result);
+  const showUploadResult = committed && hasUpload && !hasText;
   const showResult       = showTextResult || showManualResult || showUploadResult;
 
   const workedExample = useMemo(() => {
