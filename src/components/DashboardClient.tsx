@@ -699,8 +699,8 @@ export default function DashboardClient({ summary, listings }: Props) {
         {/* Audit CTA — right after the proof, before the deep-dive table */}
         <div style={{ marginBottom: 36, background: "#171717", padding: "26px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" as const }}>
           <div>
-            <div style={{ ...SERIF, fontSize: 21, fontWeight: 400, color: "#F7F3EA", marginBottom: 5 }}>This is the market. What's your stack actually costing you?</div>
-            <div style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.65)" }}>Paste your bill or quote — see the gap, what can safely move, and your first action. No email required to see it.</div>
+            <div style={{ ...SERIF, fontSize: 21, fontWeight: 400, color: "#F7F3EA", marginBottom: 5 }}>Chances are, you're overspending. Find out by how much.</div>
+            <div style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.65)" }}>Paste your bill or quote — see the gap, what can safely move, and your first action.</div>
           </div>
           <Link href="/cost-audit" style={{
             ...SANS, fontSize: 13.5, fontWeight: 600,
