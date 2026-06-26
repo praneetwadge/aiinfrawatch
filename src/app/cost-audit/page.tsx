@@ -19,7 +19,7 @@ const MONO: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 
 export default async function CostAuditPage() {
   const [listingsResult, summaryResult] = await Promise.allSettled([
-    getLatestGpuListings({ limit: 2000 }),
+    getLatestGpuListings({ limit: 4000 }),
     computeMarketSummary(),
   ]);
 
