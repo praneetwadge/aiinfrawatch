@@ -454,8 +454,12 @@ export default function AuditTool({ listings }: AuditToolProps) {
         if (isPdf) {
           const ab = await billFile.arrayBuffer();
           const bytes = new Uint8Array(ab);
+          // Chunk to avoid call stack overflow on large files
           let bin = "";
-          for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+          const CHUNK = 8192;
+          for (let i = 0; i < bytes.length; i += CHUNK) {
+            bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+          }
           body = { base64: btoa(bin), mediaType: "application/pdf", fileName: billFile.name };
         } else {
           const text = await billFile.text();
