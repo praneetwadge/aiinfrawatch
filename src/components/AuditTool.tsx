@@ -311,6 +311,8 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const [activeTab,      setActiveTab]      = useState<InputTab>("describe");
   const [setupText,      setSetupText]      = useState("");
   const [billFileName,   setBillFileName]   = useState<string | null>(null);
+  const [billFile,       setBillFile]       = useState<File | null>(null);
+  const [billParsed,     setBillParsed]     = useState<ParsedStack | null>(null);
   const [diagramFileName, setDiagramFileName] = useState<string | null>(null);
   const [rows,           setRows]           = useState<WorkloadRow[]>([newRow()]);
   const [committed,      setCommitted]      = useState(false);
@@ -434,7 +436,17 @@ export default function AuditTool({ listings }: AuditToolProps) {
     catch { setEarlyAccessSent(true); }
   };
 
-  const handleRunAudit = () => {
+  const handleRunAudit = async () => {
+    if (activeTab === "bill" && billFile) {
+      let parsed: ParsedStack | null = null;
+      if (billFile.name.endsWith(".csv")) {
+        try {
+          const text = await billFile.text();
+          parsed = parseStackText(text);
+        } catch {}
+      }
+      setBillParsed(parsed);
+    }
     setCommitted(true);
     setTimeout(() => {
       document.getElementById("audit-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -526,7 +538,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", ...SANS, fontSize: 13, color: "var(--blue)", border: "1px solid var(--border-mid)", padding: "10px 18px", borderRadius: 3, background: "var(--elevated)" }}>
                 <input type="file" accept=".csv,.pdf,.xlsx,.xls" style={{ display: "none" }} onChange={e => {
                   const file = e.target.files?.[0];
-                  if (file) { setBillFileName(file.name); setCommitted(true); }
+                  if (file) { setBillFileName(file.name); setBillFile(file); setCommitted(false); }
                 }} />
                 <span style={{ fontSize: 15 }}>⬆</span> Choose file
               </label>
@@ -534,7 +546,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ ...MONO, fontSize: 11.5, color: "var(--green)" }}>✓</span>
                   <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>{billFileName}</span>
-                  <button onClick={() => setBillFileName(null)} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>remove</button>
+                  <button onClick={() => { setBillFileName(null); setBillFile(null); setBillParsed(null); setCommitted(false); }} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>remove</button>
                 </div>
               )}
             </div>
@@ -637,26 +649,24 @@ export default function AuditTool({ listings }: AuditToolProps) {
 
         </div>{/* end tab panel */}
 
-        {/* ── Run audit CTA — hidden on upload tabs ── */}
-        {(activeTab !== "bill" && activeTab !== "diagram") && (
-          <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 14 }}>
-            <button
-              type="button"
-              onClick={handleRunAudit}
-              style={{
-                ...SANS, fontSize: 14, fontWeight: 600,
-                color: "#F7F3EA", background: "#171717",
-                padding: "13px 32px", borderRadius: 3, border: "none",
-                cursor: "pointer", letterSpacing: "0.01em",
-              }}
-            >
-              Run cost audit →
-            </button>
-            <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
-              No email required to see results
-            </span>
-          </div>
-        )}
+        {/* ── Run audit CTA — always visible ── */}
+        <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 14 }}>
+          <button
+            type="button"
+            onClick={handleRunAudit}
+            style={{
+              ...SANS, fontSize: 14, fontWeight: 600,
+              color: "#F7F3EA", background: "#171717",
+              padding: "13px 32px", borderRadius: 3, border: "none",
+              cursor: "pointer", letterSpacing: "0.01em",
+            }}
+          >
+            Run cost audit →
+          </button>
+          <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
+            No email required to see results
+          </span>
+        </div>
 
       </div>{/* end input card wrapper */}
 
@@ -678,25 +688,49 @@ export default function AuditTool({ listings }: AuditToolProps) {
             Audit preview — {showUploadResult ? "file received" : primarySnapshot.fromParsed ? "detected from your text" : "your details"}
           </div>
 
-          {showUploadResult && (
-            <div>
-              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "3px solid var(--green)", padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 8 }}>
-                <span style={{ ...MONO, fontSize: 28, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>Bill received</span>
-                <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)" }}>
-                  We'll read line-item GPU spend against the live market and email you the breakdown.
-                </span>
-              </div>
-              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "16px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start" }}>
-                <div>
-                  <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>File</div>
-                  <div style={{ ...MONO, fontSize: 12, color: "var(--text-primary)" }}>{billFileName ?? diagramFileName}</div>
+          {showUploadResult && (() => {
+            const billSnapshot = billParsed && billParsed.family ? {
+              family:    billParsed.family,
+              gpuCount:  billParsed.gpuCount  ?? 8,
+              hours:     billParsed.hours     ?? 720,
+              situation: billParsed.situation ?? "hyperscaler" as Situation,
+              workload:  billParsed.workload  ?? "unsure" as WorkloadType,
+            } : null;
+            const billResult = billSnapshot
+              ? computeResult(listings, billSnapshot.family, billSnapshot.gpuCount, billSnapshot.hours, billSnapshot.situation, billSnapshot.workload)
+              : null;
+            return (
+              <div>
+                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "3px solid var(--green)", padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 8 }}>
+                  <span style={{ ...MONO, fontSize: 28, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>Bill received</span>
+                  <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)" }}>
+                    {billResult ? "Costs mapped against today's market." : "We'll read line-item GPU spend against the live market and email you the breakdown."}
+                  </span>
                 </div>
-                <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
-                  Enter your email below — we'll send a provider-by-provider breakdown with region options and what to move first, within one business day.
+                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "16px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start" }}>
+                  <div>
+                    <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>File</div>
+                    <div style={{ ...MONO, fontSize: 12, color: "var(--text-primary)" }}>{billFileName ?? diagramFileName}</div>
+                  </div>
+                  <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
+                    {billResult
+                      ? `Detected: ${billSnapshot!.family} · ${billSnapshot!.gpuCount} GPU${billSnapshot!.gpuCount !== 1 ? "s" : ""} · ${billSnapshot!.hours}h/mo. Enter your email for the full analyst report.`
+                      : "Enter your email below — we'll send a provider-by-provider breakdown with region options and what to move first, within one business day."}
+                  </div>
                 </div>
+                {billResult && billSnapshot && (
+                  <ResultSection
+                    r={billResult}
+                    family={billSnapshot.family}
+                    gpuCount={billSnapshot.gpuCount}
+                    hours={billSnapshot.hours}
+                    situation={billSnapshot.situation}
+                    workload={billSnapshot.workload}
+                  />
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {showTextResult && primaryResult && (
             <ResultSection
