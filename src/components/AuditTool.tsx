@@ -135,6 +135,7 @@ interface ComputedResult {
 function computeResult(
   listings: GpuListing[], family: GpuFamily, gpuCount: number, hours: number,
   situation: Situation, workload: WorkloadType,
+  overrideCurrentMonthly?: number, // pass actual bill spend when available
 ): ComputedResult | null {
   const familyListings = family === "other"
     ? listings
@@ -160,8 +161,18 @@ function computeResult(
       .sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
   }
 
-  const currentMonthly     = baseline ? baseline.price_per_hour * gpuCount * hours : null;
-  const recommendedMonthly = recommendation.price_per_hour * gpuCount * hours;
+  // Bill path: use the actual extracted spend as the baseline — it's more accurate
+  // than re-deriving from the cheapest listing for that provider type.
+  const currentMonthly = overrideCurrentMonthly != null && overrideCurrentMonthly > 0
+    ? overrideCurrentMonthly
+    : baseline ? baseline.price_per_hour * gpuCount * hours : null;
+
+  // Derive recommendedMonthly: use the reliable floor scaled to actual GPU-hours from the bill
+  // so the comparison is apples-to-apples.
+  const effectiveHours = overrideCurrentMonthly != null && overrideCurrentMonthly > 0 && gpuCount > 0
+    ? overrideCurrentMonthly / (recommendation.price_per_hour * gpuCount) // back-compute hours from bill
+    : hours;
+  const recommendedMonthly = recommendation.price_per_hour * gpuCount * (overrideCurrentMonthly != null ? effectiveHours : hours);
   const savings    = currentMonthly && currentMonthly > recommendedMonthly ? currentMonthly - recommendedMonthly : null;
   const savingsPct = currentMonthly && savings ? Math.round((savings / currentMonthly) * 100) : null;
 
@@ -188,11 +199,13 @@ function computeResult(
 }
 
 /* ── Result display ── */
-function ResultSection({ r, family, gpuCount, hours, situation, workload, label }: {
+function ResultSection({ r, family, gpuCount, hours, situation, workload, label, billActualSpend, billProvider }: {
   r: ComputedResult; family: GpuFamily; gpuCount: number; hours: number;
   situation: Situation; workload: WorkloadType; label?: string;
+  billActualSpend?: number; billProvider?: string;
 }) {
   const { baseline, recommendation, isReliable, currentMonthly, recommendedMonthly, savings, savingsPct, reliabilityRisk, isBatchFriendly, workloadLabel, advice } = r;
+  const fromBill = billActualSpend != null && billActualSpend > 0;
 
   let headline: React.ReactNode;
   if (savings && savingsPct) {
@@ -235,7 +248,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", marginBottom: 1 }} className="result-grid">
         <div style={{ padding: "20px 24px", borderRight: "1px solid var(--border)" }}>
           <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 8 }}>
-            {baseline ? `Est. current (${situation === "unsure" ? "hyperscaler assumed" : situation})` : "No baseline found"}
+            {fromBill ? `Your bill${billProvider ? ` (${billProvider})` : ""}` : baseline ? `Est. current (${situation === "unsure" ? "hyperscaler assumed" : situation})` : "No baseline found"}
           </div>
           {currentMonthly ? (
             <>
@@ -243,7 +256,9 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label 
                 {fmtMoney(currentMonthly)}<span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 300 }}>/mo</span>
               </div>
               <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>
-                {getMeta(baseline!.provider).short} · {fmtP(baseline!.price_per_hour)}/hr × {gpuCount} GPU{gpuCount !== 1 ? "s" : ""} × {hours}h
+                {fromBill
+                  ? `${gpuCount} GPU${gpuCount !== 1 ? "s" : ""} · ${family} · from bill`
+                  : `${getMeta(baseline!.provider).short} · ${fmtP(baseline!.price_per_hour)}/hr × ${gpuCount} GPU${gpuCount !== 1 ? "s" : ""} × ${hours}h`}
               </div>
             </>
           ) : (
@@ -603,7 +618,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", ...SANS, fontSize: 13, color: "var(--blue)", border: "1px solid var(--border-mid)", padding: "10px 18px", borderRadius: 3, background: "var(--elevated)" }}>
                 <input type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => {
                   const file = e.target.files?.[0];
-                  if (file) { setDiagramFileName(file.name); setCommitted(true); }
+                  if (file) { setDiagramFileName(file.name); setCommitted(false); }
                 }} />
                 <span style={{ fontSize: 15 }}>⬆</span> Choose file
               </label>
@@ -611,7 +626,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ ...MONO, fontSize: 11.5, color: "var(--green)" }}>✓</span>
                   <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>{diagramFileName}</span>
-                  <button onClick={() => setDiagramFileName(null)} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>remove</button>
+                  <button onClick={() => { setDiagramFileName(null); setCommitted(false); }} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>remove</button>
                 </div>
               )}
             </div>
@@ -726,10 +741,10 @@ export default function AuditTool({ listings }: AuditToolProps) {
       {showResult && (
         <div id="audit-results" style={{ marginBottom: 16 }}>
           <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 10 }}>
-            Audit preview — {showUploadResult ? (billExtracted ? "bill read" : "file received") : primarySnapshot.fromParsed ? "detected from your text" : "your details"}
+            Audit preview — {activeTab === "bill" ? (billExtracted ? "bill read" : billExtractError ? "could not read" : "reading bill") : activeTab === "diagram" ? "diagram received" : primarySnapshot.fromParsed ? "detected from your text" : "your details"}
           </div>
 
-          {showUploadResult && (() => {
+          {showUploadResult && activeTab === "bill" && (() => {
             const ex = billExtracted;
             const VALID_FAMILIES = ["H100","A100","L40S","A10G","other"];
             const VALID_SITUATIONS = ["hyperscaler","neocloud","marketplace","unsure"];
@@ -738,7 +753,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
             const exSituation = ex && VALID_SITUATIONS.includes(ex.situation) ? ex.situation as Situation : "hyperscaler";
             const exWorkload  = ex && VALID_WORKLOADS.includes(ex.workload)   ? ex.workload  as WorkloadType : "unsure";
             const exResult = ex && exFamily
-              ? computeResult(listings, exFamily, ex.gpuCount, ex.hoursPerMonth, exSituation, exWorkload)
+              ? computeResult(listings, exFamily, ex.gpuCount, ex.hoursPerMonth, exSituation, exWorkload, ex.monthlySpend)
               : null;
             const accentColor = billExtracting ? "var(--border-mid)" : ex ? "var(--green)" : billExtractError ? "var(--amber)" : "var(--border-mid)";
             return (
@@ -773,11 +788,13 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "14px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start", marginBottom: 1 }}>
                   <div>
                     <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>File</div>
-                    <div style={{ ...MONO, fontSize: 12, color: "var(--text-primary)" }}>{billFileName ?? diagramFileName}</div>
+                    <div style={{ ...MONO, fontSize: 12, color: "var(--text-primary)" }}>{billFileName}</div>
                   </div>
                   <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
                     {ex
                       ? "Market comparison below. Enter your email for the full analyst-reviewed breakdown."
+                      : billExtractError
+                      ? "Try the Describe tab to enter your setup manually."
                       : "Enter your email below — we'll send a provider-by-provider breakdown within one business day."}
                   </div>
                 </div>
@@ -789,11 +806,31 @@ export default function AuditTool({ listings }: AuditToolProps) {
                     hours={ex!.hoursPerMonth}
                     situation={exSituation}
                     workload={exWorkload}
+                    billActualSpend={ex!.monthlySpend}
+                    billProvider={ex!.provider}
                   />
                 )}
               </div>
             );
           })()}
+
+          {showUploadResult && activeTab === "diagram" && (
+            <div>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "3px solid var(--blue)", padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 8 }}>
+                <span style={{ ...MONO, fontSize: 22, fontWeight: 600, color: "var(--blue)", letterSpacing: "-0.02em" }}>Diagram received</span>
+                <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)" }}>We'll map it to current market pricing and send your breakdown.</span>
+              </div>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "14px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start" }}>
+                <div>
+                  <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>File</div>
+                  <div style={{ ...MONO, fontSize: 12, color: "var(--text-primary)" }}>{diagramFileName}</div>
+                </div>
+                <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
+                  Enter your email below — we'll extract GPU types, counts, and providers from your diagram and map them to live market pricing. Provider-by-provider, analyst reviewed.
+                </div>
+              </div>
+            </div>
+          )}
 
           {showTextResult && primaryResult && (
             <ResultSection
