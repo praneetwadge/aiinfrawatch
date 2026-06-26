@@ -637,24 +637,26 @@ export default function AuditTool({ listings }: AuditToolProps) {
 
         </div>{/* end tab panel */}
 
-        {/* ── Run audit CTA — always visible ── */}
-        <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 14 }}>
-          <button
-            type="button"
-            onClick={handleRunAudit}
-            style={{
-              ...SANS, fontSize: 14, fontWeight: 600,
-              color: "#F7F3EA", background: "#171717",
-              padding: "13px 32px", borderRadius: 3, border: "none",
-              cursor: "pointer", letterSpacing: "0.01em",
-            }}
-          >
-            Run cost audit →
-          </button>
-          <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
-            No email required to see results
-          </span>
-        </div>
+        {/* ── Run audit CTA — hidden on upload tabs ── */}
+        {(activeTab !== "bill" && activeTab !== "diagram") && (
+          <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 14 }}>
+            <button
+              type="button"
+              onClick={handleRunAudit}
+              style={{
+                ...SANS, fontSize: 14, fontWeight: 600,
+                color: "#F7F3EA", background: "#171717",
+                padding: "13px 32px", borderRadius: 3, border: "none",
+                cursor: "pointer", letterSpacing: "0.01em",
+              }}
+            >
+              Run cost audit →
+            </button>
+            <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
+              No email required to see results
+            </span>
+          </div>
+        )}
 
       </div>{/* end input card wrapper */}
 
