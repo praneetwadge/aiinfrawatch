@@ -8,7 +8,7 @@ export const revalidate = 300;
 export default async function Page() {
   const [summary, listings] = await Promise.allSettled([
     computeMarketSummary(),
-    getLatestGpuListings({ limit: 2000 }),
+    getLatestGpuListings({ limit: 4000 }),
   ]);
 
   const summaryData: MarketSummary | null = summary.status === "fulfilled" ? summary.value : null;
