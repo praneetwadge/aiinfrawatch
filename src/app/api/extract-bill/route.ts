@@ -1,7 +1,9 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 
-const MODEL = "claude-haiku-4-5-20251001"; // cheapest — swap to claude-sonnet-4-6 if extraction quality needs improvement
+// Haiku for CSV (cheap, fast) — Sonnet for PDF (required for document vision)
+const MODEL_CSV = "claude-haiku-4-5-20251001";
+const MODEL_PDF = "claude-sonnet-4-6";
 
 const SYSTEM = `You are a cloud billing analyst. Extract GPU compute line items from cloud bills (AWS, GCP, Azure) and return ONLY a JSON object — no prose, no markdown, no explanation.
 
@@ -18,12 +20,12 @@ Return this exact shape:
 }
 
 Rules:
-- family: map instance types to GPU family. p4d/p4de/a2-highgpu/ND96asr = A100. p5/ND H100 = H100. g5/a10 = A10G. L40S = L40S. Unknown = other.
-- gpuCount: total GPUs across all matching instances (instance GPU count × instance count)
+- family: map instance types to GPU family. p4d/p4de/a2-highgpu/ND96asr/a2-ultragpu = A100. p5/ND H100/NCads_H100 = H100. g5/NC A10/a10 = A10G. L40S = L40S. Unknown = other.
+- gpuCount: total GPUs across all matching instances (instance GPU count × instance count). e.g. p4d.24xlarge has 8 A100s.
 - hoursPerMonth: hours used in the billing period for the primary GPU instance type
 - situation: AWS/GCP/Azure/IBM/Oracle = hyperscaler. CoreWeave/Lambda/Nebius = neocloud. RunPod/Vast.ai = marketplace.
-- workload: infer from service names. SageMaker Training/Vertex AI Training = training. Endpoint/Prediction = inference. Default = unsure.
-- monthlySpend: total GPU compute spend only (EC2 GPU + SageMaker GPU + AML GPU + Vertex GPU). Exclude storage, networking, support.
+- workload: infer from service names. SageMaker Training/Vertex AI Training = training. Endpoint/Prediction/Online = inference. Default = unsure.
+- monthlySpend: total GPU compute spend only (EC2 GPU + SageMaker GPU + AML GPU + Vertex GPU lines). Exclude storage, networking, support, monitoring.
 - provider: short name e.g. "AWS", "GCP", "Azure"
 - confidence: high if you found clear GPU line items, medium if inferred, low if uncertain
 
@@ -45,22 +47,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "No file content provided" }, { status: 400 });
   }
 
-  // Build message content
-  const userContent: any[] = [];
+  const isPdf = !!base64 && mediaType === "application/pdf";
+  const model = isPdf ? MODEL_PDF : MODEL_CSV;
 
-  if (base64 && mediaType === "application/pdf") {
-    userContent.push({
-      type: "document",
-      source: { type: "base64", media_type: "application/pdf", data: base64 },
-    });
-    userContent.push({ type: "text", text: `Extract GPU billing data from this cloud bill PDF: ${fileName ?? "bill.pdf"}` });
-  } else {
-    // CSV or plain text
-    userContent.push({
-      type: "text",
-      text: `Extract GPU billing data from this cloud bill:\n\nFilename: ${fileName ?? "bill.csv"}\n\n${text}`,
-    });
-  }
+  const userContent: any[] = isPdf
+    ? [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
+        { type: "text", text: `Extract GPU billing data from this cloud bill PDF: ${fileName ?? "bill.pdf"}` },
+      ]
+    : [
+        { type: "text", text: `Extract GPU billing data from this cloud bill:\n\nFilename: ${fileName ?? "bill.csv"}\n\n${text}` },
+      ];
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -71,7 +68,7 @@ export async function POST(req: NextRequest) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: MODEL,
+        model,
         max_tokens: 512,
         system: SYSTEM,
         messages: [{ role: "user", content: userContent }],
@@ -89,7 +86,6 @@ export async function POST(req: NextRequest) {
 
     let extracted: any;
     try {
-      // Strip any accidental markdown fences
       const clean = raw.replace(/```json|```/g, "").trim();
       extracted = JSON.parse(clean);
     } catch {
