@@ -526,7 +526,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", ...SANS, fontSize: 13, color: "var(--blue)", border: "1px solid var(--border-mid)", padding: "10px 18px", borderRadius: 3, background: "var(--elevated)" }}>
                 <input type="file" accept=".csv,.pdf,.xlsx,.xls" style={{ display: "none" }} onChange={e => {
                   const file = e.target.files?.[0];
-                  if (file) { setBillFileName(file.name); setCommitted(false); }
+                  if (file) { setBillFileName(file.name); setCommitted(true); }
                 }} />
                 <span style={{ fontSize: 15 }}>⬆</span> Choose file
               </label>
@@ -550,7 +550,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", ...SANS, fontSize: 13, color: "var(--blue)", border: "1px solid var(--border-mid)", padding: "10px 18px", borderRadius: 3, background: "var(--elevated)" }}>
                 <input type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => {
                   const file = e.target.files?.[0];
-                  if (file) { setDiagramFileName(file.name); setCommitted(false); }
+                  if (file) { setDiagramFileName(file.name); setCommitted(true); }
                 }} />
                 <span style={{ fontSize: 15 }}>⬆</span> Choose file
               </label>
