@@ -310,9 +310,15 @@ const newRow = (): WorkloadRow => ({
 export default function AuditTool({ listings }: AuditToolProps) {
   const [activeTab,      setActiveTab]      = useState<InputTab>("describe");
   const [setupText,      setSetupText]      = useState("");
-  const [billFileName,   setBillFileName]   = useState<string | null>(null);
-  const [billFile,       setBillFile]       = useState<File | null>(null);
-  const [billParsed,     setBillParsed]     = useState<ParsedStack | null>(null);
+  const [billFileName,     setBillFileName]     = useState<string | null>(null);
+  const [billFile,         setBillFile]         = useState<File | null>(null);
+  const [billExtracting,   setBillExtracting]   = useState(false);
+  const [billExtractError, setBillExtractError] = useState<string | null>(null);
+  const [billExtracted,    setBillExtracted]    = useState<{
+    family: string; gpuCount: number; hoursPerMonth: number;
+    situation: string; workload: string; monthlySpend: number;
+    provider: string; confidence: string;
+  } | null>(null);
   const [diagramFileName, setDiagramFileName] = useState<string | null>(null);
   const [rows,           setRows]           = useState<WorkloadRow[]>([newRow()]);
   const [committed,      setCommitted]      = useState(false);
@@ -438,14 +444,45 @@ export default function AuditTool({ listings }: AuditToolProps) {
 
   const handleRunAudit = async () => {
     if (activeTab === "bill" && billFile) {
-      let parsed: ParsedStack | null = null;
-      if (billFile.name.endsWith(".csv")) {
-        try {
+      setBillExtracting(true);
+      setBillExtractError(null);
+      setBillExtracted(null);
+      setCommitted(true);
+      try {
+        const isPdf = billFile.type === "application/pdf" || billFile.name.toLowerCase().endsWith(".pdf");
+        let body: any;
+        if (isPdf) {
+          const ab = await billFile.arrayBuffer();
+          const bytes = new Uint8Array(ab);
+          let bin = "";
+          for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+          body = { base64: btoa(bin), mediaType: "application/pdf", fileName: billFile.name };
+        } else {
           const text = await billFile.text();
-          parsed = parseStackText(text);
-        } catch {}
+          body = { text, fileName: billFile.name };
+        }
+        const res = await fetch("/api/extract-bill", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const json = await res.json();
+        if (json.success && json.data) {
+          setBillExtracted(json.data);
+        } else if (json.error === "no_gpu_found") {
+          setBillExtractError("No GPU line items found — try the Describe tab to enter details manually.");
+        } else {
+          setBillExtractError("Could not read this file — try a CSV export or use the Describe tab.");
+        }
+      } catch {
+        setBillExtractError("Network error reading bill — try again.");
+      } finally {
+        setBillExtracting(false);
+        setTimeout(() => {
+          document.getElementById("audit-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 80);
       }
-      setBillParsed(parsed);
+      return;
     }
     setCommitted(true);
     setTimeout(() => {
@@ -538,7 +575,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", ...SANS, fontSize: 13, color: "var(--blue)", border: "1px solid var(--border-mid)", padding: "10px 18px", borderRadius: 3, background: "var(--elevated)" }}>
                 <input type="file" accept=".csv,.pdf,.xlsx,.xls" style={{ display: "none" }} onChange={e => {
                   const file = e.target.files?.[0];
-                  if (file) { setBillFileName(file.name); setBillFile(file); setCommitted(false); }
+                  if (file) { setBillFileName(file.name); setBillFile(file); setBillExtracted(null); setBillExtractError(null); setCommitted(false); }
                 }} />
                 <span style={{ fontSize: 15 }}>⬆</span> Choose file
               </label>
@@ -546,7 +583,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ ...MONO, fontSize: 11.5, color: "var(--green)" }}>✓</span>
                   <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>{billFileName}</span>
-                  <button onClick={() => { setBillFileName(null); setBillFile(null); setBillParsed(null); setCommitted(false); }} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>remove</button>
+                  <button onClick={() => { setBillFileName(null); setBillFile(null); setBillExtracted(null); setBillExtractError(null); setCommitted(false); }} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>remove</button>
                 </div>
               )}
             </div>
@@ -685,47 +722,69 @@ export default function AuditTool({ listings }: AuditToolProps) {
       {showResult && (
         <div id="audit-results" style={{ marginBottom: 16 }}>
           <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 10 }}>
-            Audit preview — {showUploadResult ? "file received" : primarySnapshot.fromParsed ? "detected from your text" : "your details"}
+            Audit preview — {showUploadResult ? (billExtracted ? "bill read" : "file received") : primarySnapshot.fromParsed ? "detected from your text" : "your details"}
           </div>
 
           {showUploadResult && (() => {
-            const billSnapshot = billParsed && billParsed.family ? {
-              family:    billParsed.family,
-              gpuCount:  billParsed.gpuCount  ?? 8,
-              hours:     billParsed.hours     ?? 720,
-              situation: billParsed.situation ?? "hyperscaler" as Situation,
-              workload:  billParsed.workload  ?? "unsure" as WorkloadType,
-            } : null;
-            const billResult = billSnapshot
-              ? computeResult(listings, billSnapshot.family, billSnapshot.gpuCount, billSnapshot.hours, billSnapshot.situation, billSnapshot.workload)
+            const ex = billExtracted;
+            const VALID_FAMILIES = ["H100","A100","L40S","A10G","other"];
+            const VALID_SITUATIONS = ["hyperscaler","neocloud","marketplace","unsure"];
+            const VALID_WORKLOADS  = ["inference","batch","evals","finetuning","training","dev","unsure"];
+            const exFamily    = ex && VALID_FAMILIES.includes(ex.family)   ? ex.family   as GpuFamily   : null;
+            const exSituation = ex && VALID_SITUATIONS.includes(ex.situation) ? ex.situation as Situation : "hyperscaler";
+            const exWorkload  = ex && VALID_WORKLOADS.includes(ex.workload)   ? ex.workload  as WorkloadType : "unsure";
+            const exResult = ex && exFamily
+              ? computeResult(listings, exFamily, ex.gpuCount, ex.hoursPerMonth, exSituation, exWorkload)
               : null;
+            const accentColor = billExtracting ? "var(--border-mid)" : ex ? "var(--green)" : billExtractError ? "var(--amber)" : "var(--border-mid)";
             return (
               <div>
-                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "3px solid var(--green)", padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 8 }}>
-                  <span style={{ ...MONO, fontSize: 28, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>Bill received</span>
-                  <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)" }}>
-                    {billResult ? "Costs mapped against today's market." : "We'll read line-item GPU spend against the live market and email you the breakdown."}
-                  </span>
+                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: `3px solid ${accentColor}`, padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 8 }}>
+                  {billExtracting ? (
+                    <span style={{ ...SANS, fontSize: 15, color: "var(--text-muted)" }}>Reading your bill…</span>
+                  ) : ex ? (
+                    <>
+                      <span style={{ ...MONO, fontSize: 28, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>Bill read</span>
+                      <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)" }}>
+                        {ex.provider} · {ex.family} · {ex.gpuCount} GPU{ex.gpuCount !== 1 ? "s" : ""} · ${ex.monthlySpend.toLocaleString()}/mo GPU spend
+                        {ex.confidence !== "high" && (
+                          <span style={{ ...MONO, fontSize: 10, color: "var(--amber)", marginLeft: 8, background: "rgba(151,90,22,0.08)", border: "1px solid rgba(151,90,22,0.2)", padding: "1px 6px", borderRadius: 2 }}>
+                            {ex.confidence} confidence
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  ) : billExtractError ? (
+                    <>
+                      <span style={{ ...MONO, fontSize: 18, fontWeight: 600, color: "var(--amber)", letterSpacing: "-0.02em" }}>Could not read bill</span>
+                      <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", marginLeft: 8 }}>{billExtractError}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ ...MONO, fontSize: 28, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>Bill received</span>
+                      <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)" }}>Reading line-item GPU spend against the live market…</span>
+                    </>
+                  )}
                 </div>
-                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "16px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start" }}>
+                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "14px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start", marginBottom: 1 }}>
                   <div>
                     <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>File</div>
                     <div style={{ ...MONO, fontSize: 12, color: "var(--text-primary)" }}>{billFileName ?? diagramFileName}</div>
                   </div>
                   <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
-                    {billResult
-                      ? `Detected: ${billSnapshot!.family} · ${billSnapshot!.gpuCount} GPU${billSnapshot!.gpuCount !== 1 ? "s" : ""} · ${billSnapshot!.hours}h/mo. Enter your email for the full analyst report.`
-                      : "Enter your email below — we'll send a provider-by-provider breakdown with region options and what to move first, within one business day."}
+                    {ex
+                      ? "Market comparison below. Enter your email for the full analyst-reviewed breakdown."
+                      : "Enter your email below — we'll send a provider-by-provider breakdown within one business day."}
                   </div>
                 </div>
-                {billResult && billSnapshot && (
+                {exResult && exFamily && (
                   <ResultSection
-                    r={billResult}
-                    family={billSnapshot.family}
-                    gpuCount={billSnapshot.gpuCount}
-                    hours={billSnapshot.hours}
-                    situation={billSnapshot.situation}
-                    workload={billSnapshot.workload}
+                    r={exResult}
+                    family={exFamily}
+                    gpuCount={ex!.gpuCount}
+                    hours={ex!.hoursPerMonth}
+                    situation={exSituation}
+                    workload={exWorkload}
                   />
                 )}
               </div>
