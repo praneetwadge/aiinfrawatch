@@ -126,6 +126,12 @@ interface ComputedResult {
   recommendedMonthly: number;
   savings: number | null;
   savingsPct: number | null;
+  annualSavings: number | null;
+  currentRatePerHour: number | null;
+  floorRatePerHour: number;
+  sizingSuspect: boolean;
+  gpuCount: number;
+  hours: number;
   reliabilityRisk: "Low" | "Medium" | "High";
   isBatchFriendly: boolean;
   workloadLabel: string;
@@ -161,68 +167,186 @@ function computeResult(
       .sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
   }
 
-  // Bill path: use the actual extracted spend as the baseline — it's more accurate
-  // than re-deriving from the cheapest listing for that provider type.
+  // Guards: never divide by zero / multiply by garbage. Bill extraction can return
+  // odd values; clamp to sane floors before any arithmetic.
+  const safeGpu = gpuCount > 0 ? gpuCount : 1;
+  const safeHrs = hours > 0 ? hours : 720;
+
+  // Current spend. Bill path: the actual extracted spend is ground truth.
+  // Other paths: derive from the cheapest listing for the stated provider type.
   const currentMonthly = overrideCurrentMonthly != null && overrideCurrentMonthly > 0
     ? overrideCurrentMonthly
-    : baseline ? baseline.price_per_hour * gpuCount * hours : null;
+    : baseline ? baseline.price_per_hour * safeGpu * safeHrs : null;
 
-  // Derive recommendedMonthly: use the reliable floor scaled to actual GPU-hours from the bill
-  // so the comparison is apples-to-apples.
-  const effectiveHours = overrideCurrentMonthly != null && overrideCurrentMonthly > 0 && gpuCount > 0
-    ? overrideCurrentMonthly / (recommendation.price_per_hour * gpuCount) // back-compute hours from bill
-    : hours;
-  const recommendedMonthly = recommendation.price_per_hour * gpuCount * (overrideCurrentMonthly != null ? effectiveHours : hours);
-  const savings    = currentMonthly && currentMonthly > recommendedMonthly ? currentMonthly - recommendedMonthly : null;
+  // Recommended spend = the SAME GPU-hours costed at the reliable floor rate.
+  // Critically, this is NEVER back-computed from the bill — doing so makes
+  // recommended === current and forces savings to zero on every upload.
+  const floorRatePerHour  = recommendation.price_per_hour;
+  const recommendedMonthly = floorRatePerHour * safeGpu * safeHrs;
+
+  // The customer's effective blended rate — the proof line. monthlySpend is real;
+  // dividing by the bill's own GPU-hours gives what they actually pay per GPU-hour.
+  const currentRatePerHour = currentMonthly != null && safeGpu > 0 && safeHrs > 0
+    ? currentMonthly / (safeGpu * safeHrs)
+    : null;
+
+  // Credibility guard: if the implied per-GPU rate is >4× the entire observed market
+  // for this family, the bill was almost certainly misread (wrong GPU count/hours).
+  // Don't publish a fake "99% savings" — flag it so the UI can ask for confirmation.
+  const observedMax = sorted.length ? sorted[sorted.length - 1].price_per_hour : floorRatePerHour;
+  const sizingSuspect = currentRatePerHour != null && observedMax > 0 && currentRatePerHour > observedMax * 4;
+
+  const savings    = !sizingSuspect && currentMonthly && currentMonthly > recommendedMonthly ? currentMonthly - recommendedMonthly : null;
   const savingsPct = currentMonthly && savings ? Math.round((savings / currentMonthly) * 100) : null;
+  const annualSavings = savings != null ? savings * 12 : null;
 
   const workloadObj     = WORKLOAD_OPTIONS.find(w => w.value === workload);
   const isBatchFriendly = workloadObj?.batchFriendly ?? false;
   const reliabilityRisk = !isReliable ? "High" : capacityConfFromListings(familyListings) >= 60 ? "Low" : "Medium";
 
   let advice = "";
-  if (savingsPct !== null && savingsPct >= 20 && isBatchFriendly) {
-    advice = `Move ${workloadObj?.label.toLowerCase() ?? "this workload"} to ${getMeta(recommendation.provider).short} first — it's interruption-tolerant and the savings are material. Keep latency-critical production serving where it is.`;
+  if (sizingSuspect) {
+    advice = `We read ${fmtMoney(currentMonthly!)}/mo but the detected ${gpuCount}× ${family === "other" ? "GPU" : family} doesn't square with that spend — likely a managed-service line or a mixed bill. Confirm the GPU count and we'll size the gap precisely in the full audit.`;
+  } else if (savingsPct !== null && savingsPct >= 20 && isBatchFriendly) {
+    advice = `${workloadObj?.label ?? "This workload"} is interruption-tolerant — it's the fastest line to move. Shift it to ${getMeta(recommendation.provider).short} at ${fmtP(floorRatePerHour)}/hr and keep latency-critical serving where it is. First action of the audit.`;
   } else if (savingsPct !== null && savingsPct >= 10) {
-    advice = `Savings are available but migration friction matters. Audit contract terms and reserved pricing before switching.${!isBatchFriendly ? " This workload type carries migration risk — move incrementally." : ""}`;
+    advice = `The gap is real, but ${!isBatchFriendly ? "this workload is latency- or continuity-sensitive — don't lift-and-shift. " : ""}capture it through reserved pricing and committed-use discounts before re-platforming. The full audit prices the move against your contract terms.`;
   } else if (savingsPct !== null) {
-    advice = `You're near market floor for reliable ${family === "other" ? "GPU" : family}. Focus on utilisation and reserved pricing rather than provider switching.`;
+    advice = `You're already at the reliable floor for ${family === "other" ? "GPU" : family}. The remaining win is utilisation, not provider switching — the audit checks idle spend and reservation coverage.`;
   } else if (!baseline) {
-    advice = `No ${situation} listings found for ${family === "other" ? "this GPU" : family} in the current snapshot. The full audit can surface region-specific options not in the daily index.`;
+    advice = `No ${situation} listings found for ${family === "other" ? "this GPU" : family} in the current snapshot. The full audit surfaces region-specific options outside the daily index.`;
   }
 
   return {
     baseline, recommendation, isReliable, currentMonthly, recommendedMonthly,
-    savings, savingsPct, reliabilityRisk, isBatchFriendly,
+    savings, savingsPct, annualSavings, currentRatePerHour, floorRatePerHour, sizingSuspect,
+    gpuCount: safeGpu, hours: safeHrs,
+    reliabilityRisk, isBatchFriendly,
     workloadLabel: workloadObj?.label ?? "this workload", advice,
   };
 }
 
 /* ── Result display ── */
-function ResultSection({ r, family, gpuCount, hours, situation, workload, label, billActualSpend, billProvider }: {
+
+// Annual numbers get large — give them M/k so the headline reads cleanly.
+const fmtBigMoney = (n: number) =>
+  n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M`
+  : n >= 1_000   ? `$${Math.round(n / 1000)}k`
+  : `$${Math.round(n)}`;
+
+/* The money shot: a single stacked bar splitting the bill into the floor cost
+   you can't avoid (green) and the overspend you can (red). Same CSS-bar idiom
+   as the homepage H100 spread chart — no Recharts. */
+function BillGapBar({ currentMonthly, recommendedMonthly, savings, savingsPct, annualSavings }: {
+  currentMonthly: number; recommendedMonthly: number; savings: number; savingsPct: number; annualSavings: number;
+}) {
+  const floorPct = Math.max(2, Math.min(100, (recommendedMonthly / currentMonthly) * 100));
+  const wastePct = Math.max(0, 100 - floorPct);
+  return (
+    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "20px 24px", marginBottom: 1 }}>
+      <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 14 }}>
+        Where your money goes
+      </div>
+      <div style={{ position: "relative" as const, display: "flex", height: 28, width: "100%", borderRadius: 2, overflow: "hidden", border: "1px solid var(--border)" }}>
+        <div style={{ width: `${floorPct}%`, background: "var(--green)", opacity: 0.9 }} />
+        <div style={{ width: `${wastePct}%`, background: "rgba(155,28,28,0.55)", borderLeft: "1px solid rgba(155,28,28,0.8)" }} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, gap: 16, flexWrap: "wrap" as const }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <div style={{ width: 9, height: 9, background: "var(--green)", borderRadius: 1, flexShrink: 0 }} />
+          <span style={{ ...SANS, fontSize: 12, color: "var(--text-secondary)" }}>
+            Floor cost — <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtMoney(recommendedMonthly)}/mo</span> you'd still pay
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <div style={{ width: 9, height: 9, background: "rgba(155,28,28,0.7)", borderRadius: 1, flexShrink: 0 }} />
+          <span style={{ ...SANS, fontSize: 12, color: "var(--text-secondary)" }}>
+            Overspend — <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtMoney(savings)}/mo</span> ({savingsPct}%) burning
+          </span>
+        </div>
+      </div>
+      <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+        That's <span style={{ ...MONO, fontWeight: 700, color: "var(--red)" }}>{fmtBigMoney(annualSavings)}/yr</span> leaving the table for the same GPUs, same hours — just at a reliable price the market already clears at.
+      </div>
+    </div>
+  );
+}
+
+/* Reuses the H100 spread-bar idiom: plot the family's price band and mark where
+   the customer actually sits versus the reliable floor. The "you are here" proof. */
+function MarketPositionBar({ listings, family, currentRatePerHour, floorRate }: {
+  listings: GpuListing[]; family: GpuFamily; currentRatePerHour: number; floorRate: number;
+}) {
+  if (family === "other") return null;
+  const fam = listings.filter(l => l.gpu_model.toUpperCase().includes(family));
+  if (fam.length < 2) return null;
+  const prices = fam.map(l => l.price_per_hour);
+  const observedMin = Math.min(...prices);
+  const observedMax = Math.max(...prices);
+  const scaleMax = Math.max(observedMax, currentRatePerHour) * 1.06;
+  const pct = (v: number) => Math.max(0, Math.min(100, (v / scaleMax) * 100));
+  const floorPos = pct(floorRate);
+  const youPos   = pct(currentRatePerHour);
+  return (
+    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "20px 24px", marginBottom: 1 }}>
+      <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 16 }}>
+        {family} market — where you sit
+      </div>
+      <div style={{ position: "relative" as const, height: 8, background: "var(--elevated)", borderRadius: 1, marginBottom: 30 }}>
+        {/* observed band */}
+        <div style={{ position: "absolute" as const, left: `${pct(observedMin)}%`, width: `${Math.max(pct(observedMax) - pct(observedMin), 0.8)}%`, height: "100%", background: "var(--border-mid)", borderRadius: 1 }} />
+        {/* reliable floor tick */}
+        <div style={{ position: "absolute" as const, left: `${floorPos}%`, top: -5, height: 18, width: 2, background: "var(--green)", transform: "translateX(-1px)" }} />
+        <div style={{ position: "absolute" as const, left: `${floorPos}%`, top: 20, transform: "translateX(-50%)", whiteSpace: "nowrap" as const, ...MONO, fontSize: 10, color: "var(--green)", fontWeight: 600 }}>
+          floor {fmtP(floorRate)}
+        </div>
+        {/* you-are-here marker */}
+        <div style={{ position: "absolute" as const, left: `${youPos}%`, top: -7, height: 22, width: 2.5, background: "var(--red)", transform: "translateX(-1.25px)" }} />
+        <div style={{ position: "absolute" as const, left: `${youPos}%`, top: -26, transform: "translateX(-50%)", whiteSpace: "nowrap" as const, ...MONO, fontSize: 11, color: "var(--red)", fontWeight: 700 }}>
+          you {fmtP(currentRatePerHour)}
+        </div>
+      </div>
+      <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+        You're paying an effective <span style={{ ...MONO, fontWeight: 600, color: "var(--red)" }}>{fmtP(currentRatePerHour)}/hr</span> per {family}. The reliable floor is <span style={{ ...MONO, fontWeight: 600, color: "var(--green)" }}>{fmtP(floorRate)}/hr</span> — observed listings run {fmtP(observedMin)}–{fmtP(observedMax)}/hr across {fam.length} sources.
+      </div>
+    </div>
+  );
+}
+
+function ResultSection({ r, family, gpuCount, hours, situation, workload, label, billActualSpend, billProvider, listings }: {
   r: ComputedResult; family: GpuFamily; gpuCount: number; hours: number;
   situation: Situation; workload: WorkloadType; label?: string;
-  billActualSpend?: number; billProvider?: string;
+  billActualSpend?: number; billProvider?: string; listings?: GpuListing[];
 }) {
-  const { baseline, recommendation, isReliable, currentMonthly, recommendedMonthly, savings, savingsPct, reliabilityRisk, isBatchFriendly, workloadLabel, advice } = r;
+  const { baseline, recommendation, isReliable, currentMonthly, recommendedMonthly, savings, savingsPct, annualSavings, currentRatePerHour, floorRatePerHour, sizingSuspect, reliabilityRisk, isBatchFriendly, workloadLabel, advice } = r;
   const fromBill = billActualSpend != null && billActualSpend > 0;
+  const hasGap = !!(savings && savingsPct && annualSavings);
 
   let headline: React.ReactNode;
-  if (savings && savingsPct) {
+  if (hasGap) {
     headline = (
       <>
-        <span style={{ ...MONO, fontSize: 34, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>
-          ≈ {fmtMoney(savings)}/mo
+        <span style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", width: "100%", marginBottom: 4 }}>
+          You're overspending by
         </span>
-        <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", marginLeft: 10 }}>
-          over market for this workload ({savingsPct}% above the cheapest {isReliable ? "reliable" : "observed"} option)
+        <span style={{ ...MONO, fontSize: 40, fontWeight: 700, color: "var(--red)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+          {fmtBigMoney(annualSavings!)}<span style={{ fontSize: 18, color: "var(--text-muted)", fontWeight: 400 }}>/yr</span>
+        </span>
+        <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", marginLeft: 12, alignSelf: "flex-end" as const }}>
+          ≈ {fmtMoney(savings!)}/mo above the reliable {family === "other" ? "GPU" : family} floor · {savingsPct}% of this bill
         </span>
       </>
+    );
+  } else if (sizingSuspect && currentMonthly) {
+    headline = (
+      <span style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)" }}>
+        We read <span style={{ ...MONO, color: "var(--text-primary)", fontWeight: 600 }}>{fmtMoney(currentMonthly)}/mo</span>, but the detected GPU count doesn't square with that spend. Confirm your setup and we'll size the gap precisely.
+      </span>
     );
   } else if (currentMonthly) {
     headline = (
       <span style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)" }}>
-        You're at market floor for reliable {family === "other" ? "GPU" : family}. The win here is utilisation and reserved pricing, not switching providers.
+        You're at the reliable market floor for {family === "other" ? "GPU" : family}. Switching providers won't help — the win here is utilisation and reserved pricing.
       </span>
     );
   } else {
@@ -242,9 +366,15 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           {label}
         </div>
       )}
-      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: `3px solid ${savings ? "var(--green)" : "var(--border-mid)"}`, padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 4 }}>
+      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: `3px solid ${hasGap ? "var(--red)" : "var(--border-mid)"}`, padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 4 }}>
         {headline}
       </div>
+      {hasGap && (
+        <BillGapBar currentMonthly={currentMonthly!} recommendedMonthly={recommendedMonthly} savings={savings!} savingsPct={savingsPct!} annualSavings={annualSavings!} />
+      )}
+      {hasGap && currentRatePerHour != null && (
+        <MarketPositionBar listings={listings ?? []} family={family} currentRatePerHour={currentRatePerHour} floorRate={floorRatePerHour} />
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", marginBottom: 1 }} className="result-grid">
         <div style={{ padding: "20px 24px", borderRight: "1px solid var(--border)" }}>
           <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 8 }}>
@@ -279,17 +409,17 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
             {getMeta(recommendation.provider).short} · {recommendation.gpu_model} · {fmtP(recommendation.price_per_hour)}/hr
           </div>
         </div>
-        <div style={{ padding: "20px 24px", minWidth: 130, textAlign: "center" as const, background: savings && savingsPct && savingsPct >= 10 ? "rgba(39,103,73,0.06)" : "var(--bg)", display: "flex", flexDirection: "column" as const, justifyContent: "center" }}>
-          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 8 }}>Savings</div>
+        <div style={{ padding: "20px 24px", minWidth: 130, textAlign: "center" as const, background: hasGap ? "rgba(155,28,28,0.05)" : "var(--bg)", display: "flex", flexDirection: "column" as const, justifyContent: "center" }}>
+          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 8 }}>Recoverable</div>
           {savings ? (
             <>
-              <div style={{ ...MONO, fontSize: 22, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.02em", lineHeight: 1 }}>{fmtMoney(savings)}</div>
-              <div style={{ ...MONO, fontSize: 13, color: "var(--green)", marginTop: 4 }}>{savingsPct}% less</div>
+              <div style={{ ...MONO, fontSize: 22, fontWeight: 700, color: "var(--green)", letterSpacing: "-0.02em", lineHeight: 1 }}>{fmtMoney(savings)}</div>
               <div style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>per month</div>
+              <div style={{ ...MONO, fontSize: 14, color: "var(--green)", fontWeight: 600, marginTop: 8 }}>{fmtBigMoney(annualSavings!)}<span style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>/yr</span></div>
             </>
           ) : (
             <div style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
-              {currentMonthly ? "Near market floor" : "Needs baseline"}
+              {sizingSuspect ? "Confirm details" : currentMonthly ? "At market floor" : "Needs baseline"}
             </div>
           )}
         </div>
@@ -754,8 +884,9 @@ export default function AuditTool({ listings }: AuditToolProps) {
             const exWorkload  = ex && VALID_WORKLOADS.includes(ex.workload)   ? ex.workload  as WorkloadType : "unsure";
             const safeGpuCount = (ex?.gpuCount > 0) ? ex.gpuCount : 1;
             const safeHours    = (ex?.hoursPerMonth > 0) ? ex.hoursPerMonth : 720;
+            const safeSpend    = (ex?.monthlySpend > 0) ? ex.monthlySpend : undefined;
             const exResult = ex && exFamily
-              ? computeResult(listings, exFamily, ex.gpuCount, ex.hoursPerMonth, exSituation, exWorkload, ex.monthlySpend)
+              ? computeResult(listings, exFamily, safeGpuCount, safeHours, exSituation, exWorkload, safeSpend)
               : null;
             
             const accentColor = billExtracting ? "var(--border-mid)" : ex ? "var(--green)" : billExtractError ? "var(--amber)" : "var(--border-mid)";
@@ -805,12 +936,13 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   <ResultSection
                     r={exResult}
                     family={exFamily}
-                    gpuCount={ex!.gpuCount}
-                    hours={ex!.hoursPerMonth}
+                    gpuCount={safeGpuCount}
+                    hours={safeHours}
                     situation={exSituation}
                     workload={exWorkload}
-                    billActualSpend={ex!.monthlySpend}
+                    billActualSpend={safeSpend}
                     billProvider={ex!.provider}
+                    listings={listings}
                   />
                 )}
               </div>
@@ -843,6 +975,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
               hours={primarySnapshot.hours}
               situation={primarySnapshot.situation}
               workload={primarySnapshot.workload}
+              listings={listings}
             />
           )}
 
@@ -856,6 +989,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   hours={parseNum(row.hoursStr, 720)}
                   situation={row.situation}
                   workload={row.workload}
+                  listings={listings}
                   label={rows.length > 1 ? `Workload ${idx + 1} — ${row.family} · ${row.gpuCountStr}× · ${row.hoursStr}h/mo` : undefined}
                 />
               </div>
