@@ -22,7 +22,8 @@ Return this exact shape:
 Rules:
 - family: map instance types to GPU family. p4d/p4de/a2-highgpu/ND96asr/a2-ultragpu = A100. p5/ND H100/NCads_H100 = H100. g5/NC A10/a10 = A10G. L40S = L40S. Unknown = other.
 - gpuCount: total GPUs across all matching instances (instance GPU count × instance count). e.g. p4d.24xlarge has 8 A100s.
-- hoursPerMonth: hours used in the billing period for the primary GPU instance type
+- hoursPerMonth: DO NOT extract from managed service lines (SageMaker, AML, Vertex AI Training, AML Compute). Use ONLY raw VM/instance hours for the primary GPU instance type (EC2, Azure VM, GCE). If only managed service hours are visible, return 720.
+- monthlySpend: sum ONLY raw GPU instance charges (EC2 GPU line items + raw Azure VM GPU line items + GCE GPU line items). DO NOT include managed service wrappers (SageMaker, AML Compute, Vertex AI Training) — these bill the same underlying hardware at a markup. Exclude storage, networking, support, discounts/credits.
 - situation: AWS/GCP/Azure/IBM/Oracle = hyperscaler. CoreWeave/Lambda/Nebius = neocloud. RunPod/Vast.ai = marketplace.
 - workload: infer from service names. SageMaker Training/Vertex AI Training = training. Endpoint/Prediction/Online = inference. Default = unsure.
 - monthlySpend: total GPU compute spend only (EC2 GPU + SageMaker GPU + AML GPU + Vertex GPU lines). Exclude storage, networking, support, monitoring.
