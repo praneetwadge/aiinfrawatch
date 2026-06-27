@@ -752,9 +752,12 @@ export default function AuditTool({ listings }: AuditToolProps) {
             const exFamily    = ex && VALID_FAMILIES.includes(ex.family)   ? ex.family   as GpuFamily   : null;
             const exSituation = ex && VALID_SITUATIONS.includes(ex.situation) ? ex.situation as Situation : "hyperscaler";
             const exWorkload  = ex && VALID_WORKLOADS.includes(ex.workload)   ? ex.workload  as WorkloadType : "unsure";
+            const safeGpuCount = (ex?.gpuCount > 0) ? ex.gpuCount : 1;
+            const safeHours    = (ex?.hoursPerMonth > 0) ? ex.hoursPerMonth : 720;
             const exResult = ex && exFamily
               ? computeResult(listings, exFamily, ex.gpuCount, ex.hoursPerMonth, exSituation, exWorkload, ex.monthlySpend)
               : null;
+            
             const accentColor = billExtracting ? "var(--border-mid)" : ex ? "var(--green)" : billExtractError ? "var(--amber)" : "var(--border-mid)";
             return (
               <div>
