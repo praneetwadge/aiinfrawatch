@@ -234,81 +234,112 @@ const fmtBigMoney = (n: number) =>
   : n >= 1_000   ? `$${Math.round(n / 1000)}k`
   : `$${Math.round(n)}`;
 
-/* The money shot: a single stacked bar splitting the bill into the floor cost
-   you can't avoid (green) and the overspend you can (red). Same CSS-bar idiom
-   as the homepage H100 spread chart — no Recharts. */
-function BillGapBar({ currentMonthly, recommendedMonthly, savings, savingsPct, annualSavings }: {
-  currentMonthly: number; recommendedMonthly: number; savings: number; savingsPct: number; annualSavings: number;
-}) {
-  const floorPct = Math.max(2, Math.min(100, (recommendedMonthly / currentMonthly) * 100));
-  const wastePct = Math.max(0, 100 - floorPct);
-  return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "20px 24px", marginBottom: 1 }}>
-      <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 14 }}>
-        Where your money goes
-      </div>
-      <div style={{ position: "relative" as const, display: "flex", height: 28, width: "100%", borderRadius: 2, overflow: "hidden", border: "1px solid var(--border)" }}>
-        <div style={{ width: `${floorPct}%`, background: "var(--green)", opacity: 0.9 }} />
-        <div style={{ width: `${wastePct}%`, background: "rgba(155,28,28,0.55)", borderLeft: "1px solid rgba(155,28,28,0.8)" }} />
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, gap: 16, flexWrap: "wrap" as const }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <div style={{ width: 9, height: 9, background: "var(--green)", borderRadius: 1, flexShrink: 0 }} />
-          <span style={{ ...SANS, fontSize: 12, color: "var(--text-secondary)" }}>
-            Floor cost — <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtMoney(recommendedMonthly)}/mo</span> you'd still pay
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <div style={{ width: 9, height: 9, background: "rgba(155,28,28,0.7)", borderRadius: 1, flexShrink: 0 }} />
-          <span style={{ ...SANS, fontSize: 12, color: "var(--text-secondary)" }}>
-            Overspend — <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtMoney(savings)}/mo</span> ({savingsPct}%) burning
-          </span>
-        </div>
-      </div>
-      <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-        That's <span style={{ ...MONO, fontWeight: 700, color: "var(--red)" }}>{fmtBigMoney(annualSavings)}/yr</span> leaving the table for the same GPUs, same hours — just at a reliable price the market already clears at.
-      </div>
-    </div>
-  );
-}
-
-/* Reuses the H100 spread-bar idiom: plot the family's price band and mark where
-   the customer actually sits versus the reliable floor. The "you are here" proof. */
-function MarketPositionBar({ listings, family, currentRatePerHour, floorRate }: {
-  listings: GpuListing[]; family: GpuFamily; currentRatePerHour: number; floorRate: number;
+/* The all-clouds comparison: every provider for the bill's GPU family, sorted
+   cheapest→priciest, with the customer's effective rate dropped into the lineup
+   and the reliable floor tagged. Same CSS-bar idiom as the homepage spread chart
+   — no Recharts. Replaces the old gap bar + position strip. */
+function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, floorProviderShort }: {
+  listings: GpuListing[]; family: GpuFamily; currentRatePerHour: number; floorRate: number; floorProviderShort: string;
 }) {
   if (family === "other") return null;
   const fam = listings.filter(l => l.gpu_model.toUpperCase().includes(family));
   if (fam.length < 2) return null;
-  const prices = fam.map(l => l.price_per_hour);
-  const observedMin = Math.min(...prices);
-  const observedMax = Math.max(...prices);
-  const scaleMax = Math.max(observedMax, currentRatePerHour) * 1.06;
+
+  // Aggregate per provider: price band + whether any listing is reliable (high availability).
+  const byProvider: Record<string, { min: number; max: number; cat: string; reliable: boolean }> = {};
+  fam.forEach(l => {
+    const m = getMeta(l.provider);
+    const k = m.short;
+    const p = l.price_per_hour;
+    if (!byProvider[k]) byProvider[k] = { min: p, max: p, cat: m.cat, reliable: l.availability === "high" };
+    else {
+      byProvider[k].min = Math.min(byProvider[k].min, p);
+      byProvider[k].max = Math.max(byProvider[k].max, p);
+      byProvider[k].reliable = byProvider[k].reliable || l.availability === "high";
+    }
+  });
+  const all = Object.entries(byProvider).map(([name, v]) => ({ name, ...v })).sort((a, b) => a.min - b.min);
+  if (all.length < 2) return null;
+
+  // How many clouds price below the customer's effective rate — the headline of the chart.
+  const cheaperCount = all.filter(p => p.min < currentRatePerHour).length;
+
+  // Render the cheapest ~7 providers, then ensure the customer marker has a home.
+  type Row = { name: string; min: number; max: number; cat: string; reliable: boolean; you?: boolean };
+  const shown: Row[] = all.slice(0, 7);
+  const youRow: Row = { name: "Your bill", min: currentRatePerHour, max: currentRatePerHour, cat: "You", reliable: false, you: true };
+  const rows: Row[] = [...shown, youRow].sort((a, b) => a.min - b.min);
+
+  const scaleMax = Math.max(...rows.map(r => r.max), currentRatePerHour) * 1.06;
   const pct = (v: number) => Math.max(0, Math.min(100, (v / scaleMax) * 100));
-  const floorPos = pct(floorRate);
-  const youPos   = pct(currentRatePerHour);
+  const youPos = pct(currentRatePerHour);
+  const catColor = (cat: string) =>
+    cat === "Hyperscaler" ? "var(--amber)" : cat === "Neocloud" ? "var(--blue)" : cat === "Marketplace" ? "var(--violet)" : "var(--text-muted)";
+
   return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "20px 24px", marginBottom: 1 }}>
-      <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 16 }}>
-        {family} market — where you sit
+    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "18px 22px 16px", marginBottom: 1 }}>
+      <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 3 }}>
+        {family} — where your bill lands
       </div>
-      <div style={{ position: "relative" as const, height: 8, background: "var(--elevated)", borderRadius: 1, marginBottom: 30 }}>
-        {/* observed band */}
-        <div style={{ position: "absolute" as const, left: `${pct(observedMin)}%`, width: `${Math.max(pct(observedMax) - pct(observedMin), 0.8)}%`, height: "100%", background: "var(--border-mid)", borderRadius: 1 }} />
-        {/* reliable floor tick */}
-        <div style={{ position: "absolute" as const, left: `${floorPos}%`, top: -5, height: 18, width: 2, background: "var(--green)", transform: "translateX(-1px)" }} />
-        <div style={{ position: "absolute" as const, left: `${floorPos}%`, top: 20, transform: "translateX(-50%)", whiteSpace: "nowrap" as const, ...MONO, fontSize: 10, color: "var(--green)", fontWeight: 600 }}>
-          floor {fmtP(floorRate)}
+      <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginBottom: 16 }}>Every cloud, cheapest to most expensive</div>
+
+      {/* scale ticks */}
+      <div style={{ display: "grid", gridTemplateColumns: "96px 1fr 56px", gap: 12, marginBottom: 8 }}>
+        <div />
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          {[0, scaleMax / 2, scaleMax].map((v, i) => <span key={i} style={{ ...MONO, fontSize: 9, color: "var(--text-muted)" }}>{fmtP(v)}</span>)}
         </div>
-        {/* you-are-here marker */}
-        <div style={{ position: "absolute" as const, left: `${youPos}%`, top: -7, height: 22, width: 2.5, background: "var(--red)", transform: "translateX(-1.25px)" }} />
-        <div style={{ position: "absolute" as const, left: `${youPos}%`, top: -26, transform: "translateX(-50%)", whiteSpace: "nowrap" as const, ...MONO, fontSize: 11, color: "var(--red)", fontWeight: 700 }}>
-          you {fmtP(currentRatePerHour)}
+        <div />
+      </div>
+
+      <div style={{ position: "relative" as const }}>
+        {/* faint vertical guide at the customer's rate — everything left of it is cheaper */}
+        <div style={{ position: "absolute" as const, left: "96px", right: "56px", top: 0, bottom: 0, pointerEvents: "none" as const }}>
+          <div style={{ position: "absolute" as const, left: `${youPos}%`, top: 0, bottom: 0, borderLeft: "1px dashed rgba(155,28,28,0.4)" }} />
         </div>
+
+        {rows.map(r => {
+          const isFloor = !r.you && r.reliable && r.name === floorProviderShort;
+          const cc = r.you ? "var(--red)" : catColor(r.cat);
+          const barLeft = pct(r.min);
+          const barWidth = Math.max(pct(r.max) - pct(r.min), 0.8);
+          return (
+            <div key={r.name + (r.you ? "_you" : "")} style={{ display: "grid", gridTemplateColumns: "96px 1fr 56px", gap: 12, alignItems: "center", height: r.you ? 26 : 22 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: r.you ? 3 : 2, height: r.you ? 14 : 11, background: cc, flexShrink: 0 }} />
+                <span style={{ ...SANS, fontSize: 12, color: r.you ? "var(--red)" : isFloor ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: r.you || isFloor ? 600 : 400, whiteSpace: "nowrap" as const }}>{r.name}</span>
+                {isFloor && <span style={{ ...MONO, fontSize: 8.5, color: "var(--green)", background: "rgba(39,103,73,0.08)", border: "1px solid rgba(39,103,73,0.25)", padding: "0 4px", borderRadius: 2 }}>floor</span>}
+              </div>
+              <div style={{ position: "relative" as const, height: 6, background: r.you ? "transparent" : "var(--elevated)", borderRadius: 1 }}>
+                {r.you ? (
+                  <div style={{ position: "absolute" as const, left: `${youPos}%`, top: "50%", width: 9, height: 9, background: "var(--red)", borderRadius: "50%", transform: "translate(-50%,-50%)" }} />
+                ) : (
+                  <>
+                    <div style={{ position: "absolute" as const, left: `${barLeft}%`, width: `${barWidth}%`, height: "100%", background: cc, opacity: 0.85, borderRadius: 1 }} />
+                    {isFloor && <div style={{ position: "absolute" as const, left: `${barLeft}%`, top: -3, height: 12, width: 2, background: "var(--green)", transform: "translateX(-1px)" }} />}
+                  </>
+                )}
+              </div>
+              <span style={{ ...MONO, fontSize: 12, textAlign: "right" as const, fontWeight: r.you || isFloor ? 600 : 400, color: r.you ? "var(--red)" : isFloor ? "var(--green)" : "var(--text-secondary)" }}>{fmtP(r.min)}</span>
+            </div>
+          );
+        })}
       </div>
-      <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-        You're paying an effective <span style={{ ...MONO, fontWeight: 600, color: "var(--red)" }}>{fmtP(currentRatePerHour)}/hr</span> per {family}. The reliable floor is <span style={{ ...MONO, fontWeight: 600, color: "var(--green)" }}>{fmtP(floorRate)}/hr</span> — observed listings run {fmtP(observedMin)}–{fmtP(observedMax)}/hr across {fam.length} sources.
+
+      {/* legend + takeaway */}
+      <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" as const, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+        {[["Hyperscaler", "var(--amber)", false], ["Neocloud", "var(--blue)", false], ["Marketplace", "var(--violet)", false], ["You", "var(--red)", true]].map(([l, c, round]) => (
+          <div key={l as string} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 8, height: 8, background: c as string, borderRadius: round ? "50%" : 1 }} />
+            <span style={{ ...SANS, fontSize: 11, color: "var(--text-muted)" }}>{l}</span>
+          </div>
+        ))}
       </div>
+      {cheaperCount > 0 && (
+        <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", marginTop: 12, lineHeight: 1.6 }}>
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{cheaperCount} cloud{cheaperCount !== 1 ? "s" : ""}</span> price {family} below your effective <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span>. The reliable floor is <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRate)}/hr</span>{floorProviderShort ? ` (${floorProviderShort})` : ""}.
+        </div>
+      )}
     </div>
   );
 }
@@ -333,7 +364,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           {fmtBigMoney(annualSavings!)}<span style={{ fontSize: 18, color: "var(--text-muted)", fontWeight: 400 }}>/yr</span>
         </span>
         <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", marginLeft: 12, alignSelf: "flex-end" as const }}>
-          ≈ {fmtMoney(savings!)}/mo above the reliable {family === "other" ? "GPU" : family} floor · {savingsPct}% of this bill
+          {savingsPct}% of your {family === "other" ? "GPU" : family} bill — same GPUs, same hours, at a price the market already clears.
         </span>
       </>
     );
@@ -369,61 +400,15 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
       <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: `3px solid ${hasGap ? "var(--red)" : "var(--border-mid)"}`, padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 4 }}>
         {headline}
       </div>
-      {hasGap && (
-        <BillGapBar currentMonthly={currentMonthly!} recommendedMonthly={recommendedMonthly} savings={savings!} savingsPct={savingsPct!} annualSavings={annualSavings!} />
-      )}
       {hasGap && currentRatePerHour != null && (
-        <MarketPositionBar listings={listings ?? []} family={family} currentRatePerHour={currentRatePerHour} floorRate={floorRatePerHour} />
+        <FamilySpreadChart
+          listings={listings ?? []}
+          family={family}
+          currentRatePerHour={currentRatePerHour}
+          floorRate={floorRatePerHour}
+          floorProviderShort={getMeta(recommendation.provider).short}
+        />
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", marginBottom: 1 }} className="result-grid">
-        <div style={{ padding: "20px 24px", borderRight: "1px solid var(--border)" }}>
-          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 8 }}>
-            {fromBill ? `Your bill${billProvider ? ` (${billProvider})` : ""}` : baseline ? `Est. current (${situation === "unsure" ? "hyperscaler assumed" : situation})` : "No baseline found"}
-          </div>
-          {currentMonthly ? (
-            <>
-              <div style={{ ...MONO, fontSize: 28, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.03em", lineHeight: 1 }}>
-                {fmtMoney(currentMonthly)}<span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 300 }}>/mo</span>
-              </div>
-              <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 6 }}>
-                {fromBill
-                  ? `${gpuCount} GPU${gpuCount !== 1 ? "s" : ""} · ${family} · from bill`
-                  : `${getMeta(baseline!.provider).short} · ${fmtP(baseline!.price_per_hour)}/hr × ${gpuCount} GPU${gpuCount !== 1 ? "s" : ""} × ${hours}h`}
-              </div>
-            </>
-          ) : (
-            <div style={{ ...SANS, fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>
-              No {family === "other" ? "GPU" : family} listings for this provider type in the current snapshot.
-            </div>
-          )}
-        </div>
-        <div style={{ padding: "20px 24px", borderRight: "1px solid var(--border)" }}>
-          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: isReliable ? "var(--green)" : "var(--amber)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 8 }}>
-            {isReliable ? "Cheapest reliable" : "Cheapest observed"}
-            {!isReliable && <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 400, background: "rgba(151,90,22,0.08)", border: "1px solid rgba(151,90,22,0.2)", padding: "1px 5px", borderRadius: 2 }}>observed only</span>}
-          </div>
-          <div style={{ ...MONO, fontSize: 28, fontWeight: 500, color: isReliable ? "var(--green)" : "var(--amber)", letterSpacing: "-0.03em", lineHeight: 1 }}>
-            {fmtMoney(recommendedMonthly)}<span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 300 }}>/mo</span>
-          </div>
-          <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-secondary)", marginTop: 6 }}>
-            {getMeta(recommendation.provider).short} · {recommendation.gpu_model} · {fmtP(recommendation.price_per_hour)}/hr
-          </div>
-        </div>
-        <div style={{ padding: "20px 24px", minWidth: 130, textAlign: "center" as const, background: hasGap ? "rgba(155,28,28,0.05)" : "var(--bg)", display: "flex", flexDirection: "column" as const, justifyContent: "center" }}>
-          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 8 }}>Recoverable</div>
-          {savings ? (
-            <>
-              <div style={{ ...MONO, fontSize: 22, fontWeight: 700, color: "var(--green)", letterSpacing: "-0.02em", lineHeight: 1 }}>{fmtMoney(savings)}</div>
-              <div style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>per month</div>
-              <div style={{ ...MONO, fontSize: 14, color: "var(--green)", fontWeight: 600, marginTop: 8 }}>{fmtBigMoney(annualSavings!)}<span style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>/yr</span></div>
-            </>
-          ) : (
-            <div style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
-              {sizingSuspect ? "Confirm details" : currentMonthly ? "At market floor" : "Needs baseline"}
-            </div>
-          )}
-        </div>
-      </div>
       <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "16px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start" }}>
         <div>
           <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>Availability risk</div>
@@ -440,7 +425,6 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           </div>
         </div>
       )}
-      <style>{`@media (max-width:700px){.result-grid{grid-template-columns:1fr !important;}}`}</style>
     </div>
   );
 }
@@ -621,7 +605,10 @@ export default function AuditTool({ listings }: AuditToolProps) {
         } else if (json.error === "no_gpu_found") {
           setBillExtractError("No GPU line items found — try the Describe tab to enter details manually.");
         } else {
-          setBillExtractError("Could not read this file — try a CSV export or use the Describe tab.");
+          // Surface the server-side reason so failures are debuggable in the UI, not silent.
+          if (json.detail) console.error("[extract-bill]", json.error, json.detail);
+          const diag = json.detail ? ` (${json.detail})` : "";
+          setBillExtractError(`Could not read this file${diag} — try a CSV export or use the Describe tab.`);
         }
       } catch {
         setBillExtractError("Network error reading bill — try again.");
