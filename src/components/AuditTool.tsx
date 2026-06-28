@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   GpuListing, HYPERSCALERS, fmtMoney, fmtP, getMeta,
 } from "@/lib/market-helpers";
@@ -437,20 +437,32 @@ const newRow = (): WorkloadRow => ({
 });
 
 export default function AuditTool({ listings }: AuditToolProps) {
-  const [activeTab,      setActiveTab]      = useState<InputTab>("describe");
-  const [setupText,      setSetupText]      = useState("");
-  const [billFileName,     setBillFileName]     = useState<string | null>(null);
-  const [billFile,         setBillFile]         = useState<File | null>(null);
+  // ── sessionStorage helpers (all access client-side only) ─────────────────
+  const SS_KEY = "aiw_audit_state";
+  const ssRead = () => {
+    if (typeof window === "undefined") return null;
+    try { const r = sessionStorage.getItem(SS_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+  };
+  const ssWrite = (data: Record<string, unknown>) => {
+    if (typeof window === "undefined") return;
+    try { sessionStorage.setItem(SS_KEY, JSON.stringify(data)); } catch { /* quota / private */ }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const [activeTab,      setActiveTab]      = useState<InputTab>(() => { const s = ssRead(); return (s?.activeTab as InputTab) ?? "describe"; });
+  const [setupText,      setSetupText]      = useState<string>(() => ssRead()?.setupText ?? "");
+  const [billFileName,     setBillFileName]     = useState<string | null>(() => ssRead()?.billFileName ?? null);
+  const [billFile,         setBillFile]         = useState<File | null>(null); // File not serializable — never persisted
   const [billExtracting,   setBillExtracting]   = useState(false);
   const [billExtractError, setBillExtractError] = useState<string | null>(null);
   const [billExtracted,    setBillExtracted]    = useState<{
     family: string; gpuCount: number; hoursPerMonth: number;
     situation: string; workload: string; monthlySpend: number;
     provider: string; confidence: string;
-  } | null>(null);
-  const [diagramFileName, setDiagramFileName] = useState<string | null>(null);
-  const [rows,           setRows]           = useState<WorkloadRow[]>([newRow()]);
-  const [committed,      setCommitted]      = useState(false);
+  } | null>(() => ssRead()?.billExtracted ?? null);
+  const [diagramFileName, setDiagramFileName] = useState<string | null>(() => ssRead()?.diagramFileName ?? null);
+  const [rows,           setRows]           = useState<WorkloadRow[]>(() => ssRead()?.rows ?? [newRow()]);
+  const [committed,      setCommitted]      = useState<boolean>(() => ssRead()?.committed ?? false);
   const [email,          setEmail]          = useState("");
   const [wantsAlerts,    setWantsAlerts]    = useState(true);
   const [loading,        setLoading]        = useState(false);
@@ -458,6 +470,14 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const [submitted,      setSubmitted]      = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [earlyAccessSent, setEarlyAccessSent] = useState(false);
+
+  // Persist audit state whenever the fields that matter change.
+  // useRef guards against writing on the very first render (no-op — just read back what we wrote).
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
+    ssWrite({ activeTab, setupText, billFileName, billExtracted, diagramFileName, rows, committed });
+  }, [activeTab, setupText, billFileName, billExtracted, diagramFileName, rows, committed]);
 
   const parsed    = useMemo(() => parseStackText(setupText), [setupText]);
   const hasText   = setupText.trim().length > 0;
