@@ -293,9 +293,10 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
       </div>
 
       <div style={{ position: "relative" as const }}>
-        {/* faint vertical guide at the customer's rate — everything left of it is cheaper */}
-        <div style={{ position: "absolute" as const, left: "96px", right: "56px", top: 0, bottom: 0, pointerEvents: "none" as const }}>
-          <div style={{ position: "absolute" as const, left: `${youPos}%`, top: 0, bottom: 0, borderLeft: "1px dashed rgba(155,28,28,0.4)" }} />
+        {/* prominent red dashed divider dropping straight down from the customer's
+            rate marker, through every provider row, to maximise visual contrast */}
+        <div style={{ position: "absolute" as const, left: "96px", right: "56px", top: 0, bottom: 0, pointerEvents: "none" as const, zIndex: 2 }}>
+          <div style={{ position: "absolute" as const, left: `${youPos}%`, top: 0, bottom: 0, borderLeft: "2px dashed rgba(155,28,28,0.55)" }} />
         </div>
 
         {rows.map(r => {
@@ -304,11 +305,20 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
           const barLeft = pct(r.min);
           const barWidth = Math.max(pct(r.max) - pct(r.min), 0.8);
           return (
-            <div key={r.name + (r.you ? "_you" : "")} style={{ display: "grid", gridTemplateColumns: "96px 1fr 56px", gap: 12, alignItems: "center", height: r.you ? 26 : 22 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: r.you ? 3 : 2, height: r.you ? 14 : 11, background: cc, flexShrink: 0 }} />
-                <span style={{ ...SANS, fontSize: 12, color: r.you ? "var(--red)" : isFloor ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: r.you || isFloor ? 600 : 400, whiteSpace: "nowrap" as const }}>{r.name}</span>
-                {isFloor && <span style={{ ...MONO, fontSize: 8.5, color: "var(--green)", background: "rgba(39,103,73,0.08)", border: "1px solid rgba(39,103,73,0.25)", padding: "0 4px", borderRadius: 2 }}>floor</span>}
+            <div key={r.name + (r.you ? "_you" : "")} style={{ display: "grid", gridTemplateColumns: "96px 1fr 56px", gap: 12, alignItems: "center", height: (r.you || (!r.you && r.reliable && r.name === floorProviderShort)) ? 34 : 22, position: "relative" as const, zIndex: 1 }}>
+              <div style={{ display: "flex", flexDirection: "column" as const, justifyContent: "center", gap: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: r.you ? 3 : 2, height: r.you ? 14 : 11, background: cc, flexShrink: 0 }} />
+                  <span style={{ ...SANS, fontSize: 12, color: r.you ? "var(--red)" : isFloor ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: r.you || isFloor ? 600 : 400, whiteSpace: "nowrap" as const }}>
+                    {r.you ? "Your rate" : r.name}
+                  </span>
+                  {isFloor && <span style={{ ...MONO, fontSize: 8.5, color: "var(--green)", background: "rgba(39,103,73,0.08)", border: "1px solid rgba(39,103,73,0.25)", padding: "0 4px", borderRadius: 2 }}>floor</span>}
+                </div>
+                {(r.you || isFloor) && (
+                  <span style={{ ...SANS, fontSize: 8.5, color: "var(--text-muted)", whiteSpace: "nowrap" as const, paddingLeft: r.you ? 9 : 8, lineHeight: 1.2 }}>
+                    {r.you ? "On-demand / pay-as-you-go" : "Committed / reliable-availability floor"}
+                  </span>
+                )}
               </div>
               <div style={{ position: "relative" as const, height: 6, background: r.you ? "transparent" : "var(--elevated)", borderRadius: 1 }}>
                 {r.you ? (
@@ -353,18 +363,34 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
   const fromBill = billActualSpend != null && billActualSpend > 0;
   const hasGap = !!(savings && savingsPct && annualSavings);
 
+  // The premium over the reliable floor, expressed as a percent of the floor rate.
+  // Dynamic: derived from the customer's own effective rate vs the live floor —
+  // never hardcoded. e.g. paying $2.12 against a $0.73 floor reads as +190%.
+  const premiumOverFloorPct =
+    currentRatePerHour != null && floorRatePerHour > 0
+      ? Math.round((currentRatePerHour / floorRatePerHour - 1) * 100)
+      : null;
+  const providerLabel = billProvider ?? getMeta(baseline?.provider ?? recommendation.provider).short;
+
   let headline: React.ReactNode;
   if (hasGap) {
     headline = (
       <>
         <span style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", width: "100%", marginBottom: 4 }}>
-          You're overspending by
+          Reclaimable infrastructure leverage:
         </span>
         <span style={{ ...MONO, fontSize: 40, fontWeight: 700, color: "var(--red)", letterSpacing: "-0.03em", lineHeight: 1 }}>
           {fmtBigMoney(annualSavings!)}<span style={{ fontSize: 18, color: "var(--text-muted)", fontWeight: 400 }}>/yr</span>
         </span>
-        <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", marginLeft: 12, alignSelf: "flex-end" as const }}>
-          {savingsPct}% of your {family === "other" ? "GPU" : family} bill — same GPUs, same hours, at a price the market already clears.
+        <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", marginLeft: 12, alignSelf: "flex-end" as const, lineHeight: 1.5 }}>
+          {currentRatePerHour != null ? (
+            <>
+              Your current effective rate <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span>
+              {premiumOverFloorPct != null && premiumOverFloorPct > 0 ? <> is <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{premiumOverFloorPct}% above</span></> : " sits above"} the verified market floor for identical {family === "other" ? "hardware" : family} hardware and uptime SLAs.
+            </>
+          ) : (
+            <>{savingsPct}% of your {family === "other" ? "GPU" : family} bill — same GPUs, same hours, at a price the market already clears.</>
+          )}
         </span>
       </>
     );
@@ -409,22 +435,20 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           floorProviderShort={getMeta(recommendation.provider).short}
         />
       )}
-      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "16px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start" }}>
-        <div>
-          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>Availability risk</div>
-          <div style={{ ...MONO, fontSize: 14, fontWeight: 600, color: reliabilityRisk === "Low" ? "var(--green)" : reliabilityRisk === "High" ? "var(--red)" : "var(--amber)" }}>{reliabilityRisk}</div>
+      <div style={{ background: "#171717", border: "1px solid #171717", borderTop: "none", padding: "18px 24px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" as const }}>
+          <span style={{ ...SANS, fontSize: 11, fontWeight: 700, color: "#F7F3EA", textTransform: "uppercase" as const, letterSpacing: "0.07em" }}>
+            System stability profile: hybrid retention recommended
+          </span>
+          <span style={{ ...MONO, fontSize: 9.5, fontWeight: 600, color: reliabilityRisk === "Low" ? "var(--green)" : reliabilityRisk === "High" ? "#F2B5B5" : "var(--amber)", background: "rgba(247,243,234,0.06)", border: `1px solid ${reliabilityRisk === "Low" ? "rgba(39,103,73,0.5)" : reliabilityRisk === "High" ? "rgba(155,28,28,0.5)" : "rgba(151,90,22,0.5)"}`, padding: "2px 8px", borderRadius: 2, whiteSpace: "nowrap" as const }}>
+            {reliabilityRisk === "Low" ? "AVAILABILITY: STABLE" : reliabilityRisk === "High" ? "AVAILABILITY: THIN" : "AVAILABILITY: MODERATE"}
+          </span>
         </div>
-        {advice && (
-          <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>{advice}</div>
-        )}
+        <div style={{ ...SANS, fontSize: 13, color: "rgba(247,243,234,0.78)", lineHeight: 1.65, maxWidth: 720 }}>
+          Wholesale migration is bypassed — {keepLine ? `${workloadLabel.toLowerCase()} carries high state-dependencies and latency/continuity coupling that make a full lift-and-shift operationally risky` : "your stack carries enough state-dependency that a full lift-and-shift trades cost for operational risk"}. The recommended path is a coordinated <strong style={{ color: "#F7F3EA", fontWeight: 600 }}>Contract Leverage&nbsp;+&nbsp;Multi-Cloud Bursting</strong> strategy: hold latency-critical capacity in place and renegotiate it against the verified floor, while routing interruption-tolerant load to the cheaper reliable tier.
+          {advice && <span style={{ display: "block", marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(247,243,234,0.12)", color: "rgba(247,243,234,0.62)", fontSize: 12.5 }}>{advice}</span>}
+        </div>
       </div>
-      {keepLine && (
-        <div style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderTop: "none", borderLeft: "3px solid var(--amber)", padding: "14px 24px" }}>
-          <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-            <strong style={{ color: "var(--text-primary)" }}>Don't move this one.</strong> {workloadLabel} is latency- or continuity-sensitive — keep it on production-stable capacity even if a cheaper listing exists.
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -589,6 +613,32 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const handleEarlyAccess = async () => {
     try { await post(buildNotes("EARLY_ACCESS_$99_MONITORING")); setEarlyAccessSent(true); }
     catch { setEarlyAccessSent(true); }
+  };
+
+  // ── Paid-tier requests (Renegotiation Packet / Shadow Routing Pilot) ──
+  // Reuses the audit-request endpoint with a tier tag in notes. The clicked
+  // card reveals an inline email field; submit posts and flips to a per-tier
+  // confirmation. No new backend route required.
+  const [openTier, setOpenTier]       = useState<null | "packet" | "pilot">(null);
+  const [tierEmail, setTierEmail]     = useState("");
+  const [tierLoading, setTierLoading] = useState(false);
+  const [tierError, setTierError]     = useState("");
+  const [tierDone, setTierDone]       = useState<null | "packet" | "pilot">(null);
+
+  const handleTierRequest = async (tier: "packet" | "pilot") => {
+    if (!tierEmail || !tierEmail.includes("@")) { setTierError("Enter a valid work email."); return; }
+    setTierError(""); setTierLoading(true);
+    const tag = tier === "packet" ? "PAID_INTENT_RENEGOTIATION_PACKET_$1499" : "PAID_INTENT_SHADOW_ROUTING_PILOT_$2500_MO";
+    try {
+      const res = await fetch("/api/audit-request", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: tierEmail, monthlySpend: "Unknown / paid intent", workload: primarySnapshot.workload, notes: buildNotes(tag), source: "cost-audit" }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
+      setTierDone(tier); setOpenTier(null);
+    } catch (e: any) { setTierError(e?.message ?? "Network error — try again."); }
+    finally { setTierLoading(false); }
   };
 
   const handleRunAudit = async () => {
@@ -1061,17 +1111,13 @@ export default function AuditTool({ listings }: AuditToolProps) {
                     </>
                   )}
                 </div>
-                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "14px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start", marginBottom: 1 }}>
-                  <div>
-                    <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>File</div>
-                    <div style={{ ...MONO, fontSize: 12, color: "var(--text-primary)" }}>{billFileName}</div>
-                  </div>
+                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "14px 24px", marginBottom: 1 }}>
                   <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
                     {ex
-                      ? "Market comparison below. Enter your email for the full breakdown."
+                      ? "Market comparison below — measured against your live bill."
                       : billExtractError
                       ? "Use the Describe tab to enter details manually."
-                      : "Enter your email — we'll send a provider-by-provider breakdown within one business day."}
+                      : "Reading your line-item GPU spend against the live market…"}
                   </div>
                 </div>
                 {exResult && exFamily && (
@@ -1097,13 +1143,9 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 <span style={{ ...MONO, fontSize: 22, fontWeight: 600, color: "var(--blue)", letterSpacing: "-0.02em" }}>Diagram received</span>
                 
               </div>
-              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "14px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start" }}>
-                <div>
-                  <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>File</div>
-                  <div style={{ ...MONO, fontSize: 12, color: "var(--text-primary)" }}>{diagramFileName}</div>
-                </div>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "14px 24px" }}>
                 <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
-                  Enter your email — we'll map GPU types and providers to current pricing and send a breakdown.
+                  We'll map GPU types and providers from your diagram to current pricing in the full breakdown.
                 </div>
               </div>
             </div>
@@ -1140,32 +1182,117 @@ export default function AuditTool({ listings }: AuditToolProps) {
         </div>
       )}
 
-      {/* ── Email capture ── */}
+      {/* ── Paid conversion: dual-tier ── */}
       {(showResult || (committed && hasUpload)) && !submitted && (
-        <div style={{ marginTop: 16, background: "#171717", padding: "20px 24px" }}>
-          <div style={{ ...SANS, fontSize: 13.5, fontWeight: 600, color: "#F7F3EA", marginBottom: 4 }}>
-            "Get the full breakdown"
+        <div style={{ marginTop: 16 }}>
+          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 10 }}>
+            Act on the gap
           </div>
-          <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.55)", lineHeight: 1.55, marginBottom: 14 }}>
-"Provider-by-provider analysis, region options, and what to move first."
+          <div className="tier-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+
+            {/* Card A — fixed-fee renegotiation packet */}
+            <div style={{ background: "#171717", border: "1px solid rgba(247,243,234,0.1)", borderRadius: 4, padding: "24px 24px 22px", display: "flex", flexDirection: "column" as const }}>
+              <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "rgba(247,243,234,0.5)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 10 }}>One-time</div>
+              <div style={{ ...SERIF, fontSize: 20, fontWeight: 400, color: "#F7F3EA", lineHeight: 1.25, marginBottom: 6 }}>Purchase Renegotiation Packet</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 16 }}>
+                <span style={{ ...MONO, fontSize: 30, fontWeight: 700, color: "#F7F3EA", letterSpacing: "-0.02em" }}>$1,499</span>
+                <span style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.5)" }}>one-time</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 9, marginBottom: 20 }}>
+                {[
+                  "Verified provider-by-provider contract comparison for your exact stack",
+                  "Reliable-availability SLA baselines to anchor the negotiation",
+                  "Executive-ready negotiation scripts and target-rate worksheet",
+                ].map(b => (
+                  <div key={b} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
+                    <span style={{ ...MONO, fontSize: 12, color: "var(--green)", marginTop: 1, flexShrink: 0 }}>→</span>
+                    <span style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.82)", lineHeight: 1.55 }}>{b}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: "auto" }}>
+                {tierDone === "packet" ? (
+                  <div style={{ ...SANS, fontSize: 12.5, color: "var(--green)", lineHeight: 1.55, paddingTop: 6 }}>
+                    ✓ Request received — we'll email you to confirm scope and payment.
+                  </div>
+                ) : openTier === "packet" ? (
+                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                    <input type="email" placeholder="you@company.com" value={tierEmail} onChange={e => setTierEmail(e.target.value)}
+                      style={{ ...inputStyle, background: "rgba(247,243,234,0.06)", border: "1px solid rgba(247,243,234,0.22)", color: "#F7F3EA" }} />
+                    <button onClick={() => handleTierRequest("packet")} disabled={tierLoading} style={{
+                      ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: tierLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
+                      padding: "11px 18px", borderRadius: 3, border: "none", cursor: tierLoading ? "not-allowed" : "pointer", width: "100%",
+                    }}>{tierLoading ? "Submitting…" : "Confirm — purchase packet"}</button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setOpenTier("packet"); setTierError(""); }} style={{
+                    ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: "#F7F3EA",
+                    padding: "11px 18px", borderRadius: 3, border: "none", cursor: "pointer", width: "100%",
+                  }}>Purchase Renegotiation Packet</button>
+                )}
+              </div>
+            </div>
+
+            {/* Card B — recurring shadow routing pilot */}
+            <div style={{ background: "#171717", border: "1px solid rgba(43,108,176,0.45)", borderRadius: 4, padding: "24px 24px 22px", display: "flex", flexDirection: "column" as const, position: "relative" as const }}>
+              <div style={{ position: "absolute" as const, top: 16, right: 18, ...MONO, fontSize: 8.5, fontWeight: 600, color: "var(--blue)", background: "rgba(43,108,176,0.12)", border: "1px solid rgba(43,108,176,0.4)", padding: "2px 7px", borderRadius: 2, letterSpacing: "0.06em" }}>PILOT</div>
+              <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "rgba(247,243,234,0.5)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 10 }}>Recurring</div>
+              <div style={{ ...SERIF, fontSize: 20, fontWeight: 400, color: "#F7F3EA", lineHeight: 1.25, marginBottom: 6 }}>Launch Shadow Routing Pilot</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 16 }}>
+                <span style={{ ...MONO, fontSize: 30, fontWeight: 700, color: "#F7F3EA", letterSpacing: "-0.02em" }}>$2,500</span>
+                <span style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.5)" }}>/ month</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 9, marginBottom: 20 }}>
+                {[
+                  "Read-only deployment — observes routing decisions, never touches production traffic",
+                  "Real-time latency and egress tracking across candidate providers",
+                  "SOC 2-aligned architecture with guided onboarding",
+                ].map(b => (
+                  <div key={b} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
+                    <span style={{ ...MONO, fontSize: 12, color: "var(--blue)", marginTop: 1, flexShrink: 0 }}>→</span>
+                    <span style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.82)", lineHeight: 1.55 }}>{b}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: "auto" }}>
+                {tierDone === "pilot" ? (
+                  <div style={{ ...SANS, fontSize: 12.5, color: "var(--green)", lineHeight: 1.55, paddingTop: 6 }}>
+                    ✓ Request received — we'll reach out to schedule pilot onboarding.
+                  </div>
+                ) : openTier === "pilot" ? (
+                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                    <input type="email" placeholder="you@company.com" value={tierEmail} onChange={e => setTierEmail(e.target.value)}
+                      style={{ ...inputStyle, background: "rgba(247,243,234,0.06)", border: "1px solid rgba(247,243,234,0.22)", color: "#F7F3EA" }} />
+                    <button onClick={() => handleTierRequest("pilot")} disabled={tierLoading} style={{
+                      ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: tierLoading ? "rgba(43,108,176,0.5)" : "var(--blue)",
+                      padding: "11px 18px", borderRadius: 3, border: "none", cursor: tierLoading ? "not-allowed" : "pointer", width: "100%",
+                    }}>{tierLoading ? "Submitting…" : "Confirm — start pilot"}</button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setOpenTier("pilot"); setTierError(""); }} style={{
+                    ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "var(--blue)",
+                    padding: "11px 18px", borderRadius: 3, border: "none", cursor: "pointer", width: "100%",
+                  }}>Launch Shadow Routing Pilot</button>
+                )}
+              </div>
+            </div>
           </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, cursor: "pointer" }}>
-            <input type="checkbox" checked={wantsAlerts} onChange={e => setWantsAlerts(e.target.checked)} />
-            <span style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.85)" }}>Also alert me when prices for my stack move</span>
-          </label>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const, alignItems: "flex-start" }}>
-            <input type="email" placeholder="you@company.com" value={email}
-              onChange={e => setEmail(e.target.value)}
-              style={{ ...inputStyle, width: "auto", flex: "1 1 240px", background: "rgba(247,243,234,0.06)", border: "1px solid rgba(247,243,234,0.2)", color: "#F7F3EA" }} />
-            <button onClick={handleCapture} disabled={loading} style={{
-              ...SANS, fontSize: 13, fontWeight: 600, color: "#171717",
-              background: loading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
-              padding: "10px 22px", borderRadius: 3, border: "none", cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const,
-            }}>
-              {loading ? "Sending…" : "Email me the full breakdown"}
-            </button>
-          </div>
-          {error && <p style={{ ...SANS, fontSize: 12, color: "#F2B5B5", marginTop: 8 }}>{error}</p>}
+
+          {tierError && <p style={{ ...SANS, fontSize: 12, color: "var(--red)", marginTop: 10 }}>{tierError}</p>}
+
+          {/* Free-breakdown fallback — capture demand from those not ready to pay.
+              Remove this block to make the cards a hard paywall. */}
+          {!tierDone && (
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", gap: 10, flexWrap: "wrap" as const, alignItems: "center" }}>
+              <input type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)}
+                style={{ ...inputStyle, width: "auto", flex: "1 1 220px" }} />
+              <button onClick={handleCapture} disabled={loading} style={{
+                ...SANS, fontSize: 12.5, fontWeight: 600, color: "var(--text-secondary)", background: "transparent",
+                padding: "10px 18px", borderRadius: 3, border: "1px solid var(--border-mid)", cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const,
+              }}>{loading ? "Sending…" : "Or email me the free breakdown"}</button>
+              {error && <p style={{ ...SANS, fontSize: 12, color: "var(--red)", width: "100%", margin: "4px 0 0" }}>{error}</p>}
+            </div>
+          )}
         </div>
       )}
 
@@ -1201,6 +1328,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
         @media (max-width: 760px) {
           .manual-grid { grid-template-columns: 1fr !important; }
           .sandbox-grid { grid-template-columns: 1fr !important; }
+          .tier-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
