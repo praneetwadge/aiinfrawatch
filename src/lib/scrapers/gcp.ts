@@ -45,12 +45,36 @@ const GCP_PRICES = [
   { machine: "g2-standard-96", region: "us-central1",   on_demand: 8.12,  spot: 2.44 },
 ];
 
+// Live GCP pricing requires the Cloud Billing Catalog API + an API key and
+// non-trivial SKU→GPU mapping. Until that's wired and verified, we serve the
+// dated rate card below and TAG it as such so nothing is presented as live when
+// it isn't. When GCP_BILLING_API_KEY is set, a live fetch is attempted first;
+// on any failure we fall back to the rate card (never an empty/garbage write).
+async function fetchGcpLive(fetchedAt: string): Promise<GpuListing[] | null> {
+  if (!process.env.GCP_BILLING_API_KEY) return null;
+  try {
+    // Placeholder for the real Cloud Billing Catalog integration. Intentionally
+    // returns null (not partial data) until the SKU parser is implemented and
+    // verified against a real response — so we never ship unverified "live" data.
+    // TODO(live-gcp): implement cloudbilling.googleapis.com/v1/services/.../skus
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function scrapeGCP(): Promise<ScraperResult> {
   const start = Date.now();
   try {
     const fetchedAt = new Date().toISOString();
-    const listings: GpuListing[] = [];
 
+    const live = await fetchGcpLive(fetchedAt);
+    if (live && live.length > 0) {
+      return { provider: "gcp", listings: live, success: true, duration_ms: Date.now() - start };
+    }
+
+    // Rate-card fallback — tagged with source + as-of date.
+    const listings: GpuListing[] = [];
     for (const row of GCP_PRICES) {
       const gpuInfo = INSTANCE_GPU_MAP[row.machine];
       if (!gpuInfo) continue;
@@ -65,7 +89,7 @@ export async function scrapeGCP(): Promise<ScraperResult> {
           price_per_hour: price,
           region: row.region,
           availability: "high",
-          raw_data: { machine_type: row.machine },
+          raw_data: { machine_type: row.machine, source: "rate_card", rate_card_date: "2025-06" },
           fetched_at: fetchedAt,
         });
       }

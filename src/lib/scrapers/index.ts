@@ -89,8 +89,9 @@ export async function runAllScrapers(): Promise<ScrapeReport> {
   const allListings = results.flatMap((r) => r.listings);
 
   try {
-    await upsertGpuListings(allListings);
-    console.log(`\n[Scraper] Saved ${allListings.length} GPU listings to database`);
+    const upsertReport = await upsertGpuListings(allListings);
+    console.log(`\n[Scraper] Saved ${upsertReport.inserted}/${allListings.length} GPU listings to database` +
+      (upsertReport.rejected ? ` — ${upsertReport.rejected} rejected as invalid (see warnings above)` : ""));
   } catch (err) {
     console.error("[Scraper] Failed to save listings:", err);
   }
