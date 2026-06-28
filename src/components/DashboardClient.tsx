@@ -781,12 +781,12 @@ function EnterpriseSignals() {
     {
       icon: "↔",
       title: "High-Availability Failover",
-      body: "When a niche provider has an outage, routing falls back to hyperscalers automatically. Cost savings don't come at the expense of uptime.",
+      body: "When a niche provider has an outage, routing is designed to fall back to hyperscalers automatically — so cost savings don't come at the expense of uptime.",
     },
     {
       icon: "✓",
-      title: "SOC 2 Compliant Architecture",
-      body: "Designed to SOC 2 Type II standards. Enterprise SLA guarantees, audit logs, and access controls available on request.",
+      title: "SOC 2-Aligned Architecture",
+      body: "Architected to SOC 2 Type II principles — least-privilege access, audit logging, and row-level data isolation. Formal attestation in progress.",
     },
   ];
 
@@ -973,9 +973,10 @@ export default function DashboardClient({ summary, listings }: Props) {
           <Rule my={0} />
           <div style={{ padding: "14px 0" }}>
             <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.65 }}>
-              Prices from public APIs and published rate cards across {activeProviders} providers — updated daily at 00:00 UTC.
+              Prices from public pricing APIs and dated provider rate cards across {activeProviders} providers — live-API sources refresh daily; rate-card sources are verified periodically.
               {" "}<strong style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Observed</strong> = listing exists, availability unconfirmed.
-              {" "}<strong style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Reliable</strong> = confirmed high availability per provider API.
+              {" "}<strong style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Reliable</strong> = confirmed high availability, non-spot.
+              {" "}<Link href="/methodology" style={{ color: "var(--blue)", textDecoration: "none", fontWeight: 600 }}>See full methodology &amp; per-provider data sources →</Link>
             </p>
           </div>
         </div>
@@ -985,6 +986,7 @@ export default function DashboardClient({ summary, listings }: Props) {
         <div style={{ paddingTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 10 }}>
           <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
             <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>AIInfraWatch · {activeProviders} {activeProviders === 1 ? "provider" : "providers"} · Updated daily</span>
+            <Link href="/methodology" style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}>Methodology</Link>
             <Link href="/load-balancer" style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}>Routing Beta</Link>
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>

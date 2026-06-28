@@ -149,7 +149,14 @@ function computeResult(
   if (!familyListings.length) return null;
 
   const sorted   = [...familyListings].sort((a, b) => a.price_per_hour - b.price_per_hour);
-  const reliable = familyListings.filter(l => l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour);
+  // RELIABLE FLOOR = confirmed high availability AND NOT spot. Spot prices are
+  // interruptible; surfacing a spot rate as the "reliable floor" mislabels an
+  // interruptible $0.73 listing as a production-stable price and attributes it
+  // to whichever provider happens to own it. A reliable floor an enterprise can
+  // actually commit to must be on-demand or reserved, never spot.
+  const reliable = familyListings
+    .filter(l => l.availability === "high" && l.pricing_type !== "spot")
+    .sort((a, b) => a.price_per_hour - b.price_per_hour);
   const cheapestObserved = sorted[0];
   const cheapestReliable = reliable[0] ?? null;
   const recommendation   = cheapestReliable ?? cheapestObserved;
@@ -245,17 +252,23 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
   const fam = listings.filter(l => l.gpu_model.toUpperCase().includes(family));
   if (fam.length < 2) return null;
 
-  // Aggregate per provider: price band + whether any listing is reliable (high availability).
-  const byProvider: Record<string, { min: number; max: number; cat: string; reliable: boolean }> = {};
+  // Aggregate per provider. Track the overall price band AND a separate
+  // "reliable" minimum that excludes spot — a provider is only treated as a
+  // reliable floor candidate on a non-spot, high-availability listing. Without
+  // this, an interruptible spot rate leaks in as the provider's floor price.
+  const byProvider: Record<string, { min: number; max: number; cat: string; reliable: boolean; reliableMin: number | null }> = {};
   fam.forEach(l => {
     const m = getMeta(l.provider);
     const k = m.short;
     const p = l.price_per_hour;
-    if (!byProvider[k]) byProvider[k] = { min: p, max: p, cat: m.cat, reliable: l.availability === "high" };
-    else {
+    const isReliableListing = l.availability === "high" && l.pricing_type !== "spot";
+    if (!byProvider[k]) {
+      byProvider[k] = { min: p, max: p, cat: m.cat, reliable: isReliableListing, reliableMin: isReliableListing ? p : null };
+    } else {
       byProvider[k].min = Math.min(byProvider[k].min, p);
       byProvider[k].max = Math.max(byProvider[k].max, p);
-      byProvider[k].reliable = byProvider[k].reliable || l.availability === "high";
+      byProvider[k].reliable = byProvider[k].reliable || isReliableListing;
+      if (isReliableListing) byProvider[k].reliableMin = byProvider[k].reliableMin == null ? p : Math.min(byProvider[k].reliableMin!, p);
     }
   });
   const all = Object.entries(byProvider).map(([name, v]) => ({ name, ...v })).sort((a, b) => a.min - b.min);
@@ -265,9 +278,9 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
   const cheaperCount = all.filter(p => p.min < currentRatePerHour).length;
 
   // Render the cheapest ~7 providers, then ensure the customer marker has a home.
-  type Row = { name: string; min: number; max: number; cat: string; reliable: boolean; you?: boolean };
+  type Row = { name: string; min: number; max: number; cat: string; reliable: boolean; reliableMin: number | null; you?: boolean };
   const shown: Row[] = all.slice(0, 7);
-  const youRow: Row = { name: "Your bill", min: currentRatePerHour, max: currentRatePerHour, cat: "You", reliable: false, you: true };
+  const youRow: Row = { name: "Your bill", min: currentRatePerHour, max: currentRatePerHour, cat: "You", reliable: false, reliableMin: null, you: true };
   const rows: Row[] = [...shown, youRow].sort((a, b) => a.min - b.min);
 
   const scaleMax = Math.max(...rows.map(r => r.max), currentRatePerHour) * 1.06;
@@ -302,8 +315,11 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
         {rows.map(r => {
           const isFloor = !r.you && r.reliable && r.name === floorProviderShort;
           const cc = r.you ? "var(--red)" : catColor(r.cat);
-          const barLeft = pct(r.min);
-          const barWidth = Math.max(pct(r.max) - pct(r.min), 0.8);
+          // For the floor row, show the reliable (non-spot) price — never a spot
+          // leak. floorRate is the engine's authoritative reliable floor.
+          const displayMin = isFloor ? (r.reliableMin ?? floorRate) : r.min;
+          const barLeft = pct(displayMin);
+          const barWidth = isFloor ? 0.8 : Math.max(pct(r.max) - pct(r.min), 0.8);
           return (
             <div key={r.name + (r.you ? "_you" : "")} style={{ display: "grid", gridTemplateColumns: "96px 1fr 56px", gap: 12, alignItems: "center", height: (r.you || (!r.you && r.reliable && r.name === floorProviderShort)) ? 34 : 22, position: "relative" as const, zIndex: 1 }}>
               <div style={{ display: "flex", flexDirection: "column" as const, justifyContent: "center", gap: 1 }}>
@@ -330,7 +346,7 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
                   </>
                 )}
               </div>
-              <span style={{ ...MONO, fontSize: 12, textAlign: "right" as const, fontWeight: r.you || isFloor ? 600 : 400, color: r.you ? "var(--red)" : isFloor ? "var(--green)" : "var(--text-secondary)" }}>{fmtP(r.min)}</span>
+              <span style={{ ...MONO, fontSize: 12, textAlign: "right" as const, fontWeight: r.you || isFloor ? 600 : 400, color: r.you ? "var(--red)" : isFloor ? "var(--green)" : "var(--text-secondary)" }}>{fmtP(displayMin)}</span>
             </div>
           );
         })}
