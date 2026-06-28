@@ -206,15 +206,15 @@ function computeResult(
 
   let advice = "";
   if (sizingSuspect) {
-    advice = `We read ${fmtMoney(currentMonthly!)}/mo but the detected ${gpuCount}× ${family === "other" ? "GPU" : family} doesn't square with that spend — likely a managed-service line or a mixed bill. Confirm the GPU count and we'll size the gap precisely in the full audit.`;
+    advice = `We read ${fmtMoney(currentMonthly!)}/mo but ${gpuCount}× ${family === "other" ? "GPU" : family} doesn't square with that spend — likely a managed-service line or mixed bill. Confirm the GPU count for a precise gap.`;
   } else if (savingsPct !== null && savingsPct >= 20 && isBatchFriendly) {
-    advice = `${workloadObj?.label ?? "This workload"} is interruption-tolerant — it's the fastest line to move. Shift it to ${getMeta(recommendation.provider).short} at ${fmtP(floorRatePerHour)}/hr and keep latency-critical serving where it is. First action of the audit.`;
+    advice = `${workloadObj?.label ?? "This workload"} is interruption-tolerant — move it to ${getMeta(recommendation.provider).short} at ${fmtP(floorRatePerHour)}/hr. Keep latency-critical serving where it is.`;
   } else if (savingsPct !== null && savingsPct >= 10) {
-    advice = `The gap is real, but ${!isBatchFriendly ? "this workload is latency- or continuity-sensitive — don't lift-and-shift. " : ""}capture it through reserved pricing and committed-use discounts before re-platforming. The full audit prices the move against your contract terms.`;
+    advice = `The gap is real.${!isBatchFriendly ? " This workload is latency-sensitive — don't lift-and-shift." : ""} Capture it through reserved pricing first, then re-platform.`;
   } else if (savingsPct !== null) {
-    advice = `You're already at the reliable floor for ${family === "other" ? "GPU" : family}. The remaining win is utilisation, not provider switching — the audit checks idle spend and reservation coverage.`;
+    advice = `You're at the reliable floor for ${family === "other" ? "this GPU" : family}. The remaining win is utilisation and reservation coverage, not provider switching.`;
   } else if (!baseline) {
-    advice = `No ${situation} listings found for ${family === "other" ? "this GPU" : family} in the current snapshot. The full audit surfaces region-specific options outside the daily index.`;
+    advice = `No ${situation} listings found for ${family === "other" ? "this GPU" : family} in today's snapshot. The full audit surfaces region-specific options.`;
   }
 
   return {
@@ -682,9 +682,8 @@ export default function AuditTool({ listings }: AuditToolProps) {
         <div style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderLeft: "3px solid var(--green)", padding: "14px 18px", marginBottom: 20 }}>
           <div style={{ ...MONO, fontSize: 10, color: "var(--green)", letterSpacing: "0.08em", marginBottom: 6 }}>EXAMPLE</div>
           <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65 }}>
-            Evals and batch inference on hyperscaler A100s (~{fmtP(workedExample.baseline)}/hr) pay a reliability premium they don't need for interruption-tolerant jobs. Moving to specialist A100s (~{fmtP(workedExample.recommended)}/hr at {workedExample.provider}{workedExample.isObserved ? ", observed" : ""}) ≈{" "}
-            <strong style={{ color: "var(--green)" }}>{fmtMoney(workedExample.savings)}/mo saved</strong> for 8 GPUs × 500 hrs, while production serving stays put.{" "}
-            <em style={{ color: "var(--text-muted)" }}>Your numbers will differ.</em>
+            Evals and batch on hyperscaler A100s (~{fmtP(workedExample.baseline)}/hr) pay a reliability premium they don't need. Specialist A100s (~{fmtP(workedExample.recommended)}/hr at {workedExample.provider}{workedExample.isObserved ? ", observed" : ""}) ≈{" "}
+            <strong style={{ color: "var(--green)" }}>{fmtMoney(workedExample.savings)}/mo saved</strong> for 8 GPUs × 500 hrs. Production serving stays put.
           </div>
         </div>
       )}
@@ -850,9 +849,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                         No email required · Instant results
                       </span>
                     </div>
-                    <div style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", padding: "0 16px 10px", lineHeight: 1.5 }}>
-                      Estimate based on detected terms. Full audit shows provider-by-provider breakdown with verified availability.
-                    </div>
+
                   </div>
                 );
               })()}
@@ -864,7 +861,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
             <div>
               <label style={labelStyle}>Upload your cloud bill</label>
               <p style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 16 }}>
-                CSV, PDF, or Excel export from AWS Cost Explorer, GCP Billing, or Azure Cost Management. We'll read line-item GPU spend against the live market.
+                CSV, PDF, or Excel from AWS Cost Explorer, GCP Billing, or Azure Cost Management.
               </p>
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", ...SANS, fontSize: 13, color: "var(--blue)", border: "1px solid var(--border-mid)", padding: "10px 18px", borderRadius: 3, background: "var(--elevated)" }}>
                 <input type="file" accept=".csv,.pdf,.xlsx,.xls" style={{ display: "none" }} onChange={e => {
@@ -888,7 +885,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
             <div>
               <label style={labelStyle}>Upload your architecture diagram</label>
               <p style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 16 }}>
-                PNG, JPG, or PDF. We'll extract GPU types, counts, and providers from your diagram and map them to current market pricing.
+                PNG, JPG, or PDF. We'll extract GPU types, counts, and providers and map them to current pricing.
               </p>
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", ...SANS, fontSize: 13, color: "var(--blue)", border: "1px solid var(--border-mid)", padding: "10px 18px", borderRadius: 3, background: "var(--elevated)" }}>
                 <input type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => {
@@ -1004,9 +1001,9 @@ export default function AuditTool({ listings }: AuditToolProps) {
       {/* ── Guard ── */}
       {showGuard && (
         <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderLeft: "3px solid var(--amber)", padding: "18px 24px", marginBottom: 16 }}>
-          <div style={{ ...SANS, fontSize: 13.5, color: "var(--text-primary)", fontWeight: 600, marginBottom: 4 }}>Add your GPU type and provider to get your number.</div>
+          <div style={{ ...SANS, fontSize: 13.5, color: "var(--text-primary)", fontWeight: 600, marginBottom: 4 }}>Name a GPU and provider to get your number.</div>
           <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
-            We won't guess — a number from assumptions isn't worth anything. Name a GPU (H100, A100, L40S, A10G) and a provider in the box above, or{" "}
+            Add a GPU family (H100, A100, L40S, A10G) and a provider, or{" "}
             <button onClick={() => setActiveTab("manual")} style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>enter details manually</button>.
           </div>
         </div>
@@ -1016,7 +1013,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
       {showResult && (
         <div id="audit-results" style={{ marginBottom: 16 }}>
           <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 10 }}>
-            Audit preview — {activeTab === "bill" ? (billExtracted ? "bill read" : billExtractError ? "could not read" : "reading bill") : activeTab === "diagram" ? "diagram received" : primarySnapshot.fromParsed ? "detected from your text" : "your details"}
+            Results
           </div>
 
           {showUploadResult && activeTab === "bill" && (() => {
@@ -1071,10 +1068,10 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   </div>
                   <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
                     {ex
-                      ? "Market comparison below. Enter your email for the full analyst-reviewed breakdown."
+                      ? "Market comparison below. Enter your email for the full breakdown."
                       : billExtractError
-                      ? "Try the Describe tab to enter your setup manually."
-                      : "Enter your email below — we'll send a provider-by-provider breakdown within one business day."}
+                      ? "Use the Describe tab to enter details manually."
+                      : "Enter your email — we'll send a provider-by-provider breakdown within one business day."}
                   </div>
                 </div>
                 {exResult && exFamily && (
@@ -1098,7 +1095,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
             <div>
               <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "3px solid var(--blue)", padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 8 }}>
                 <span style={{ ...MONO, fontSize: 22, fontWeight: 600, color: "var(--blue)", letterSpacing: "-0.02em" }}>Diagram received</span>
-                <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)" }}>We'll map it to current market pricing and send your breakdown.</span>
+                
               </div>
               <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "14px 24px", display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "start" }}>
                 <div>
@@ -1106,7 +1103,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   <div style={{ ...MONO, fontSize: 12, color: "var(--text-primary)" }}>{diagramFileName}</div>
                 </div>
                 <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
-                  Enter your email below — we'll extract GPU types, counts, and providers from your diagram and map them to live market pricing. Provider-by-provider, analyst reviewed.
+                  Enter your email — we'll map GPU types and providers to current pricing and send a breakdown.
                 </div>
               </div>
             </div>
@@ -1147,12 +1144,10 @@ export default function AuditTool({ listings }: AuditToolProps) {
       {(showResult || (committed && hasUpload)) && !submitted && (
         <div style={{ marginTop: 16, background: "#171717", padding: "20px 24px" }}>
           <div style={{ ...SANS, fontSize: 13.5, fontWeight: 600, color: "#F7F3EA", marginBottom: 4 }}>
-            {hasUpload ? "Get your bill read against the live market" : "Get the full breakdown"}
+            "Get the full breakdown"
           </div>
           <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.55)", lineHeight: 1.55, marginBottom: 14 }}>
-            {hasUpload
-              ? `Provider-by-provider analysis from your actual ${billFileName ?? diagramFileName} — region options, what to move first, what to keep. Analyst reviewed.`
-              : "Provider-by-provider analysis, region options, and what to move first — analyst reviewed."}
+"Provider-by-provider analysis, region options, and what to move first."
           </div>
           <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, cursor: "pointer" }}>
             <input type="checkbox" checked={wantsAlerts} onChange={e => setWantsAlerts(e.target.checked)} />
@@ -1180,24 +1175,23 @@ export default function AuditTool({ listings }: AuditToolProps) {
           <div style={{ fontSize: 22, color: "var(--green)", marginBottom: 10 }}>✓</div>
           <div style={{ ...SERIF, fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 8 }}>On its way.</div>
           <div style={{ ...SANS, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6, maxWidth: 460, margin: "0 auto" }}>
-            We'll send the full breakdown to <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong> within one business day.
-            {hasUpload && <> Reply to that email with <strong style={{ color: "var(--text-primary)" }}>{billFileName ?? diagramFileName}</strong> attached and we'll price it against the live market.</>}
+            Breakdown sent to <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong> — expect it within one business day.
           </div>
           {!earlyAccessSent ? (
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
               <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 12 }}>
-                Automated weekly monitoring of your stack launches at <strong style={{ color: "var(--text-primary)" }}>$99/mo</strong> — we alert you the moment a cheaper reliable option appears. Want in early?
+                Get alerted when a cheaper reliable option appears for your stack — $99/mo at launch.
               </div>
               <button onClick={handleEarlyAccess} style={{
                 ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "#171717",
                 padding: "10px 22px", borderRadius: 3, border: "none", cursor: "pointer",
               }}>
-                Yes, I want early access →
+                Early access →
               </button>
             </div>
           ) : (
             <div style={{ ...SANS, fontSize: 12.5, color: "var(--green)", marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
-              Noted — you're on the early-access list. We'll be in touch before launch.
+              You're on the early-access list.
             </div>
           )}
         </div>

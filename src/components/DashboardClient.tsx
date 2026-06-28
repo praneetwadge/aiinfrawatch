@@ -142,7 +142,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
               The AI compute market moves daily. Your bill doesn't.
             </h1>
             <p style={{ ...BODY, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 520, marginBottom: 24 }}>
-              H100 floors are dropping, but most teams are still paying last year's rates. We track the market — you find out where you could be saving. 
+              Real-time GPU price intelligence across {activeProviders} providers. See what your stack should cost — and what it actually does.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
               <Link href="/cost-audit" style={{
@@ -720,7 +720,7 @@ function RoutingWaitlistModal({ onClose }: { onClose: () => void }) {
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 8 }}>Routing Beta — Waitlist</div>
             <div style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 4 }}>Join the beta</div>
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 20 }}>
-              Automated routing moves flexible GPU workloads to the cheapest reliable provider in real time. First-batch access for teams spending $10k+/mo.
+              Automated routing for flexible GPU workloads. First-batch access for teams at $10k+/mo.
             </div>
             <div style={{ display: "grid", gap: 14 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -776,17 +776,17 @@ function EnterpriseSignals() {
     {
       icon: "🔒",
       title: "Zero-Payload Data Privacy",
-      body: "Our routing layer only touches infrastructure metadata — GPU type, count, region, and pricing signals. Your model weights, training data, and inference payloads never pass through our servers.",
+      body: "Our routing layer touches only infrastructure metadata. Model weights, training data, and inference payloads never pass through our servers.",
     },
     {
       icon: "↔",
       title: "High-Availability Failover",
-      body: "When a niche provider experiences an outage or capacity crunch, routing automatically falls back to premium hyperscalers. Production stability is never traded for cost.",
+      body: "When a niche provider has an outage, routing falls back to hyperscalers automatically. Cost savings don't come at the expense of uptime.",
     },
     {
       icon: "✓",
       title: "SOC 2 Compliant Architecture",
-      body: "Infrastructure designed to SOC 2 Type II standards with enterprise SLA guarantees. Audit logs, access controls, and incident SLAs available on request.",
+      body: "Designed to SOC 2 Type II standards. Enterprise SLA guarantees, audit logs, and access controls available on request.",
     },
   ];
 
@@ -887,7 +887,7 @@ export default function DashboardClient({ summary, listings }: Props) {
         <div style={{ marginBottom: 36, background: "#171717", padding: "26px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" as const }}>
           <div>
             <div style={{ ...SERIF, fontSize: 21, fontWeight: 400, color: "#F7F3EA", marginBottom: 5 }}>Chances are, you're overspending. Find out by how much.</div>
-            <div style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.65)" }}>Paste your bill or quote — see the gap, what can safely move, and your first action.</div>
+            <div style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.65)" }}>Paste a bill, a quote, or describe your setup — no email required.</div>
           </div>
           <Link href="/cost-audit" style={{
             ...SANS, fontSize: 13.5, fontWeight: 600,
@@ -926,15 +926,15 @@ export default function DashboardClient({ summary, listings }: Props) {
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 32, flexWrap: "wrap" as const }}>
             <div style={{ flex: "1 1 420px" }}>
               <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 8 }}>Coming next</div>
-              <div style={{ ...SERIF, fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 6 }}>Like what the audit found? Let our routing act on it.</div>
+              <div style={{ ...SERIF, fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 6 }}>Automatically act on what the audit finds.</div>
               <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 22 }}>
-                Once you know where you're overpaying, routing beta automatically moves flexible workloads to the cheapest reliable GPU — no manual work. Three signals drive every routing decision:
+                Routing beta moves flexible workloads to the cheapest reliable GPU — no manual work. Three signals drive it:
               </div>
               <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>
                 {[
-                  { label: "Dynamic Cost & Supply Arbitrage", body: "Continuously monitors per-GPU spot and on-demand rates across all providers. Routes burst capacity to the cheapest reliable slot the moment it opens." },
-                  { label: "Energy Grid & Time-of-Use Rate Matching", body: "Correlates datacenter energy pricing windows with GPU availability. Schedules batch workloads into the cheapest electricity hours — overnight or off-peak." },
-                  { label: "Proactive Spot Instance Eviction Prediction", body: "Detects early-warning signals of spot eviction before it hits. Migrates the workload to a stable alternative before interruption, not after." },
+                  { label: "Dynamic Cost & Supply Arbitrage", body: "Routes burst capacity to the cheapest reliable slot as rates shift across providers." },
+                  { label: "Energy Grid & Time-of-Use Rate Matching", body: "Schedules batch jobs into cheapest electricity windows — overnight or off-peak." },
+                  { label: "Proactive Spot Eviction Prediction", body: "Detects eviction signals early and migrates before interruption, not after." },
                 ].map(s => (
                   <div key={s.label} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                     <div style={{ width: 3, flexShrink: 0, height: 48, background: "var(--border-mid)", marginTop: 2 }} />
@@ -975,8 +975,7 @@ export default function DashboardClient({ summary, listings }: Props) {
             <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.65 }}>
               Prices from public APIs and published rate cards across {activeProviders} providers — updated daily at 00:00 UTC.
               {" "}<strong style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Observed</strong> = listing exists, availability unconfirmed.
-              {" "}<strong style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Reliable</strong> = availability === "high" per provider API.
-              {" "}Hardcoded rates: gcp, lambda, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark.
+              {" "}<strong style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Reliable</strong> = confirmed high availability per provider API.
             </p>
           </div>
         </div>
@@ -998,10 +997,10 @@ export default function DashboardClient({ summary, listings }: Props) {
       </div>
     </div>
     {showRoutingModal && <RoutingWaitlistModal onClose={() => setShowRoutingModal(false)} />}
-    <style>{\`
+    <style>{`
       @media (max-width: 760px) {
         .enterprise-grid { grid-template-columns: 1fr !important; }
       }
-    \`}</style>
+    `}</style>
   );
 }
