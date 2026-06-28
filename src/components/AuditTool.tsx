@@ -703,21 +703,159 @@ export default function AuditTool({ listings }: AuditToolProps) {
           {/* Describe */}
           {activeTab === "describe" && (
             <div>
-              <label style={labelStyle}>Describe your current stack — or paste a quote</label>
-              <textarea
-                value={setupText}
-                onChange={e => setSetupText(e.target.value)}
-                placeholder="Example: We run 8×H100 on GCP for batch inference and evals, around 500–700 hours/month. Production serving stays on AWS. Want to know what can safely move."
-                rows={6}
-                style={{ ...inputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.55 }}
-              />
-              {parsed.matchedTerms.length > 0 && (
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const, marginTop: 10 }}>
-                  {parsed.matchedTerms.map(term => (
-                    <span key={term} style={{ ...MONO, fontSize: 10, color: "var(--blue)", background: "rgba(43,108,176,0.07)", border: "1px solid rgba(43,108,176,0.18)", padding: "2px 7px", borderRadius: 2 }}>{term}</span>
-                  ))}
-                </div>
-              )}
+              <label style={labelStyle}>Paste raw text, a quote, or describe your stack</label>
+              <div style={{ position: "relative" as const }}>
+                <textarea
+                  value={setupText}
+                  onChange={e => { setSetupText(e.target.value); setCommitted(false); }}
+                  placeholder={"Paste raw CSV lines, AWS/GCP bill text, or infrastructure quotes here...\n(e.g., 32x H100 SXM5 1yr reserved, or: 8×A100 on CoreWeave, batch inference, ~600 hrs/mo)"}
+                  rows={6}
+                  style={{
+                    ...inputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.55,
+                    border: hasText ? "1px solid var(--border-mid)" : "1px solid var(--border-mid)",
+                    background: "var(--panel)",
+                  }}
+                />
+                {!hasText && (
+                  <div style={{
+                    position: "absolute" as const, top: 10, right: 10,
+                    ...MONO, fontSize: 9, color: "var(--text-muted)",
+                    letterSpacing: "0.08em", textTransform: "uppercase" as const,
+                    background: "var(--elevated)", border: "1px solid var(--border)",
+                    padding: "2px 7px", borderRadius: 2, pointerEvents: "none" as const,
+                  }}>
+                    Secure · No data stored
+                  </div>
+                )}
+              </div>
+
+              {/* Instant sandbox preview — appears as soon as text is entered */}
+              {hasText && (() => {
+                const gpuCount  = parsed.gpuCount  ?? 8;
+                const hours     = parsed.hours     ?? 720;
+                const family    = parsed.family    ?? "H100";
+                const situation = parsed.situation ?? "hyperscaler";
+
+                // Compute a quick preview estimate from live listings
+                const familyListings = family === "other"
+                  ? listings
+                  : listings.filter(l => l.gpu_model.toUpperCase().includes(family));
+                const sorted   = [...familyListings].sort((a, b) => a.price_per_hour - b.price_per_hour);
+                const reliable = familyListings.filter(l => l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour);
+                const floor    = reliable[0] ?? sorted[0];
+
+                // Baseline: hyperscaler proxy if available
+                const hyperscalerListings = familyListings.filter(l => HYPERSCALERS.includes(l.provider.toLowerCase()));
+                const baselineListing = hyperscalerListings.sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
+                const baselineRate = baselineListing?.price_per_hour ?? (floor?.price_per_hour ?? 0) * 1.45;
+
+                const currentMonthly     = baselineRate * gpuCount * hours;
+                const recommendedMonthly = floor ? floor.price_per_hour * gpuCount * hours : currentMonthly * 0.65;
+                const savingsPctLow  = Math.max(0, Math.round((currentMonthly - recommendedMonthly) / currentMonthly * 100));
+                const savingsPctHigh = Math.min(savingsPctLow + 18, 65);
+                const hasLiveData    = !!floor;
+
+                return (
+                  <div style={{
+                    marginTop: 12,
+                    border: "1px solid var(--border-mid)",
+                    borderLeft: "3px solid var(--blue)",
+                    background: "var(--elevated)",
+                  }}>
+                    {/* Header */}
+                    <div style={{
+                      padding: "10px 16px",
+                      borderBottom: "1px solid var(--border)",
+                      display: "flex", alignItems: "center", gap: 8,
+                    }}>
+                      <span style={{ ...MONO, fontSize: 9, color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase" as const }}>
+                        Quick estimate
+                      </span>
+                      {parsed.matchedTerms.length > 0 && (
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
+                          {parsed.matchedTerms.map(term => (
+                            <span key={term} style={{ ...MONO, fontSize: 9, color: "var(--blue)", background: "rgba(43,108,176,0.1)", border: "1px solid rgba(43,108,176,0.2)", padding: "1px 6px", borderRadius: 2 }}>
+                              {term}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <span style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", marginLeft: "auto" }}>
+                        {hasLiveData ? "Live market data" : "Estimated"}
+                      </span>
+                    </div>
+
+                    {/* 4-metric preview grid */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--border)" }} className="sandbox-grid">
+                      {[
+                        {
+                          label: "Detected GPU Count",
+                          value: `${gpuCount}× ${family === "other" ? "GPU" : family}`,
+                          sub: parsed.gpuCount ? "from your text" : "default estimate",
+                          color: parsed.gpuCount ? "var(--text-primary)" : "var(--text-muted)",
+                        },
+                        {
+                          label: "Current Estimated Spend",
+                          value: `$${Math.round(currentMonthly).toLocaleString()}/mo`,
+                          sub: `at ${situation === "hyperscaler" ? "hyperscaler" : "market"} rates`,
+                          color: "var(--amber)",
+                        },
+                        {
+                          label: "AIInfraWatch Routing Price",
+                          value: `$${Math.round(recommendedMonthly).toLocaleString()}/mo`,
+                          sub: floor ? `${getMeta(floor.provider).short} · reliable floor` : "estimated floor",
+                          color: "var(--green)",
+                        },
+                        {
+                          label: "Estimated Potential Savings",
+                          value: `~${savingsPctLow}–${savingsPctHigh}%`,
+                          sub: "same GPUs, same hours",
+                          color: "var(--green)",
+                        },
+                      ].map(m => (
+                        <div key={m.label} style={{ background: "var(--panel)", padding: "14px 16px" }}>
+                          <div style={{ ...SANS, fontSize: 9.5, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 4 }}>
+                            {m.label}
+                          </div>
+                          <div style={{ ...MONO, fontSize: 18, fontWeight: 600, color: m.color, letterSpacing: "-0.02em", lineHeight: 1 }}>
+                            {m.value}
+                          </div>
+                          <div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", marginTop: 3 }}>
+                            {m.sub}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* CTA */}
+                    <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" as const }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCommitted(true);
+                          setTimeout(() => {
+                            document.getElementById("audit-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }, 50);
+                        }}
+                        style={{
+                          ...SANS, fontSize: 13, fontWeight: 600,
+                          color: "#F7F3EA", background: "#171717",
+                          padding: "10px 20px", borderRadius: 3, border: "none",
+                          cursor: "pointer", letterSpacing: "0.01em",
+                        }}
+                      >
+                        Generate Full Verified Audit &amp; Report →
+                      </button>
+                      <span style={{ ...SANS, fontSize: 11, color: "var(--text-muted)" }}>
+                        No email required · Instant results
+                      </span>
+                    </div>
+                    <div style={{ ...SANS, fontSize: 10, color: "var(--text-muted)", padding: "0 16px 10px", lineHeight: 1.5 }}>
+                      Estimate based on detected terms. Full audit shows provider-by-provider breakdown with verified availability.
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1066,7 +1204,10 @@ export default function AuditTool({ listings }: AuditToolProps) {
       )}
 
       <style>{`
-        @media (max-width: 760px) { .manual-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 760px) {
+          .manual-grid { grid-template-columns: 1fr !important; }
+          .sandbox-grid { grid-template-columns: 1fr !important; }
+        }
       `}</style>
     </div>
   );
