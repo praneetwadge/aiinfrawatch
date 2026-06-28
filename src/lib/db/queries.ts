@@ -83,11 +83,76 @@ export async function getLatestGpuListings(opts?: {
   return merged.sort((a, b) => a.price_per_hour - b.price_per_hour);
 }
 
-export async function upsertGpuListings(listings: GpuListing[]): Promise<void> {
-  if (!listings.length) return;
+// ── Validation gate ──────────────────────────────────────────────────────────
+// A single bad scraper run can poison the market floor (NaN prices, a decimal
+// shift turning $7.35 into $0.0735, an empty provider string). With
+// ignoreBuildErrors + @ts-nocheck across lib, nothing else catches this — so we
+// validate here, drop bad rows, and LOG every rejection so a broken scrape is
+// visible instead of silently corrupting the floor.
+//
+// Bounds are deliberately wide: the goal is to catch garbage, not to second-guess
+// real market prices. Anything genuinely priced outside these is almost certainly
+// a parse error, not a real listing.
+const PRICE_MIN = 0.01;     // below this is a parse/decimal-shift artifact
+const PRICE_MAX = 1000;     // per-hour, even a 8x B200 reserved node is < this
+const COUNT_MAX = 100000;
+
+export interface UpsertReport {
+  attempted: number;
+  inserted: number;
+  rejected: number;
+  rejections: { reason: string; sample: Partial<GpuListing> }[];
+}
+
+function validateListing(l: GpuListing): string | null {
+  if (!l) return "null row";
+  if (!l.provider_slug && !l.provider) return "missing provider";
+  if (!l.gpu_model || typeof l.gpu_model !== "string") return "missing gpu_model";
+  const p = Number(l.price_per_hour);
+  if (!Number.isFinite(p)) return "non-numeric price";
+  if (p < PRICE_MIN) return `price below floor (${p}) — likely decimal-shift error`;
+  if (p > PRICE_MAX) return `price above ceiling (${p}) — likely parse error`;
+  const c = Number(l.gpu_count);
+  if (l.gpu_count != null && (!Number.isFinite(c) || c < 1 || c > COUNT_MAX)) return `implausible gpu_count (${l.gpu_count})`;
+  if (!l.fetched_at) return "missing fetched_at";
+  return null;
+}
+
+export async function upsertGpuListings(listings: GpuListing[]): Promise<UpsertReport> {
+  const report: UpsertReport = { attempted: listings?.length ?? 0, inserted: 0, rejected: 0, rejections: [] };
+  if (!listings?.length) return report;
+
+  const clean: GpuListing[] = [];
+  for (const l of listings) {
+    const reason = validateListing(l);
+    if (reason) {
+      report.rejected++;
+      // Cap stored samples so a fully-broken scrape doesn't balloon the log.
+      if (report.rejections.length < 25) {
+        report.rejections.push({ reason, sample: { provider: l?.provider, gpu_model: l?.gpu_model, price_per_hour: l?.price_per_hour, pricing_type: l?.pricing_type } });
+      }
+      continue;
+    }
+    clean.push(l);
+  }
+
+  if (report.rejected > 0) {
+    console.warn(`[upsertGpuListings] Rejected ${report.rejected}/${report.attempted} listings as invalid:`);
+    console.table(report.rejections);
+  }
+
+  // Safety brake: if a scrape that normally returns plenty comes back almost
+  // entirely invalid, do NOT write — a near-empty/garbage write can empty the
+  // floor for the whole 25h window. Surface it loudly instead.
+  if (report.attempted >= 20 && clean.length < report.attempted * 0.25) {
+    console.error(`[upsertGpuListings] ABORT: only ${clean.length}/${report.attempted} rows valid (<25%). Refusing to write a likely-corrupt batch.`);
+    return report;
+  }
+
+  if (!clean.length) return report;
 
   const { error } = await supabaseAdmin.from("gpu_listings").insert(
-    listings.map((l) => ({
+    clean.map((l) => ({
       provider: l.provider_slug,
       gpu_model: l.gpu_model,
       gpu_count: l.gpu_count,
@@ -105,6 +170,8 @@ export async function upsertGpuListings(listings: GpuListing[]): Promise<void> {
     }))
   );
   if (error) throw error;
+  report.inserted = clean.length;
+  return report;
 }
 
 export async function getLatestEnergyPrices(): Promise<EnergyPrice[]> {
