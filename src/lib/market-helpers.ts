@@ -16,37 +16,50 @@ export interface GpuListing {
 
 export const TOTAL_TRACKED = 16;
 
-export const PROVIDER_META: Record<string, { cat: string; color: string; status: string; short: string }> = {
-  runpod:         { cat: "Marketplace",  color: "var(--violet)", status: "live",    short: "RunPod" },
-  vastai:         { cat: "Marketplace",  color: "var(--violet)", status: "partial", short: "Vast.ai" },
-  "vast.ai":      { cat: "Marketplace",  color: "var(--violet)", status: "partial", short: "Vast.ai" },
-  aws:            { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "AWS" },
-  azure:          { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "Azure" },
-  gcp:            { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "GCP" },
-  "google cloud": { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "GCP" },
-  coreweave:      { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "CoreWeave" },
-  lambda:         { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Lambda" },
-  "lambda labs":  { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Lambda" },
-  nebius:         { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Nebius" },
-  tensordock:     { cat: "Marketplace",  color: "var(--violet)", status: "live",    short: "TensorDock" },
-  oci:            { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "Oracle" },
-  "oracle cloud": { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "Oracle" },
-  paperspace:     { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Paperspace" },
-  crusoe:         { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Crusoe" },
-  "crusoe energy":{ cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "Crusoe" },
-  fluidstack:     { cat: "Marketplace",  color: "var(--violet)", status: "live",    short: "FluidStack" },
-  ibm:            { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "IBM" },
-  "ibm cloud":    { cat: "Hyperscaler",  color: "var(--amber)",  status: "live",    short: "IBM" },
-  gmi:            { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "GMI" },
-  "gmi cloud":    { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "GMI" },
-  voltagepark:    { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "VoltagePark" },
-  "voltage park": { cat: "Neocloud",     color: "var(--blue)",   status: "live",    short: "VoltagePark" },
+// Provenance is tracked honestly per provider. `source` reflects how that
+// provider's prices actually reach us:
+//   "live"      — fetched from the provider's public pricing API every run
+//   "rate_card" — static published rate card embedded in the scraper; refreshed
+//                 manually. `asOf` is the date that card was last verified.
+// This is verified against the scraper implementations, NOT aspirational. If a
+// scraper is hardcoded, it is marked rate_card — surfacing this is the point.
+export type DataSource = "live" | "rate_card";
+
+export const PROVIDER_META: Record<string, { cat: string; color: string; source: DataSource; asOf?: string; short: string }> = {
+  runpod:         { cat: "Marketplace",  color: "var(--violet)", source: "live",                          short: "RunPod" },
+  vastai:         { cat: "Marketplace",  color: "var(--violet)", source: "live",                          short: "Vast.ai" },
+  "vast.ai":      { cat: "Marketplace",  color: "var(--violet)", source: "live",                          short: "Vast.ai" },
+  aws:            { cat: "Hyperscaler",  color: "var(--amber)",  source: "live",                          short: "AWS" },
+  azure:          { cat: "Hyperscaler",  color: "var(--amber)",  source: "live",                          short: "Azure" },
+  gcp:            { cat: "Hyperscaler",  color: "var(--amber)",  source: "rate_card", asOf: "2025-06",    short: "GCP" },
+  "google cloud": { cat: "Hyperscaler",  color: "var(--amber)",  source: "rate_card", asOf: "2025-06",    short: "GCP" },
+  coreweave:      { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-05",    short: "CoreWeave" },
+  lambda:         { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2025-06",    short: "Lambda" },
+  "lambda labs":  { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2025-06",    short: "Lambda" },
+  nebius:         { cat: "Neocloud",     color: "var(--blue)",   source: "live",                          short: "Nebius" },
+  tensordock:     { cat: "Marketplace",  color: "var(--violet)", source: "live",                          short: "TensorDock" },
+  oci:            { cat: "Hyperscaler",  color: "var(--amber)",  source: "rate_card", asOf: "2026-05",    short: "Oracle" },
+  "oracle cloud": { cat: "Hyperscaler",  color: "var(--amber)",  source: "rate_card", asOf: "2026-05",    short: "Oracle" },
+  paperspace:     { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-05",    short: "Paperspace" },
+  crusoe:         { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-05",    short: "Crusoe" },
+  "crusoe energy":{ cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-05",    short: "Crusoe" },
+  fluidstack:     { cat: "Marketplace",  color: "var(--violet)", source: "rate_card", asOf: "2026-05",    short: "FluidStack" },
+  ibm:            { cat: "Hyperscaler",  color: "var(--amber)",  source: "live",                          short: "IBM" },
+  "ibm cloud":    { cat: "Hyperscaler",  color: "var(--amber)",  source: "live",                          short: "IBM" },
+  gmi:            { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-04",    short: "GMI" },
+  "gmi cloud":    { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-04",    short: "GMI" },
+  voltagepark:    { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-05",    short: "VoltagePark" },
+  "voltage park": { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-05",    short: "VoltagePark" },
 };
+
+// True if every provider feeding listings is live-API sourced. Used to decide
+// whether the global "Updated daily" claim is honest for a given view.
+export const isLiveSource = (p: string): boolean => (getMeta(p).source ?? "rate_card") === "live";
 
 export const HYPERSCALERS = ["aws", "azure", "gcp", "oci", "ibm", "ibm cloud", "google cloud", "oracle cloud"];
 
 export const getMeta = (p: string) =>
-  PROVIDER_META[p.toLowerCase()] ?? { cat: "Unknown", color: "var(--text-muted)", status: "unknown", short: p };
+  PROVIDER_META[p.toLowerCase()] ?? { cat: "Unknown", color: "var(--text-muted)", source: "rate_card" as DataSource, short: p };
 
 export const fmtP = (n: number) =>
   n < 1 ? `$${n.toFixed(2)}` : n < 10 ? `$${n.toFixed(2)}` : `$${Math.round(n)}`;
