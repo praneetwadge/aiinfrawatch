@@ -995,12 +995,12 @@ export default function DashboardClient({ summary, listings }: Props) {
           </div>
         </div>
       </div>
+      {showRoutingModal && <RoutingWaitlistModal onClose={() => setShowRoutingModal(false)} />}
+      <style>{`
+        @media (max-width: 760px) {
+          .enterprise-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
-    {showRoutingModal && <RoutingWaitlistModal onClose={() => setShowRoutingModal(false)} />}
-    <style>{`
-      @media (max-width: 760px) {
-        .enterprise-grid { grid-template-columns: 1fr !important; }
-      }
-    `}</style>
   );
 }
