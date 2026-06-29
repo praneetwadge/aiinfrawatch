@@ -36,6 +36,24 @@ const ENERGY_CARDS = [
   { title: "Aggregate demand", body: "Coordinate many flexible AI jobs into a meaningful load signal — the basis for demand-response participation." },
 ];
 
+const ENTERPRISE_SIGNALS = [
+  {
+    icon: "🔒",
+    title: "Zero-Payload Data Privacy",
+    body: "Our routing layer touches only infrastructure metadata. Model weights, training data, and inference payloads never pass through our servers.",
+  },
+  {
+    icon: "↔",
+    title: "High-Availability Failover",
+    body: "When a niche provider has an outage, routing is designed to fall back to hyperscalers automatically — so cost savings don't come at the expense of uptime.",
+  },
+  {
+    icon: "✓",
+    title: "SOC 2-Aligned Architecture",
+    body: "Architected to SOC 2 Type II principles — least-privilege access, audit logging, and row-level data isolation. Formal attestation in progress.",
+  },
+];
+
 export default async function LoadBalancerPage() {
   const [listingsResult, summaryResult] = await Promise.allSettled([
     getLatestGpuListings({ limit: 2000 }),
@@ -66,7 +84,7 @@ export default async function LoadBalancerPage() {
           </div>
         </section>
 
-        <section style={{ maxWidth: 920, margin: "0 auto", padding: "32px 32px 72px" }}>
+        <section style={{ maxWidth: 920, margin: "0 auto", padding: "32px 32px 56px" }}>
 
           {/* What the router does */}
           <div style={{ marginBottom: 28 }}>
@@ -157,6 +175,24 @@ export default async function LoadBalancerPage() {
             </div>
           </div>
         </section>
+
+        {/* Enterprise Trust Signals */}
+        <div style={{ borderTop: "1px solid var(--border)", background: "var(--panel)" }}>
+          <div style={{ maxWidth: 920, margin: "0 auto", padding: "36px 32px 48px" }}>
+            <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 18 }}>
+              Enterprise Security &amp; Architecture
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "var(--border)" }} className="enterprise-grid">
+              {ENTERPRISE_SIGNALS.map(s => (
+                <div key={s.title} style={{ background: "var(--panel)", padding: "22px 24px" }}>
+                  <div style={{ fontSize: 18, marginBottom: 10 }}>{s.icon}</div>
+                  <div style={{ ...SANS, fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 7, lineHeight: 1.4 }}>{s.title}</div>
+                  <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7 }}>{s.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </main>
 
       <style>{`
@@ -164,6 +200,7 @@ export default async function LoadBalancerPage() {
           .lb-grid { grid-template-columns: 1fr !important; }
           .router-steps-grid { grid-template-columns: 1fr !important; }
           .energy-grid { grid-template-columns: 1fr !important; }
+          .enterprise-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
