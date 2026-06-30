@@ -33,6 +33,39 @@ const SETUP_OPTIONS: { value: Situation; label: string }[] = [
 
 interface AuditToolProps { listings: GpuListing[]; }
 
+// Hardcoded provider deep-links for the secondary "Move it myself →" self-serve
+// link (§2.5 — earns channel/referral, quieter than the primary "Start my
+// move" lead-capture flow). No referral-link field exists in market-helpers/DB
+// today — swap for real referral/affiliate URLs once those exist.
+const PROVIDER_SIGNUP_URLS: Record<string, string> = {
+  runpod: "https://www.runpod.io/console/signup",
+  vastai: "https://cloud.vast.ai/",
+  "vast.ai": "https://cloud.vast.ai/",
+  aws: "https://aws.amazon.com/ec2/instance-types/p5/",
+  azure: "https://azure.microsoft.com/en-us/pricing/details/virtual-machines/",
+  gcp: "https://cloud.google.com/compute/gpus-pricing",
+  "google cloud": "https://cloud.google.com/compute/gpus-pricing",
+  coreweave: "https://www.coreweave.com/contact",
+  lambda: "https://lambda.ai/service/gpu-cloud",
+  "lambda labs": "https://lambda.ai/service/gpu-cloud",
+  nebius: "https://nebius.com/contact",
+  tensordock: "https://tensordock.com/",
+  oci: "https://www.oracle.com/cloud/compute/gpu/",
+  "oracle cloud": "https://www.oracle.com/cloud/compute/gpu/",
+  paperspace: "https://www.paperspace.com/pricing",
+  crusoe: "https://crusoe.ai/contact-us/",
+  "crusoe energy": "https://crusoe.ai/contact-us/",
+  fluidstack: "https://www.fluidstack.io/",
+  ibm: "https://www.ibm.com/cloud/gpu",
+  "ibm cloud": "https://www.ibm.com/cloud/gpu",
+  gmi: "https://www.gmicloud.ai/",
+  "gmi cloud": "https://www.gmicloud.ai/",
+  voltagepark: "https://www.voltagepark.com/",
+  "voltage park": "https://www.voltagepark.com/",
+};
+const providerSignupUrl = (provider: string) =>
+  PROVIDER_SIGNUP_URLS[provider.toLowerCase()] ?? "#";
+
 const parseNum = (v: string, fallback: number) => {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -370,13 +403,54 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
   );
 }
 
-function ResultSection({ r, family, gpuCount, hours, situation, workload, label, billActualSpend, billProvider, listings }: {
+// Short shareable line for the "Share my result" affordance.
+const buildShareLine = (annualSavings: number, family: GpuFamily) =>
+  `I'm overpaying ${fmtBigMoney(annualSavings)}/yr on ${family === "other" ? "GPUs" : family + " GPUs"} — checked on AIInfraWatch.`;
+
+// Fire-and-forget: logs the anonymized, normalized economics for this result
+// to audit_observations. Never blocks or surfaces errors to the visitor.
+function logAuditObservation(payload: {
+  input_mode: "describe" | "bill" | "manual";
+  gpu_type: string;
+  current_provider?: string;
+  region?: string;
+  pricing_type?: string;
+  effective_rate_usd_hr?: number | null;
+  gpu_count: number;
+  monthly_spend_usd?: number | null;
+  workload_class: string;
+  reliable_floor_usd_hr: number;
+  overpay_pct?: number | null;
+}) {
+  try {
+    fetch("/api/audit-observation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {});
+  } catch { /* never block the UI on telemetry */ }
+}
+
+// Fire-and-forget: §4 funnel instrumentation events.
+function logEvent(event_name: string, kind?: string, meta?: Record<string, unknown>) {
+  try {
+    fetch("/api/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event_name, kind, meta }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch { /* never block the UI on telemetry */ }
+}
+
+function ResultSection({ r, family, gpuCount, hours, situation, workload, label, billActualSpend, billProvider, listings, inputMode }: {
   r: ComputedResult; family: GpuFamily; gpuCount: number; hours: number;
   situation: Situation; workload: WorkloadType; label?: string;
   billActualSpend?: number; billProvider?: string; listings?: GpuListing[];
+  inputMode: "describe" | "bill" | "manual";
 }) {
   const { baseline, recommendation, isReliable, currentMonthly, recommendedMonthly, savings, savingsPct, annualSavings, currentRatePerHour, floorRatePerHour, sizingSuspect, reliabilityRisk, isBatchFriendly, workloadLabel, advice } = r;
-  const fromBill = billActualSpend != null && billActualSpend > 0;
   const hasGap = !!(savings && savingsPct && annualSavings);
 
   // The premium over the reliable floor, expressed as a percent of the floor rate.
@@ -387,6 +461,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
       ? Math.round((currentRatePerHour / floorRatePerHour - 1) * 100)
       : null;
   const providerLabel = billProvider ?? getMeta(baseline?.provider ?? recommendation.provider).short;
+  const floorProviderLabel = getMeta(recommendation.provider).short;
 
   let headline: React.ReactNode;
   if (hasGap) {
@@ -430,7 +505,112 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
     );
   }
 
-  const keepLine = !isBatchFriendly && workload !== "unsure";
+  // Log the observation + the overpay_shown event once per rendered result —
+  // re-fires whenever any input to the logged payload changes.
+  useEffect(() => {
+    logAuditObservation({
+      input_mode: inputMode,
+      gpu_type: family === "other" ? "other" : family,
+      current_provider: providerLabel,
+      pricing_type: recommendation.pricing_type,
+      region: recommendation.region,
+      effective_rate_usd_hr: currentRatePerHour ?? undefined,
+      gpu_count: gpuCount,
+      monthly_spend_usd: currentMonthly ?? undefined,
+      workload_class: workload,
+      reliable_floor_usd_hr: floorRatePerHour,
+      overpay_pct: premiumOverFloorPct ?? (savingsPct ?? undefined),
+    });
+    logEvent("audit_run", inputMode);
+    if (hasGap) logEvent("overpay_shown");
+  }, [family, gpuCount, currentRatePerHour, floorRatePerHour, currentMonthly, situation, workload, inputMode, hasGap, providerLabel, premiumOverFloorPct, savingsPct]);
+
+  const [shareCopied, setShareCopied] = useState(false);
+  const handleShare = async () => {
+    if (!hasGap || annualSavings == null) return;
+    logEvent("share_click");
+    const line = buildShareLine(annualSavings, family);
+    try {
+      await navigator.clipboard.writeText(line);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch { /* clipboard unavailable — silently no-op */ }
+  };
+
+  // ── "Start my move" capture (primary, performance-based) ──
+  const [moveOpen, setMoveOpen]       = useState(false);
+  const [moveEmail, setMoveEmail]     = useState("");
+  const [moveConsent, setMoveConsent] = useState(false);
+  const [moveLoading, setMoveLoading] = useState(false);
+  const [moveError, setMoveError]     = useState("");
+  const [moveDone, setMoveDone]       = useState(false);
+
+  const openMove = () => { setMoveOpen(true); setMoveError(""); logEvent("move_with_us_click"); };
+
+  const submitMove = async () => {
+    if (!moveEmail || !moveEmail.includes("@")) { setMoveError("Enter a valid work email."); return; }
+    if (!moveConsent) { setMoveError("Consent is required to proceed."); return; }
+    setMoveError(""); setMoveLoading(true);
+    try {
+      const res = await fetch("/api/engagement", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "savings_share",
+          email: moveEmail,
+          current_provider: providerLabel,
+          gpu_type: family === "other" ? "other" : family,
+          est_monthly_spend_usd: currentMonthly ?? undefined,
+          est_annual_savings_usd: annualSavings ?? undefined,
+          target_provider: floorProviderLabel,
+          consent: moveConsent,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
+      setMoveDone(true); setMoveOpen(false);
+    } catch (e: any) { setMoveError(e?.message ?? "Network error — try again."); }
+    finally { setMoveLoading(false); }
+  };
+
+  // ── "Notify me" capture (retention, demoted) ──
+  const [monitorOpen, setMonitorOpen]   = useState(false);
+  const [monitorEmail, setMonitorEmail] = useState("");
+  const [monitorLoading, setMonitorLoading] = useState(false);
+  const [monitorError, setMonitorError] = useState("");
+  const [monitorDone, setMonitorDone]   = useState(false);
+
+  const openMonitor = () => { setMonitorOpen(true); setMonitorError(""); logEvent("monitor_click"); };
+
+  const submitMonitor = async () => {
+    if (!monitorEmail || !monitorEmail.includes("@")) { setMonitorError("Enter a valid work email."); return; }
+    setMonitorError(""); setMonitorLoading(true);
+    try {
+      const res = await fetch("/api/engagement", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "monitor",
+          email: monitorEmail,
+          current_provider: providerLabel,
+          gpu_type: family === "other" ? "other" : family,
+          est_monthly_spend_usd: currentMonthly ?? undefined,
+          est_annual_savings_usd: annualSavings ?? undefined,
+          target_provider: floorProviderLabel,
+          consent: true,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
+      setMonitorDone(true); setMonitorOpen(false);
+    } catch (e: any) { setMonitorError(e?.message ?? "Network error — try again."); }
+    finally { setMonitorLoading(false); }
+  };
+
+  const handleSelfServeClick = () => logEvent("self_serve_click");
+
+  const inputStyleLocal: React.CSSProperties = {
+    ...SANS, width: "100%", background: "rgba(247,243,234,0.06)", border: "1px solid rgba(247,243,234,0.22)",
+    color: "#F7F3EA", padding: "10px 12px", fontSize: 13, outline: "none", borderRadius: 3,
+  };
 
   return (
     <div style={{ marginBottom: 2 }}>
@@ -448,23 +628,110 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           family={family}
           currentRatePerHour={currentRatePerHour}
           floorRate={floorRatePerHour}
-          floorProviderShort={getMeta(recommendation.provider).short}
+          floorProviderShort={floorProviderLabel}
         />
       )}
-      <div style={{ background: "#171717", border: "1px solid #171717", borderTop: "none", padding: "18px 24px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" as const }}>
-          <span style={{ ...SANS, fontSize: 11, fontWeight: 700, color: "#F7F3EA", textTransform: "uppercase" as const, letterSpacing: "0.07em" }}>
-            System stability profile: hybrid retention recommended
-          </span>
-          <span style={{ ...MONO, fontSize: 9.5, fontWeight: 600, color: reliabilityRisk === "Low" ? "var(--green)" : reliabilityRisk === "High" ? "#F2B5B5" : "var(--amber)", background: "rgba(247,243,234,0.06)", border: `1px solid ${reliabilityRisk === "Low" ? "rgba(39,103,73,0.5)" : reliabilityRisk === "High" ? "rgba(155,28,28,0.5)" : "rgba(151,90,22,0.5)"}`, padding: "2px 8px", borderRadius: 2, whiteSpace: "nowrap" as const }}>
-            {reliabilityRisk === "Low" ? "AVAILABILITY: STABLE" : reliabilityRisk === "High" ? "AVAILABILITY: THIN" : "AVAILABILITY: MODERATE"}
-          </span>
+      {hasGap ? (
+        <div style={{ background: "#171717", border: "1px solid #171717", borderTop: "none", padding: "20px 24px 22px" }}>
+
+          {/* PRIMARY — Start my move (performance-based, human-assisted) */}
+          <div style={{ ...SANS, fontSize: 13.5, color: "rgba(247,243,234,0.9)", lineHeight: 1.65, maxWidth: 720, marginBottom: 14 }}>
+            We'll move this workload to <strong style={{ color: "#F7F3EA" }}>{floorProviderLabel}</strong> at{" "}
+            <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRatePerHour)}/hr</span>. You save ~
+            <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtBigMoney(annualSavings!)}/yr</span>.{" "}
+            <strong style={{ color: "#F7F3EA" }}>Performance-based — you only pay from what you save.</strong>
+          </div>
+
+          {!moveDone ? (
+            !moveOpen ? (
+              <button
+                type="button"
+                onClick={openMove}
+                style={{
+                  ...SANS, fontSize: 14, fontWeight: 600, color: "#171717", background: "#F7F3EA",
+                  padding: "12px 24px", borderRadius: 3, border: "none", cursor: "pointer", letterSpacing: "0.01em",
+                }}
+              >
+                Start my move →
+              </button>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, maxWidth: 360 }}>
+                <input type="email" placeholder="you@company.com" value={moveEmail} onChange={e => setMoveEmail(e.target.value)} style={inputStyleLocal} />
+                <label style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", display: "flex", alignItems: "flex-start" as const, gap: 7, lineHeight: 1.5 }}>
+                  <input type="checkbox" checked={moveConsent} onChange={e => setMoveConsent(e.target.checked)} style={{ marginTop: 2 }} />
+                  I consent to AIInfraWatch contacting me about moving this workload. We'll help coordinate the move — terms confirmed off-page, no automated provisioning.
+                </label>
+                <button onClick={submitMove} disabled={moveLoading} style={{
+                  ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: moveLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
+                  padding: "11px 18px", borderRadius: 3, border: "none", cursor: moveLoading ? "not-allowed" : "pointer",
+                }}>{moveLoading ? "Submitting…" : "Confirm — start my move"}</button>
+                {moveError && <p style={{ ...SANS, fontSize: 12, color: "#F2B5B5", margin: 0 }}>{moveError}</p>}
+              </div>
+            )
+          ) : (
+            <div style={{ ...SANS, fontSize: 13, color: "var(--green)", lineHeight: 1.55 }}>
+              ✓ Got it — we'll reach out to scope the move and confirm terms.
+            </div>
+          )}
+
+          {/* SECONDARY — self-serve, quieter */}
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
+            <a
+              href={providerSignupUrl(recommendation.provider)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleSelfServeClick}
+              style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.65)", textDecoration: "underline" }}
+            >
+              Prefer to move it yourself? Go to {floorProviderLabel} →
+            </a>
+          </div>
+
+          {/* RETENTION — monitoring, demoted */}
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
+            {monitorDone ? (
+              <div style={{ ...SANS, fontSize: 12, color: "var(--green)" }}>✓ We'll watch your bill and alert you.</div>
+            ) : !monitorOpen ? (
+              <div style={{ ...SANS, fontSize: 12, color: "rgba(247,243,234,0.55)" }}>
+                Watch my bill — we'll alert you when you're overpaying.{" "}
+                <button onClick={openMonitor} style={{ ...SANS, fontSize: 12, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                  Notify me
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+                <input type="email" placeholder="you@company.com" value={monitorEmail} onChange={e => setMonitorEmail(e.target.value)}
+                  style={{ ...inputStyleLocal, width: "auto", flex: "1 1 200px" }} />
+                <button onClick={submitMonitor} disabled={monitorLoading} style={{
+                  ...SANS, fontSize: 12, fontWeight: 600, color: "var(--blue)", background: "transparent",
+                  border: "1px solid var(--blue)", padding: "8px 14px", borderRadius: 3, cursor: monitorLoading ? "not-allowed" : "pointer",
+                }}>{monitorLoading ? "Submitting…" : "Notify me"}</button>
+                {monitorError && <p style={{ ...SANS, fontSize: 11.5, color: "#F2B5B5", margin: 0, width: "100%" }}>{monitorError}</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Share affordance */}
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
+            <button
+              type="button"
+              onClick={handleShare}
+              style={{
+                ...SANS, fontSize: 12, fontWeight: 600, color: "#F7F3EA", background: "transparent",
+                border: "1px solid rgba(247,243,234,0.25)", padding: "8px 14px", borderRadius: 3, cursor: "pointer",
+              }}
+            >
+              {shareCopied ? "Copied ✓" : "Share my result"}
+            </button>
+          </div>
         </div>
-        <div style={{ ...SANS, fontSize: 13, color: "rgba(247,243,234,0.78)", lineHeight: 1.65, maxWidth: 720 }}>
-          Wholesale migration is bypassed — {keepLine ? `${workloadLabel.toLowerCase()} carries high state-dependencies and latency/continuity coupling that make a full lift-and-shift operationally risky` : "your stack carries enough state-dependency that a full lift-and-shift trades cost for operational risk"}. The recommended path is a coordinated <strong style={{ color: "#F7F3EA", fontWeight: 600 }}>Contract Leverage&nbsp;+&nbsp;Multi-Cloud Bursting</strong> strategy: hold latency-critical capacity in place and renegotiate it against the verified floor, while routing interruption-tolerant load to the cheaper reliable tier.
-          {advice && <span style={{ display: "block", marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(247,243,234,0.12)", color: "rgba(247,243,234,0.62)", fontSize: 12.5 }}>{advice}</span>}
-        </div>
-      </div>
+      ) : (
+        advice && (
+          <div style={{ background: "#171717", border: "1px solid #171717", borderTop: "none", padding: "16px 24px 18px" }}>
+            <div style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.7)", lineHeight: 1.6 }}>{advice}</div>
+          </div>
+        )
+      )}
     </div>
   );
 }
@@ -627,34 +894,8 @@ export default function AuditTool({ listings }: AuditToolProps) {
   };
 
   const handleEarlyAccess = async () => {
-    try { await post(buildNotes("EARLY_ACCESS_$99_MONITORING")); setEarlyAccessSent(true); }
+    try { await post(buildNotes("EARLY_ACCESS_ROUTING_BETA")); setEarlyAccessSent(true); }
     catch { setEarlyAccessSent(true); }
-  };
-
-  // ── Paid-tier requests (Renegotiation Packet / Shadow Routing Pilot) ──
-  // Reuses the audit-request endpoint with a tier tag in notes. The clicked
-  // card reveals an inline email field; submit posts and flips to a per-tier
-  // confirmation. No new backend route required.
-  const [openTier, setOpenTier]       = useState<null | "packet" | "pilot">(null);
-  const [tierEmail, setTierEmail]     = useState("");
-  const [tierLoading, setTierLoading] = useState(false);
-  const [tierError, setTierError]     = useState("");
-  const [tierDone, setTierDone]       = useState<null | "packet" | "pilot">(null);
-
-  const handleTierRequest = async (tier: "packet" | "pilot") => {
-    if (!tierEmail || !tierEmail.includes("@")) { setTierError("Enter a valid work email."); return; }
-    setTierError(""); setTierLoading(true);
-    const tag = tier === "packet" ? "PAID_INTENT_RENEGOTIATION_PACKET_$1499" : "PAID_INTENT_SHADOW_ROUTING_PILOT_$2500_MO";
-    try {
-      const res = await fetch("/api/audit-request", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: tierEmail, monthlySpend: "Unknown / paid intent", workload: primarySnapshot.workload, notes: buildNotes(tag), source: "cost-audit" }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
-      setTierDone(tier); setOpenTier(null);
-    } catch (e: any) { setTierError(e?.message ?? "Network error — try again."); }
-    finally { setTierLoading(false); }
   };
 
   const handleRunAudit = async () => {
@@ -846,7 +1087,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                         </div>
                       )}
                       <span style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", marginLeft: "auto" }}>
-                        {hasLiveData ? "Live market data" : "Estimated"}
+                        {hasLiveData ? "Updated daily · rate card" : "Estimated"}
                       </span>
                     </div>
 
@@ -1107,7 +1348,9 @@ export default function AuditTool({ listings }: AuditToolProps) {
                     <>
                       <span style={{ ...MONO, fontSize: 28, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>Bill read</span>
                       <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)" }}>
-                        {ex.provider} · {ex.family} · {ex.gpuCount} GPU{ex.gpuCount !== 1 ? "s" : ""} · ${ex.monthlySpend.toLocaleString()}/mo GPU spend
+                        {ex.provider} · {ex.family} · {ex.gpuCount} GPU{ex.gpuCount !== 1 ? "s" : ""} ·{" "}
+                        <span style={{ ...MONO, fontSize: 10, color: "var(--green)", background: "rgba(39,103,73,0.08)", border: "1px solid rgba(39,103,73,0.25)", padding: "1px 6px", borderRadius: 2, marginRight: 4 }}>observed</span>
+                        ${ex.monthlySpend.toLocaleString()}/mo GPU spend
                         {ex.confidence !== "high" && (
                           <span style={{ ...MONO, fontSize: 10, color: "var(--amber)", marginLeft: 8, background: "rgba(151,90,22,0.08)", border: "1px solid rgba(151,90,22,0.2)", padding: "1px 6px", borderRadius: 2 }}>
                             {ex.confidence} confidence
@@ -1147,6 +1390,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                     billActualSpend={safeSpend}
                     billProvider={ex!.provider}
                     listings={listings}
+                    inputMode="bill"
                   />
                 )}
               </div>
@@ -1176,6 +1420,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
               situation={primarySnapshot.situation}
               workload={primarySnapshot.workload}
               listings={listings}
+              inputMode="describe"
             />
           )}
 
@@ -1191,6 +1436,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   workload={row.workload}
                   listings={listings}
                   label={rows.length > 1 ? `Workload ${idx + 1} — ${row.family} · ${row.gpuCountStr}× · ${row.hoursStr}h/mo` : undefined}
+                  inputMode="manual"
                 />
               </div>
             ) : null
@@ -1198,119 +1444,34 @@ export default function AuditTool({ listings }: AuditToolProps) {
         </div>
       )}
 
-      {/* ── Paid conversion: dual-tier ── */}
+      {/* ── Email breakdown + roadmap line (§2.8, §6) ── */}
       {(showResult || (committed && hasUpload)) && !submitted && (
         <div style={{ marginTop: 16 }}>
-          <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 10 }}>
-            Act on the gap
-          </div>
-          <div className="tier-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
 
-            {/* Card A — fixed-fee renegotiation packet */}
-            <div style={{ background: "#171717", border: "1px solid rgba(247,243,234,0.1)", borderRadius: 4, padding: "24px 24px 22px", display: "flex", flexDirection: "column" as const }}>
-              <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "rgba(247,243,234,0.5)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 10 }}>One-time</div>
-              <div style={{ ...SERIF, fontSize: 20, fontWeight: 400, color: "#F7F3EA", lineHeight: 1.25, marginBottom: 6 }}>Purchase Renegotiation Packet</div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 16 }}>
-                <span style={{ ...MONO, fontSize: 30, fontWeight: 700, color: "#F7F3EA", letterSpacing: "-0.02em" }}>$1,499</span>
-                <span style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.5)" }}>one-time</span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column" as const, gap: 9, marginBottom: 20 }}>
-                {[
-                  "Verified provider-by-provider contract comparison for your exact stack",
-                  "Reliable-availability SLA baselines to anchor the negotiation",
-                  "Executive-ready negotiation scripts and target-rate worksheet",
-                ].map(b => (
-                  <div key={b} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
-                    <span style={{ ...MONO, fontSize: 12, color: "var(--green)", marginTop: 1, flexShrink: 0 }}>→</span>
-                    <span style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.82)", lineHeight: 1.55 }}>{b}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: "auto" }}>
-                {tierDone === "packet" ? (
-                  <div style={{ ...SANS, fontSize: 12.5, color: "var(--green)", lineHeight: 1.55, paddingTop: 6 }}>
-                    ✓ Request received — we'll email you to confirm scope and payment.
-                  </div>
-                ) : openTier === "packet" ? (
-                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-                    <input type="email" placeholder="you@company.com" value={tierEmail} onChange={e => setTierEmail(e.target.value)}
-                      style={{ ...inputStyle, background: "rgba(247,243,234,0.06)", border: "1px solid rgba(247,243,234,0.22)", color: "#F7F3EA" }} />
-                    <button onClick={() => handleTierRequest("packet")} disabled={tierLoading} style={{
-                      ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: tierLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
-                      padding: "11px 18px", borderRadius: 3, border: "none", cursor: tierLoading ? "not-allowed" : "pointer", width: "100%",
-                    }}>{tierLoading ? "Submitting…" : "Confirm — purchase packet"}</button>
-                  </div>
-                ) : (
-                  <button onClick={() => { setOpenTier("packet"); setTierError(""); }} style={{
-                    ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: "#F7F3EA",
-                    padding: "11px 18px", borderRadius: 3, border: "none", cursor: "pointer", width: "100%",
-                  }}>Purchase Renegotiation Packet</button>
-                )}
-              </div>
-            </div>
-
-            {/* Card B — recurring shadow routing pilot */}
-            <div style={{ background: "#171717", border: "1px solid rgba(43,108,176,0.45)", borderRadius: 4, padding: "24px 24px 22px", display: "flex", flexDirection: "column" as const, position: "relative" as const }}>
-              <div style={{ position: "absolute" as const, top: 16, right: 18, ...MONO, fontSize: 8.5, fontWeight: 600, color: "var(--blue)", background: "rgba(43,108,176,0.12)", border: "1px solid rgba(43,108,176,0.4)", padding: "2px 7px", borderRadius: 2, letterSpacing: "0.06em" }}>PILOT</div>
-              <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "rgba(247,243,234,0.5)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 10 }}>Recurring</div>
-              <div style={{ ...SERIF, fontSize: 20, fontWeight: 400, color: "#F7F3EA", lineHeight: 1.25, marginBottom: 6 }}>Launch Shadow Routing Pilot</div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 16 }}>
-                <span style={{ ...MONO, fontSize: 30, fontWeight: 700, color: "#F7F3EA", letterSpacing: "-0.02em" }}>$2,500</span>
-                <span style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.5)" }}>/ month</span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column" as const, gap: 9, marginBottom: 20 }}>
-                {[
-                  "Read-only deployment — observes routing decisions, never touches production traffic",
-                  "Real-time latency and egress tracking across candidate providers",
-                  "SOC 2-aligned architecture with guided onboarding",
-                ].map(b => (
-                  <div key={b} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
-                    <span style={{ ...MONO, fontSize: 12, color: "var(--blue)", marginTop: 1, flexShrink: 0 }}>→</span>
-                    <span style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.82)", lineHeight: 1.55 }}>{b}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: "auto" }}>
-                {tierDone === "pilot" ? (
-                  <div style={{ ...SANS, fontSize: 12.5, color: "var(--green)", lineHeight: 1.55, paddingTop: 6 }}>
-                    ✓ Request received — we'll reach out to schedule pilot onboarding.
-                  </div>
-                ) : openTier === "pilot" ? (
-                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-                    <input type="email" placeholder="you@company.com" value={tierEmail} onChange={e => setTierEmail(e.target.value)}
-                      style={{ ...inputStyle, background: "rgba(247,243,234,0.06)", border: "1px solid rgba(247,243,234,0.22)", color: "#F7F3EA" }} />
-                    <button onClick={() => handleTierRequest("pilot")} disabled={tierLoading} style={{
-                      ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: tierLoading ? "rgba(43,108,176,0.5)" : "var(--blue)",
-                      padding: "11px 18px", borderRadius: 3, border: "none", cursor: tierLoading ? "not-allowed" : "pointer", width: "100%",
-                    }}>{tierLoading ? "Submitting…" : "Confirm — start pilot"}</button>
-                  </div>
-                ) : (
-                  <button onClick={() => { setOpenTier("pilot"); setTierError(""); }} style={{
-                    ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "var(--blue)",
-                    padding: "11px 18px", borderRadius: 3, border: "none", cursor: "pointer", width: "100%",
-                  }}>Launch Shadow Routing Pilot</button>
-                )}
-              </div>
-            </div>
+          {/* Email me the full breakdown — unchanged CTA copy */}
+          <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "16px 18px", display: "flex", gap: 10, flexWrap: "wrap" as const, alignItems: "center", marginBottom: 12 }}>
+            <input type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)}
+              style={{ ...inputStyle, width: "auto", flex: "1 1 220px" }} />
+            <button onClick={handleCapture} disabled={loading} style={{
+              ...SANS, fontSize: 12.5, fontWeight: 600, color: "var(--text-secondary)", background: "transparent",
+              padding: "10px 18px", borderRadius: 3, border: "1px solid var(--border-mid)", cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const,
+            }}>{loading ? "Sending…" : "Email me the full breakdown"}</button>
+            {error && <p style={{ ...SANS, fontSize: 12, color: "var(--red)", width: "100%", margin: "4px 0 0" }}>{error}</p>}
           </div>
 
-          {tierError && <p style={{ ...SANS, fontSize: 12, color: "var(--red)", marginTop: 10 }}>{tierError}</p>}
-
-          {/* Free-breakdown fallback — capture demand from those not ready to pay.
-              Remove this block to make the cards a hard paywall. */}
-          {!tierDone && (
-            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", gap: 10, flexWrap: "wrap" as const, alignItems: "center" }}>
-              <input type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)}
-                style={{ ...inputStyle, width: "auto", flex: "1 1 220px" }} />
-              <button onClick={handleCapture} disabled={loading} style={{
-                ...SANS, fontSize: 12.5, fontWeight: 600, color: "var(--text-secondary)", background: "transparent",
-                padding: "10px 18px", borderRadius: 3, border: "1px solid var(--border-mid)", cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const,
-              }}>{loading ? "Sending…" : "Or email me the free breakdown"}</button>
-              {error && <p style={{ ...SANS, fontSize: 12, color: "var(--red)", width: "100%", margin: "4px 0 0" }}>{error}</p>}
-            </div>
-          )}
+          {/* Routing beta — demoted to a single roadmap line, no standalone CTA bar, no pricing. */}
+          <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, padding: "2px 2px" }}>
+            Soon: we move flexible workloads automatically.{" "}
+            <button onClick={handleEarlyAccess} disabled={earlyAccessSent} style={{
+              ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none",
+              cursor: earlyAccessSent ? "default" : "pointer", padding: 0, textDecoration: earlyAccessSent ? "none" : "underline",
+            }}>
+              {earlyAccessSent ? "You're on the list ✓" : "Notify me"}
+            </button>
+          </div>
         </div>
       )}
+
 
       {/* ── Success ── */}
       {submitted && (
@@ -1323,18 +1484,18 @@ export default function AuditTool({ listings }: AuditToolProps) {
           {!earlyAccessSent ? (
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
               <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 12 }}>
-                Get alerted when a cheaper reliable option appears for your stack — $99/mo at launch.
+                Soon: we move flexible workloads automatically.
               </div>
               <button onClick={handleEarlyAccess} style={{
                 ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "#171717",
                 padding: "10px 22px", borderRadius: 3, border: "none", cursor: "pointer",
               }}>
-                Early access →
+                Notify me →
               </button>
             </div>
           ) : (
             <div style={{ ...SANS, fontSize: 12.5, color: "var(--green)", marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
-              You're on the early-access list.
+              You're on the list.
             </div>
           )}
         </div>
@@ -1344,7 +1505,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
         @media (max-width: 760px) {
           .manual-grid { grid-template-columns: 1fr !important; }
           .sandbox-grid { grid-template-columns: 1fr !important; }
-          .tier-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
