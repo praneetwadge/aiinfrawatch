@@ -1,3 +1,4 @@
+// REPO PATH: src/components/SiteNav.tsx  (REPLACE EXISTING)
 "use client";
 
 import React from "react";
@@ -23,14 +24,15 @@ const Logo = () => (
 export default function SiteNav() {
   const path = usePathname();
 
-  // Load Balancer removed from primary nav — accessible via footer + post-audit CTA
+  // Reorg: nav collapsed to two items. Routing Beta removed (demoted to a
+  // single roadmap line inside the audit result / homepage — see AuditTool).
   const navLinks = [
-    { href: "/",              label: "Markets" },
-    { href: "/cost-audit",   label: "Cost Audit" },
-    { href: "/load-balancer", label: "Routing Beta" },
+    { href: "/",            label: "Audit" },
+    { href: "/market-data", label: "Market data" },
   ];
 
   const isActive = (href: string) => href === "/" ? path === "/" : path.startsWith(href);
+  const onAuditPage = path === "/" || path.startsWith("/cost-audit");
 
   return (
     <header style={{ borderBottom: "1px solid var(--border)", background: "var(--panel)", boxShadow: "0 1px 0 rgba(20,20,20,0.06)", position: "sticky" as const, top: 0, zIndex: 40 }}>
@@ -52,10 +54,10 @@ export default function SiteNav() {
           </nav>
         </div>
 
-        {/* Right: primary CTA — hidden on /cost-audit since the page CTA does the job */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: isActive("/cost-audit") ? 0 : undefined }}>
-          {!isActive("/cost-audit") && (
-            <Link href="/cost-audit" style={{
+        {/* Right: primary CTA — hidden on the audit page itself since the page CTA does the job */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: onAuditPage ? 0 : undefined }}>
+          {!onAuditPage && (
+            <Link href="/" style={{
               ...SANS, fontSize: 12.5, fontWeight: 600,
               color: "#F7F3EA", background: "#171717",
               padding: "7px 16px", borderRadius: 3,
