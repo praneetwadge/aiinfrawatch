@@ -48,7 +48,7 @@ export default async function Page() {
                     Stop overpaying for GPU compute.
                   </h1>
                   <p style={{ ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 520, marginBottom: 26 }}>
-                    Paste your stack, upload a bill, or describe your setup. See the exact dollar gap before you give us an email.
+                    Most teams are paying hyperscaler prices for commodity compute. We find the gap, show you the number, and help you move — no lock-in, no sales calls.
                   </p>
                   <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
                     No account needed. We compare against live pricing across {providerCount} GPU providers and show you exactly where the gap is.
