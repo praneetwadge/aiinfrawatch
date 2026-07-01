@@ -13,7 +13,7 @@ const SERIF: React.CSSProperties = { fontFamily: "var(--font-serif)" };
 type Situation    = "hyperscaler" | "neocloud" | "marketplace" | "unsure";
 type WorkloadType = "inference" | "batch" | "evals" | "finetuning" | "training" | "dev" | "unsure";
 type GpuFamily    = "H100" | "A100" | "L40S" | "A10G" | "other";
-type InputTab     = "describe" | "bill" | "diagram" | "manual";
+type InputTab     = "describe" | "bill" | "manual";
 
 const WORKLOAD_OPTIONS: { value: WorkloadType; label: string; batchFriendly: boolean }[] = [
   { value: "inference",  label: "Real-time inference",  batchFriendly: false },
@@ -279,8 +279,8 @@ const fmtBigMoney = (n: number) =>
    cheapest→priciest, with the customer's effective rate dropped into the lineup
    and the reliable floor tagged. Same CSS-bar idiom as the homepage spread chart
    — no Recharts. Replaces the old gap bar + position strip. */
-function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, floorProviderShort }: {
-  listings: GpuListing[]; family: GpuFamily; currentRatePerHour: number; floorRate: number; floorProviderShort: string;
+function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, floorProviderShort, bare }: {
+  listings: GpuListing[]; family: GpuFamily; currentRatePerHour: number; floorRate: number; floorProviderShort: string; bare?: boolean;
 }) {
   if (family === "other") return null;
   const fam = listings.filter(l => l.gpu_model.toUpperCase().includes(family));
@@ -324,7 +324,10 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
     cat === "Hyperscaler" ? "var(--amber)" : cat === "Neocloud" ? "var(--blue)" : cat === "Marketplace" ? "var(--violet)" : "var(--text-muted)";
 
   return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "18px 22px 16px", marginBottom: 1 }}>
+    <div style={bare
+      ? { background: "var(--panel)", padding: "18px 22px 16px" }
+      : { background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "18px 22px 16px", marginBottom: 1 }
+    }>
       <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 3 }}>
         {family} — where your bill lands
       </div>
@@ -607,35 +610,87 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
       <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: `3px solid ${hasGap ? "var(--red)" : "var(--border-mid)"}`, padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 4 }}>
         {headline}
       </div>
-      {hasGap && currentRatePerHour != null && (
-        <FamilySpreadChart
-          listings={listings ?? []}
-          family={family}
-          currentRatePerHour={currentRatePerHour}
-          floorRate={floorRatePerHour}
-          floorProviderShort={floorProviderLabel}
-        />
-      )}
-      {hasGap ? (
-        <div style={{ background: "#171717", border: "1px solid #171717", borderTop: "none", padding: "20px 24px 22px" }}>
+      {hasGap && currentRatePerHour != null ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderTop: "none" }}>
 
-          {/* PRIMARY — Start my move (performance-based, human-assisted) */}
-          <div style={{ ...SANS, fontSize: 13.5, color: "rgba(247,243,234,0.9)", lineHeight: 1.65, maxWidth: 720, marginBottom: 14 }}>
-            We'll move this workload to <strong style={{ color: "#F7F3EA" }}>{floorProviderLabel}</strong> at{" "}
-            <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRatePerHour)}/hr</span>. You save ~
-            <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtBigMoney(annualSavings!)}/yr</span>.{" "}
-            <strong style={{ color: "#F7F3EA" }}>Performance-based — you only pay from what you save.</strong>
+          {/* Left: chart + move copy/retention, stacked */}
+          <div>
+            <div style={{ background: "var(--panel)" }}>
+              <FamilySpreadChart
+                listings={listings ?? []}
+                family={family}
+                currentRatePerHour={currentRatePerHour}
+                floorRate={floorRatePerHour}
+                floorProviderShort={floorProviderLabel}
+                bare
+              />
+            </div>
+            <div style={{ background: "#171717", padding: "18px 20px 20px" }}>
+              <div style={{ ...SANS, fontSize: 13.5, color: "rgba(247,243,234,0.9)", lineHeight: 1.65, marginBottom: moveOpen || moveDone ? 14 : 0 }}>
+                We'll move this workload to <strong style={{ color: "#F7F3EA" }}>{floorProviderLabel}</strong> at{" "}
+                <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRatePerHour)}/hr</span>. You save ~
+                <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtBigMoney(annualSavings!)}/yr</span>.{" "}
+                <strong style={{ color: "#F7F3EA" }}>Performance-based — you only pay from what you save.</strong>
+              </div>
+
+              {!moveDone ? (
+                moveOpen && (
+                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, maxWidth: 360 }}>
+                    <input type="email" placeholder="you@company.com" value={moveEmail} onChange={e => setMoveEmail(e.target.value)} style={inputStyleLocal} />
+                    <label style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", display: "flex", alignItems: "flex-start" as const, gap: 7, lineHeight: 1.5 }}>
+                      <input type="checkbox" checked={moveConsent} onChange={e => setMoveConsent(e.target.checked)} style={{ marginTop: 2 }} />
+                      I consent to AIInfraWatch contacting me about moving this workload. We'll help coordinate the move — terms confirmed off-page, no automated provisioning.
+                    </label>
+                    <button onClick={submitMove} disabled={moveLoading} style={{
+                      ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: moveLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
+                      padding: "11px 18px", borderRadius: 3, border: "none", cursor: moveLoading ? "not-allowed" : "pointer",
+                    }}>{moveLoading ? "Submitting…" : "Confirm — start my move"}</button>
+                    {moveError && <p style={{ ...SANS, fontSize: 12, color: "#F2B5B5", margin: 0 }}>{moveError}</p>}
+                  </div>
+                )
+              ) : (
+                <div style={{ ...SANS, fontSize: 13, color: "var(--green)", lineHeight: 1.55 }}>
+                  ✓ Got it — we'll reach out to scope the move and confirm terms.
+                </div>
+              )}
+
+              {/* RETENTION — monitoring, demoted */}
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
+                {monitorDone ? (
+                  <div style={{ ...SANS, fontSize: 12, color: "var(--green)" }}>✓ We'll watch your bill and alert you.</div>
+                ) : !monitorOpen ? (
+                  <div style={{ ...SANS, fontSize: 12, color: "rgba(247,243,234,0.55)" }}>
+                    Watch my bill — we'll alert you when you're overpaying.{" "}
+                    <button onClick={openMonitor} style={{ ...SANS, fontSize: 12, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                      Notify me
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+                    <input type="email" placeholder="you@company.com" value={monitorEmail} onChange={e => setMonitorEmail(e.target.value)}
+                      style={{ ...inputStyleLocal, width: "auto", flex: "1 1 200px" }} />
+                    <button onClick={submitMonitor} disabled={monitorLoading} style={{
+                      ...SANS, fontSize: 12, fontWeight: 600, color: "var(--blue)", background: "transparent",
+                      border: "1px solid var(--blue)", padding: "8px 14px", borderRadius: 3, cursor: monitorLoading ? "not-allowed" : "pointer",
+                    }}>{monitorLoading ? "Submitting…" : "Notify me"}</button>
+                    {monitorError && <p style={{ ...SANS, fontSize: 11.5, color: "#F2B5B5", margin: 0, width: "100%" }}>{monitorError}</p>}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {!moveDone ? (
-            !moveOpen ? (
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const }}>
+          {/* Right: vertical button stack */}
+          <div style={{ background: "#171717", padding: "18px 16px", display: "flex", flexDirection: "column" as const, gap: 10 }}>
+            {!moveDone && !moveOpen && (
+              <>
                 <button
                   type="button"
                   onClick={openMove}
                   style={{
-                    ...SANS, fontSize: 14, fontWeight: 600, color: "#171717", background: "#F7F3EA",
-                    padding: "12px 24px", borderRadius: 3, border: "none", cursor: "pointer", letterSpacing: "0.01em",
+                    ...SANS, fontSize: 13.5, fontWeight: 600, color: "#171717", background: "#F7F3EA",
+                    padding: "12px 16px", borderRadius: 3, border: "none", cursor: "pointer", letterSpacing: "0.01em",
+                    width: "100%",
                   }}
                 >
                   Start my move →
@@ -646,61 +701,20 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                   rel="noopener noreferrer"
                   onClick={handleSelfServeClick}
                   style={{
-                    ...SANS, fontSize: 14, fontWeight: 600, color: "#F7F3EA", background: "transparent",
-                    padding: "12px 24px", borderRadius: 3, border: "1px solid #F7F3EA", cursor: "pointer",
-                    letterSpacing: "0.01em", textDecoration: "none", display: "inline-flex", alignItems: "center",
+                    ...SANS, fontSize: 13.5, fontWeight: 600, color: "#F7F3EA", background: "transparent",
+                    padding: "12px 16px", borderRadius: 3, border: "1px solid #F7F3EA", cursor: "pointer",
+                    letterSpacing: "0.01em", textDecoration: "none", display: "flex", alignItems: "center",
+                    justifyContent: "center", width: "100%", boxSizing: "border-box" as const,
                   }}
                 >
                   Move it yourself →
                 </a>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, maxWidth: 360 }}>
-                <input type="email" placeholder="you@company.com" value={moveEmail} onChange={e => setMoveEmail(e.target.value)} style={inputStyleLocal} />
-                <label style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", display: "flex", alignItems: "flex-start" as const, gap: 7, lineHeight: 1.5 }}>
-                  <input type="checkbox" checked={moveConsent} onChange={e => setMoveConsent(e.target.checked)} style={{ marginTop: 2 }} />
-                  I consent to AIInfraWatch contacting me about moving this workload. We'll help coordinate the move — terms confirmed off-page, no automated provisioning.
-                </label>
-                <button onClick={submitMove} disabled={moveLoading} style={{
-                  ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: moveLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
-                  padding: "11px 18px", borderRadius: 3, border: "none", cursor: moveLoading ? "not-allowed" : "pointer",
-                }}>{moveLoading ? "Submitting…" : "Confirm — start my move"}</button>
-                {moveError && <p style={{ ...SANS, fontSize: 12, color: "#F2B5B5", margin: 0 }}>{moveError}</p>}
-              </div>
-            )
-          ) : (
-            <div style={{ ...SANS, fontSize: 13, color: "var(--green)", lineHeight: 1.55 }}>
-              ✓ Got it — we'll reach out to scope the move and confirm terms.
-            </div>
-          )}
-
-          {/* RETENTION — monitoring, demoted */}
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
-            {monitorDone ? (
-              <div style={{ ...SANS, fontSize: 12, color: "var(--green)" }}>✓ We'll watch your bill and alert you.</div>
-            ) : !monitorOpen ? (
-              <div style={{ ...SANS, fontSize: 12, color: "rgba(247,243,234,0.55)" }}>
-                Watch my bill — we'll alert you when you're overpaying.{" "}
-                <button onClick={openMonitor} style={{ ...SANS, fontSize: 12, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
-                  Notify me
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-                <input type="email" placeholder="you@company.com" value={monitorEmail} onChange={e => setMonitorEmail(e.target.value)}
-                  style={{ ...inputStyleLocal, width: "auto", flex: "1 1 200px" }} />
-                <button onClick={submitMonitor} disabled={monitorLoading} style={{
-                  ...SANS, fontSize: 12, fontWeight: 600, color: "var(--blue)", background: "transparent",
-                  border: "1px solid var(--blue)", padding: "8px 14px", borderRadius: 3, cursor: monitorLoading ? "not-allowed" : "pointer",
-                }}>{monitorLoading ? "Submitting…" : "Notify me"}</button>
-                {monitorError && <p style={{ ...SANS, fontSize: 11.5, color: "#F2B5B5", margin: 0, width: "100%" }}>{monitorError}</p>}
-              </div>
+              </>
             )}
           </div>
-
         </div>
       ) : (
-        advice && (
+        !hasGap && advice && (
           <div style={{ background: "#171717", border: "1px solid #171717", borderTop: "none", padding: "16px 24px 18px" }}>
             <div style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.7)", lineHeight: 1.6 }}>{advice}</div>
           </div>
@@ -741,7 +755,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
     situation: string; workload: string; monthlySpend: number;
     provider: string; confidence: string;
   } | null>(() => ssRead()?.billExtracted ?? null);
-  const [diagramFileName, setDiagramFileName] = useState<string | null>(() => ssRead()?.diagramFileName ?? null);
   const [rows,           setRows]           = useState<WorkloadRow[]>(() => ssRead()?.rows ?? [newRow()]);
   const [committed,      setCommitted]      = useState<boolean>(() => ssRead()?.committed ?? false);
   const [wantsAlerts,    setWantsAlerts]    = useState(true);
@@ -761,12 +774,12 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const mountedRef = useRef(false);
   useEffect(() => {
     if (!mountedRef.current) { mountedRef.current = true; return; }
-    ssWrite({ activeTab, setupText, billFileName, billExtracted, diagramFileName, rows, committed });
-  }, [activeTab, setupText, billFileName, billExtracted, diagramFileName, rows, committed]);
+    ssWrite({ activeTab, setupText, billFileName, billExtracted, rows, committed });
+  }, [activeTab, setupText, billFileName, billExtracted, rows, committed]);
 
   const parsed    = useMemo(() => parseStackText(setupText), [setupText]);
   const hasText   = setupText.trim().length > 0;
-  const hasUpload = !!billFileName || !!diagramFileName;
+  const hasUpload = !!billFileName;
 
   const firstRow = rows[0];
   const primarySnapshot = useMemo(() => {
@@ -814,7 +827,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
 
   const showTextResult   = committed && activeTab === "describe" && hasText && !showGuard && !!primaryResult;
   const showManualResult = committed && activeTab === "manual" && rows.length > 0 && manualResults.some(r => !!r.result);
-  const showUploadResult = committed && (activeTab === "bill" || activeTab === "diagram") && hasUpload;
+  const showUploadResult = committed && activeTab === "bill" && hasUpload;
   const showResult       = showTextResult || showManualResult || showUploadResult;
 
   const inputStyle: React.CSSProperties = {
@@ -833,7 +846,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
       lines.push(rows.map(r => `${r.gpuCountStr}×${r.family} · ${r.hoursStr}h/mo · ${r.situation} · ${r.workload}`).join("\n"));
     }
     if (billFileName)    lines.push(`Bill: ${billFileName}`);
-    if (diagramFileName) lines.push(`Diagram: ${diagramFileName}`);
     const flags = [wantsAlerts ? "wantsAlerts:true" : "wantsAlerts:false", extra ?? null].filter(Boolean).join(" · ");
     if (flags) lines.push(flags);
     return lines.filter(Boolean).join("\n\n");
@@ -916,7 +928,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const TABS: { id: InputTab; label: string; dot: boolean }[] = [
     { id: "describe", label: "Describe",             dot: hasText },
     { id: "bill",     label: "Cloud bill",            dot: !!billFileName },
-    { id: "diagram",  label: "Architecture diagram",  dot: !!diagramFileName },
     { id: "manual",   label: "Manual details",        dot: false },
   ];
 
@@ -1131,30 +1142,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
             </div>
           )}
 
-          {/* Architecture diagram */}
-          {activeTab === "diagram" && (
-            <div>
-              <label style={labelStyle}>Upload your architecture diagram</label>
-              <p style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 16 }}>
-                PNG, JPG, or PDF. We'll extract GPU types, counts, and providers and map them to current pricing.
-              </p>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", ...SANS, fontSize: 13, color: "var(--blue)", border: "1px solid var(--border-mid)", padding: "10px 18px", borderRadius: 3, background: "var(--elevated)" }}>
-                <input type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) { setDiagramFileName(file.name); setCommitted(false); }
-                }} />
-                <span style={{ fontSize: 15 }}>⬆</span> Choose file
-              </label>
-              {diagramFileName && (
-                <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ ...MONO, fontSize: 11.5, color: "var(--green)" }}>✓</span>
-                  <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>{diagramFileName}</span>
-                  <button onClick={() => { setDiagramFileName(null); setCommitted(false); }} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>remove</button>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Manual details */}
           {activeTab === "manual" && (
             <div>
@@ -1293,7 +1280,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                     <span style={{ ...SANS, fontSize: 13, color: "var(--text-muted)" }}>Reading your bill…</span>
                   ) : ex ? (
                     <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>
-                      <strong style={{ color: "var(--green)" }}>Got it —</strong>{" "}
+                      <strong style={{ color: "var(--green)" }}>Your bill summary:</strong>{" "}
                       {ex.provider} · {ex.family} · {ex.gpuCount} GPU{ex.gpuCount !== 1 ? "s" : ""} · ${ex.monthlySpend.toLocaleString()}/mo
                       {ex.confidence !== "high" && (
                         <span style={{ color: "var(--text-muted)" }}> (best guess — double-check below)</span>
@@ -1324,20 +1311,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
               </div>
             );
           })()}
-
-          {showUploadResult && activeTab === "diagram" && (
-            <div>
-              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "3px solid var(--blue)", padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 8 }}>
-                <span style={{ ...MONO, fontSize: 22, fontWeight: 600, color: "var(--blue)", letterSpacing: "-0.02em" }}>Diagram received</span>
-                
-              </div>
-              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "14px 24px" }}>
-                <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
-                  We'll map GPU types and providers from your diagram to current pricing in the full breakdown.
-                </div>
-              </div>
-            </div>
-          )}
 
           {showTextResult && primaryResult && (
             <ResultSection
