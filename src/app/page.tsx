@@ -26,42 +26,47 @@ export default async function Page() {
     <Suspense fallback={<div style={{ padding: "2rem", color: "#888" }}>Loading...</div>}>
       <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
         <style>{`
-          @media (max-width: 900px) {
-            .hero-grid { grid-template-columns: 1fr !important; gap: 28px !important; }
+          @media (max-width: 980px) {
+            .hero-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
           }
         `}</style>
         <MarketTicker listings={listingsData} summary={summaryData} />
         <SiteNav />
 
         <main>
-          {/* Audit hero — pitch left, audit tool right. Wide, homepage-scale, not a narrow tool page. */}
+          {/* Audit hero — wide pitch left, compact input tabs right. Results render full-width below via portal. */}
           <section style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
-            <div style={{ maxWidth: 1360, margin: "0 auto", padding: "48px 32px 44px" }}>
-              <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "420px 1fr", gap: 56, alignItems: "start" }}>
+            <div style={{ maxWidth: 1360, margin: "0 auto", padding: "56px 32px 48px" }}>
+              <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 460px", gap: 64, alignItems: "start" }}>
 
                 {/* Left: pitch */}
                 <div>
-                  <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 14 }}>
+                  <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 16 }}>
                     Cost Audit
                   </div>
-                  <h1 style={{ ...SERIF, fontSize: 38, fontWeight: 400, lineHeight: 1.14, color: "var(--text-primary)", marginBottom: 16 }}>
-                    See what you're overpaying on GPU compute.
+                  <h1 style={{ ...SERIF, fontSize: 52, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 20, maxWidth: 640 }}>
+                    Stop overpaying for GPU compute.
                   </h1>
-                  <p style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 22 }}>
-                    Paste your stack, upload a bill, or describe your setup. See the number before you give us an email.
+                  <p style={{ ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 520, marginBottom: 26 }}>
+                    Paste your stack, upload a bill, or describe your setup. See the exact dollar gap before you give us an email.
                   </p>
                   <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
                     No account needed. We compare against live pricing across {providerCount} GPU providers and show you exactly where the gap is.
                   </p>
                 </div>
 
-                {/* Right: audit tool */}
+                {/* Right: audit input — narrower, secondary to the pitch */}
                 <div>
                   <AuditTool listings={listingsData} />
                 </div>
 
               </div>
             </div>
+          </section>
+
+          {/* Results render here, full-width, via AuditTool's portal — savings number, chart, and CTAs get room to breathe. */}
+          <section style={{ maxWidth: 1360, margin: "0 auto", padding: "32px 32px 8px" }}>
+            <div id="audit-results-portal" />
           </section>
 
           {/* Quiet Market-data link — not a co-primary CTA, just a proof-surface pointer. */}
