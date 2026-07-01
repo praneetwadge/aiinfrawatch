@@ -246,15 +246,15 @@ function computeResult(
 
   let advice = "";
   if (sizingSuspect) {
-    advice = `We read ${fmtMoney(currentMonthly!)}/mo but ${gpuCount}× ${family === "other" ? "GPU" : family} doesn't square with that spend — likely a managed-service line or mixed bill. Confirm the GPU count for a precise gap.`;
+    advice = `We see ${fmtMoney(currentMonthly!)}/mo but ${gpuCount}× ${family === "other" ? "GPU" : family} doesn't quite add up to that — could be a managed-service line item or a mixed bill. Confirm the GPU count for an exact number.`;
   } else if (savingsPct !== null && savingsPct >= 20 && isBatchFriendly) {
-    advice = `${workloadObj?.label ?? "This workload"} is interruption-tolerant — move it to ${getMeta(recommendation.provider).short} at ${fmtP(floorRatePerHour)}/hr. Keep latency-critical serving where it is.`;
+    advice = `${workloadObj?.label ?? "This workload"} can tolerate interruptions, so it's a good fit to move to ${getMeta(recommendation.provider).short} at ${fmtP(floorRatePerHour)}/hr. Leave anything latency-sensitive where it is.`;
   } else if (savingsPct !== null && savingsPct >= 10) {
-    advice = `The gap is real.${!isBatchFriendly ? " This workload is latency-sensitive — don't lift-and-shift." : ""} Capture it through reserved pricing first, then re-platform.`;
+    advice = `That gap is real money.${!isBatchFriendly ? " This workload is latency-sensitive, so don't just move it — " : " "}Lock in reserved pricing first, then move when you're ready.`;
   } else if (savingsPct !== null) {
-    advice = `You're at the reliable floor for ${family === "other" ? "this GPU" : family}. The remaining win is utilisation and reservation coverage, not provider switching.`;
+    advice = `You're already paying close to the best price for ${family === "other" ? "this GPU" : family}. The bigger opportunity now is using more of what you're paying for, not switching providers.`;
   } else if (!baseline) {
-    advice = `No ${situation} listings found for ${family === "other" ? "this GPU" : family} in today's snapshot. The full audit surfaces region-specific options.`;
+    advice = `We don't have ${situation} prices for ${family === "other" ? "this GPU" : family} yet. Run the full audit and we'll find region-specific options.`;
   }
 
   return {
@@ -396,7 +396,7 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
       </div>
       {cheaperCount > 0 && (
         <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", marginTop: 12, lineHeight: 1.6 }}>
-          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{cheaperCount} cloud{cheaperCount !== 1 ? "s" : ""}</span> price {family} below your effective <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span>. The reliable floor is <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRate)}/hr</span>{floorProviderShort ? ` (${floorProviderShort})` : ""}.
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{cheaperCount} cloud{cheaperCount !== 1 ? "s" : ""}</span> {cheaperCount !== 1 ? "sell" : "sells"} {family} cheaper than the <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span> you're paying. The best price right now is <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRate)}/hr</span>{floorProviderShort ? ` (${floorProviderShort})` : ""}.
         </div>
       )}
     </div>
@@ -464,7 +464,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
     headline = (
       <>
         <span style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", width: "100%", marginBottom: 4 }}>
-          Reclaimable infrastructure leverage:
+          You could save:
         </span>
         <span style={{ ...MONO, fontSize: 40, fontWeight: 700, color: "var(--red)", letterSpacing: "-0.03em", lineHeight: 1 }}>
           {fmtBigMoney(annualSavings!)}<span style={{ fontSize: 18, color: "var(--text-muted)", fontWeight: 400 }}>/yr</span>
@@ -472,11 +472,11 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
         <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", marginLeft: 12, alignSelf: "flex-end" as const, lineHeight: 1.5 }}>
           {currentRatePerHour != null ? (
             <>
-              Your current effective rate <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span>
-              {premiumOverFloorPct != null && premiumOverFloorPct > 0 ? <> is <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{premiumOverFloorPct}% above</span></> : " sits above"} the verified market floor for identical {family === "other" ? "hardware" : family} hardware and uptime SLAs.
+              You're paying <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span>
+              {premiumOverFloorPct != null && premiumOverFloorPct > 0 ? <>, which is <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{premiumOverFloorPct}% more</span></> : ", more"} than the best available price for the same {family === "other" ? "GPU" : family} setup right now.
             </>
           ) : (
-            <>{savingsPct}% of your {family === "other" ? "GPU" : family} bill — same GPUs, same hours, at a price the market already clears.</>
+            <>That's {savingsPct}% of your {family === "other" ? "GPU" : family} bill — same GPUs, same hours, at a price other providers already offer.</>
           )}
         </span>
       </>
@@ -484,19 +484,19 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
   } else if (sizingSuspect && currentMonthly) {
     headline = (
       <span style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)" }}>
-        We read <span style={{ ...MONO, color: "var(--text-primary)", fontWeight: 600 }}>{fmtMoney(currentMonthly)}/mo</span>, but the detected GPU count doesn't square with that spend. Confirm your setup and we'll size the gap precisely.
+        We see <span style={{ ...MONO, color: "var(--text-primary)", fontWeight: 600 }}>{fmtMoney(currentMonthly)}/mo</span>, but that doesn't quite match the GPU count you gave us. Double-check your setup below and we'll pin down the exact number.
       </span>
     );
   } else if (currentMonthly) {
     headline = (
       <span style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)" }}>
-        You're at the reliable market floor for {family === "other" ? "GPU" : family}. Switching providers won't help — the win here is utilisation and reserved pricing.
+        You're already paying close to the best available rate for {family === "other" ? "GPU" : family}. Switching providers won't save much — the bigger win here is using what you're paying for more fully.
       </span>
     );
   } else {
     headline = (
       <span style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)" }}>
-        Add your current provider to size the gap — we couldn't find a {situation} baseline for {family === "other" ? "this GPU" : family} in today's snapshot.
+        Tell us who you're with now and we'll size the savings — we don't have a {situation} price to compare for {family === "other" ? "this GPU" : family} yet.
       </span>
     );
   }
@@ -807,21 +807,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const showUploadResult = committed && (activeTab === "bill" || activeTab === "diagram") && hasUpload;
   const showResult       = showTextResult || showManualResult || showUploadResult;
 
-  const workedExample = useMemo(() => {
-    const a100Hyper = listings.filter(l => l.gpu_model.includes("A100") && HYPERSCALERS.includes(l.provider.toLowerCase()) && l.availability === "high")
-      .sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
-    if (!a100Hyper) return null;
-    const specHigh = listings.filter(l => l.gpu_model.includes("A100") && !HYPERSCALERS.includes(l.provider.toLowerCase()) && l.availability === "high")
-      .sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
-    const specAny  = listings.filter(l => l.gpu_model.includes("A100") && !HYPERSCALERS.includes(l.provider.toLowerCase()))
-      .sort((a, b) => a.price_per_hour - b.price_per_hour)[0];
-    const a100Spec = specHigh ?? specAny;
-    if (!a100Spec) return null;
-    const saving = (a100Hyper.price_per_hour - a100Spec.price_per_hour) * 8 * 500;
-    if (saving <= 0) return null;
-    return { baseline: a100Hyper.price_per_hour, recommended: a100Spec.price_per_hour, savings: saving, provider: getMeta(a100Spec.provider).short, isObserved: !specHigh };
-  }, [listings]);
-
   const inputStyle: React.CSSProperties = {
     ...SANS, width: "100%", background: "var(--panel)", border: "1px solid var(--border-mid)",
     color: "var(--text-primary)", padding: "10px 12px", fontSize: 13.5, outline: "none", borderRadius: 3,
@@ -943,17 +928,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
 
   return (
     <div>
-
-      {/* ── Worked example ── */}
-      {workedExample && (
-        <div style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderLeft: "3px solid var(--green)", padding: "14px 18px", marginBottom: 20 }}>
-          <div style={{ ...MONO, fontSize: 10, color: "var(--green)", letterSpacing: "0.08em", marginBottom: 6 }}>EXAMPLE</div>
-          <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65 }}>
-            Evals and batch on hyperscaler A100s (~{fmtP(workedExample.baseline)}/hr) pay a reliability premium they don't need. Specialist A100s (~{fmtP(workedExample.recommended)}/hr at {workedExample.provider}{workedExample.isObserved ? ", observed" : ""}) ≈{" "}
-            <strong style={{ color: "var(--green)" }}>{fmtMoney(workedExample.savings)}/mo saved</strong> for 8 GPUs × 500 hrs. Production serving stays put.
-          </div>
-        </div>
-      )}
 
       {/* ── Input card ── */}
       <div style={{ marginBottom: 16 }}>
@@ -1301,43 +1275,24 @@ export default function AuditTool({ listings }: AuditToolProps) {
             const accentColor = billExtracting ? "var(--border-mid)" : ex ? "var(--green)" : billExtractError ? "var(--amber)" : "var(--border-mid)";
             return (
               <div>
-                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: `3px solid ${accentColor}`, padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 8 }}>
+                <div style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderLeft: `3px solid ${accentColor}`, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", flexWrap: "wrap" as const, gap: 6 }}>
                   {billExtracting ? (
-                    <span style={{ ...SANS, fontSize: 15, color: "var(--text-muted)" }}>Reading your bill…</span>
+                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-muted)" }}>Reading your bill…</span>
                   ) : ex ? (
-                    <>
-                      <span style={{ ...MONO, fontSize: 28, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>Bill read</span>
-                      <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)" }}>
-                        {ex.provider} · {ex.family} · {ex.gpuCount} GPU{ex.gpuCount !== 1 ? "s" : ""} ·{" "}
-                        <span style={{ ...MONO, fontSize: 10, color: "var(--green)", background: "rgba(39,103,73,0.08)", border: "1px solid rgba(39,103,73,0.25)", padding: "1px 6px", borderRadius: 2, marginRight: 4 }}>observed</span>
-                        ${ex.monthlySpend.toLocaleString()}/mo GPU spend
-                        {ex.confidence !== "high" && (
-                          <span style={{ ...MONO, fontSize: 10, color: "var(--amber)", marginLeft: 8, background: "rgba(151,90,22,0.08)", border: "1px solid rgba(151,90,22,0.2)", padding: "1px 6px", borderRadius: 2 }}>
-                            {ex.confidence} confidence
-                          </span>
-                        )}
-                      </span>
-                    </>
+                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>
+                      <strong style={{ color: "var(--green)" }}>Got it —</strong>{" "}
+                      {ex.provider} · {ex.family} · {ex.gpuCount} GPU{ex.gpuCount !== 1 ? "s" : ""} · ${ex.monthlySpend.toLocaleString()}/mo
+                      {ex.confidence !== "high" && (
+                        <span style={{ color: "var(--text-muted)" }}> (best guess — double-check below)</span>
+                      )}
+                    </span>
                   ) : billExtractError ? (
-                    <>
-                      <span style={{ ...MONO, fontSize: 18, fontWeight: 600, color: "var(--amber)", letterSpacing: "-0.02em" }}>Could not read bill</span>
-                      <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", marginLeft: 8 }}>{billExtractError}</span>
-                    </>
+                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>
+                      <strong style={{ color: "var(--amber)" }}>Couldn't read that file.</strong> {billExtractError} Try the Describe tab instead.
+                    </span>
                   ) : (
-                    <>
-                      <span style={{ ...MONO, fontSize: 28, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.03em" }}>Bill received</span>
-                      <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)" }}>Reading line-item GPU spend against the live market…</span>
-                    </>
+                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>Bill received — comparing it to today's prices…</span>
                   )}
-                </div>
-                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: "none", padding: "14px 24px", marginBottom: 1 }}>
-                  <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, borderLeft: "2px solid var(--border-mid)", paddingLeft: 16 }}>
-                    {ex
-                      ? "Market comparison below — measured against your live bill."
-                      : billExtractError
-                      ? "Use the Describe tab to enter details manually."
-                      : "Reading your line-item GPU spend against the live market…"}
-                  </div>
                 </div>
                 {exResult && exFamily && (
                   <ResultSection
