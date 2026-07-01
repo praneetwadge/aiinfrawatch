@@ -135,15 +135,18 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
 
   return (
     <div style={{ background: "var(--panel)", borderBottom: "2px solid var(--border)" }}>
-      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "44px 32px 36px" }}>
+      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "56px 32px 48px" }}>
 
-        <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 52, alignItems: "center" }}>
+        <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 460px", gap: 64, alignItems: "start" }}>
           {/* Left: headline + CTAs */}
           <div>
-            <h1 style={{ ...SERIF, fontSize: 40, fontWeight: 400, lineHeight: 1.12, color: "var(--text-primary)", marginBottom: 14 }}>
+            <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 16 }}>
+              Market Data
+            </div>
+            <h1 style={{ ...SERIF, fontSize: 52, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 20, maxWidth: 640 }}>
               The AI compute market moves daily. Your bill doesn't.
             </h1>
-            <p style={{ ...BODY, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 520, marginBottom: 24 }}>
+            <p style={{ ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 520, marginBottom: 26 }}>
               Real-time GPU price intelligence across {activeProviders} providers. See what your stack should cost — and what it actually does.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
@@ -163,21 +166,22 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
                 View Market Data ↓
               </a>
             </div>
-            <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 14, lineHeight: 1.5 }}>
+            <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", marginTop: 14, lineHeight: 1.5 }}>
               Most stacks overpay by 20–40%. Paste a bill or describe your setup to find out exactly.
             </p>
           </div>
 
+
           {/* Right: market state strip */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 1, border: "1px solid var(--border)", background: "var(--border)" }}>
             {/* Stat 1: H100 floor */}
-            <div style={{ background: "var(--bg)", padding: "14px 18px" }}>
+            <div style={{ background: "var(--bg)", padding: "20px 24px" }}>
               <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
                 {cheapestH100High ? "H100 — production safe from" : h100Prices.length ? "H100 — observed floor (not reliable)" : "H100 — not in snapshot"}
               </div>
               {h100Value ? (
                 <>
-                  <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: h100Color, letterSpacing: "-0.02em", lineHeight: 1 }}>
+                  <div style={{ ...MONO, fontSize: 24, fontWeight: 500, color: h100Color, letterSpacing: "-0.02em", lineHeight: 1 }}>
                     {h100Value}<span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 300 }}>/hr</span>
                   </div>
                   {h100Sub && <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>{h100Sub}</div>}
@@ -188,7 +192,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
             </div>
 
             {/* Stat 2: Hyperscaler premium */}
-            <div style={{ background: "var(--bg)", padding: "14px 18px" }}>
+            <div style={{ background: "var(--bg)", padding: "20px 24px" }}>
               <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
                 {effectivePremium !== null && effectivePremium > 0
                   ? `Hyperscaler overprice vs specialists (${premiumIsH100 ? "H100" : "A100"})`
@@ -196,7 +200,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
               </div>
               {effectivePremium !== null && effectivePremium > 0 ? (
                 <>
-                  <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>
+                  <div style={{ ...MONO, fontSize: 24, fontWeight: 500, color: "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>
                     +{Math.round(effectivePremium)}%
                   </div>
                   <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>more than specialist clouds</div>
@@ -207,7 +211,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
             </div>
 
             {/* Stat 3: H100 market range */}
-            <div style={{ background: "var(--bg)", padding: "14px 18px" }}>
+            <div style={{ background: "var(--bg)", padding: "20px 24px" }}>
               <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
                 {h100AllPrices.length
                   ? `H100 range · ${h100ProvCount} provider${h100ProvCount !== 1 ? "s" : ""}`
@@ -215,7 +219,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
               </div>
               {h100AllPrices.length >= 2 ? (
                 <>
-                  <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.02em", lineHeight: 1 }}>
+                  <div style={{ ...MONO, fontSize: 24, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.02em", lineHeight: 1 }}>
                     {fmtP(h100AllPrices[0])}<span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 400 }}>–{fmtP(h100AllPrices[h100AllPrices.length - 1])}</span>
                   </div>
                   <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
@@ -224,7 +228,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
                 </>
               ) : h100AllPrices.length === 1 ? (
                 <>
-                  <div style={{ ...MONO, fontSize: 22, fontWeight: 500, color: "var(--text-secondary)", letterSpacing: "-0.02em", lineHeight: 1 }}>
+                  <div style={{ ...MONO, fontSize: 24, fontWeight: 500, color: "var(--text-secondary)", letterSpacing: "-0.02em", lineHeight: 1 }}>
                     {fmtP(h100AllPrices[0])}
                   </div>
                   <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>per GPU/hr · 1 provider quoting</div>

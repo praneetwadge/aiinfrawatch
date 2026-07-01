@@ -1147,7 +1147,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                         </button>
                       )}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }} className="manual-grid">
+                    <div style={{ display: "flex", flexDirection: "column" as const, gap: 12, marginBottom: 12 }}>
                       <div>
                         <label style={labelStyle}>Workload type</label>
                         <select value={row.workload} onChange={e => updateRow(row.id, { workload: e.target.value as WorkloadType })} style={{ ...inputStyle, appearance: "auto" }}>
@@ -1338,7 +1338,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
 
       <style>{`
         @media (max-width: 760px) {
-          .manual-grid { grid-template-columns: 1fr !important; }
           .sandbox-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
