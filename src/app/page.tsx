@@ -20,33 +20,52 @@ export default async function Page() {
 
   const summaryData = summary.status === "fulfilled" ? summary.value : null;
   const listingsData: GpuListing[] = listings.status === "fulfilled" ? listings.value as GpuListing[] : [];
+  const providerCount = new Set(listingsData.map(l => l.provider)).size;
 
   return (
     <Suspense fallback={<div style={{ padding: "2rem", color: "#888" }}>Loading...</div>}>
       <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+        <style>{`
+          @media (max-width: 900px) {
+            .hero-grid { grid-template-columns: 1fr !important; gap: 28px !important; }
+          }
+        `}</style>
         <MarketTicker listings={listingsData} summary={summaryData} />
         <SiteNav />
 
         <main>
-          {/* Audit hero — headline + input card in one panel, no scroll before the CTA. */}
+          {/* Audit hero — pitch left, audit tool right. Wide, homepage-scale, not a narrow tool page. */}
           <section style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
-            <div style={{ maxWidth: 920, margin: "0 auto", padding: "32px 32px 28px" }}>
-              <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 10 }}>
-                Cost Audit
-              </div>
-              <h1 style={{ ...SERIF, fontSize: 32, fontWeight: 400, lineHeight: 1.15, color: "var(--text-primary)", marginBottom: 8 }}>
-                See what you're overpaying on GPU compute.
-              </h1>
-              <p style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: 620, marginBottom: 20 }}>
-                Paste your stack, upload a bill, or describe your setup. See the number before you give us an email.
-              </p>
+            <div style={{ maxWidth: 1360, margin: "0 auto", padding: "48px 32px 44px" }}>
+              <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "420px 1fr", gap: 56, alignItems: "start" }}>
 
-              <AuditTool listings={listingsData} />
+                {/* Left: pitch */}
+                <div>
+                  <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 14 }}>
+                    Cost Audit
+                  </div>
+                  <h1 style={{ ...SERIF, fontSize: 38, fontWeight: 400, lineHeight: 1.14, color: "var(--text-primary)", marginBottom: 16 }}>
+                    See what you're overpaying on GPU compute.
+                  </h1>
+                  <p style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 22 }}>
+                    Paste your stack, upload a bill, or describe your setup. See the number before you give us an email.
+                  </p>
+                  <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
+                    No account needed. We compare against live pricing across {providerCount} GPU providers and show you exactly where the gap is.
+                  </p>
+                </div>
+
+                {/* Right: audit tool */}
+                <div>
+                  <AuditTool listings={listingsData} />
+                </div>
+
+              </div>
             </div>
           </section>
 
           {/* Quiet Market-data link — not a co-primary CTA, just a proof-surface pointer. */}
-          <section style={{ maxWidth: 920, margin: "0 auto", padding: "8px 32px 64px", textAlign: "center" as const }}>
+          <section style={{ maxWidth: 1360, margin: "0 auto", padding: "8px 32px 64px", textAlign: "center" as const }}>
             <a href="/market-data" style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", textDecoration: "underline" }}>
               See the live market data behind this number →
             </a>
