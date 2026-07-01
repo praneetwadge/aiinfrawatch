@@ -65,6 +65,19 @@ export async function getLatestGpuListings(opts?: {
   if (dcRes.error)       throw dcRes.error;
   if (consumerRes.error) throw consumerRes.error;
 
+  // TEMP DIAGNOSTIC — investigating H100 rows missing from /market-data despite
+  // existing in the DB. Logs the raw shape of what Supabase actually returned
+  // for the DC-priority branch so we can see real runtime behavior vs. the
+  // equivalent hand-run SQL (which does return H100 rows). Remove once resolved.
+  console.log(`[getLatestGpuListings DIAG] dcRes.data length: ${(dcRes.data ?? []).length}, dcLimit was: ${dcLimit}`);
+  const dcModelCounts: Record<string, number> = {};
+  for (const row of (dcRes.data ?? [])) {
+    const m = (row as any).gpu_model ?? "UNKNOWN";
+    const key = DC_KEYWORDS.find(k => m.toUpperCase().includes(k)) ?? "NO_MATCH";
+    dcModelCounts[key] = (dcModelCounts[key] ?? 0) + 1;
+  }
+  console.log(`[getLatestGpuListings DIAG] dcRes model breakdown:`, JSON.stringify(dcModelCounts));
+
   // Merge, deduplicate by id, sort by price
   const seen = new Set<string>();
   const merged: GpuListing[] = [];
