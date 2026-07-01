@@ -28,7 +28,7 @@ export default function SiteNav() {
   // single roadmap line inside the audit result / homepage — see AuditTool).
   const navLinks = [
     { href: "/",            label: "Audit" },
-    { href: "/market-data", label: "Market data" },
+    { href: "/market-data", label: "Market Data" },
   ];
 
   const isActive = (href: string) => href === "/" ? path === "/" : path.startsWith(href);
@@ -64,7 +64,7 @@ export default function SiteNav() {
               textDecoration: "none", letterSpacing: "0.01em",
               whiteSpace: "nowrap" as const,
             }}>
-              Audit my stack
+              Audit My Stack
             </Link>
           )}
         </div>

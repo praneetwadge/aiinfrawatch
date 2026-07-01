@@ -611,106 +611,102 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
         {headline}
       </div>
       {hasGap && currentRatePerHour != null ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderTop: "none" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderTop: "none", alignItems: "stretch" }}>
 
-          {/* Left: chart + move copy/retention, stacked */}
-          <div>
-            <div style={{ background: "var(--panel)" }}>
-              <FamilySpreadChart
-                listings={listings ?? []}
-                family={family}
-                currentRatePerHour={currentRatePerHour}
-                floorRate={floorRatePerHour}
-                floorProviderShort={floorProviderLabel}
-                bare
-              />
-            </div>
-            <div style={{ background: "#171717", padding: "18px 20px 20px" }}>
-              <div style={{ ...SANS, fontSize: 13.5, color: "rgba(247,243,234,0.9)", lineHeight: 1.65, marginBottom: moveOpen || moveDone ? 14 : 0 }}>
-                We'll move this workload to <strong style={{ color: "#F7F3EA" }}>{floorProviderLabel}</strong> at{" "}
-                <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRatePerHour)}/hr</span>. You save ~
-                <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtBigMoney(annualSavings!)}/yr</span>.{" "}
-                <strong style={{ color: "#F7F3EA" }}>Performance-based — you only pay from what you save.</strong>
-              </div>
-
-              {!moveDone ? (
-                moveOpen && (
-                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, maxWidth: 360 }}>
-                    <input type="email" placeholder="you@company.com" value={moveEmail} onChange={e => setMoveEmail(e.target.value)} style={inputStyleLocal} />
-                    <label style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", display: "flex", alignItems: "flex-start" as const, gap: 7, lineHeight: 1.5 }}>
-                      <input type="checkbox" checked={moveConsent} onChange={e => setMoveConsent(e.target.checked)} style={{ marginTop: 2 }} />
-                      I consent to AIInfraWatch contacting me about moving this workload. We'll help coordinate the move — terms confirmed off-page, no automated provisioning.
-                    </label>
-                    <button onClick={submitMove} disabled={moveLoading} style={{
-                      ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: moveLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
-                      padding: "11px 18px", borderRadius: 3, border: "none", cursor: moveLoading ? "not-allowed" : "pointer",
-                    }}>{moveLoading ? "Submitting…" : "Confirm — start my move"}</button>
-                    {moveError && <p style={{ ...SANS, fontSize: 12, color: "#F2B5B5", margin: 0 }}>{moveError}</p>}
-                  </div>
-                )
-              ) : (
-                <div style={{ ...SANS, fontSize: 13, color: "var(--green)", lineHeight: 1.55 }}>
-                  ✓ Got it — we'll reach out to scope the move and confirm terms.
-                </div>
-              )}
-
-              {/* RETENTION — monitoring, demoted */}
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
-                {monitorDone ? (
-                  <div style={{ ...SANS, fontSize: 12, color: "var(--green)" }}>✓ We'll watch your bill and alert you.</div>
-                ) : !monitorOpen ? (
-                  <div style={{ ...SANS, fontSize: 12, color: "rgba(247,243,234,0.55)" }}>
-                    Watch my bill — we'll alert you when you're overpaying.{" "}
-                    <button onClick={openMonitor} style={{ ...SANS, fontSize: 12, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
-                      Notify me
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-                    <input type="email" placeholder="you@company.com" value={monitorEmail} onChange={e => setMonitorEmail(e.target.value)}
-                      style={{ ...inputStyleLocal, width: "auto", flex: "1 1 200px" }} />
-                    <button onClick={submitMonitor} disabled={monitorLoading} style={{
-                      ...SANS, fontSize: 12, fontWeight: 600, color: "var(--blue)", background: "transparent",
-                      border: "1px solid var(--blue)", padding: "8px 14px", borderRadius: 3, cursor: monitorLoading ? "not-allowed" : "pointer",
-                    }}>{monitorLoading ? "Submitting…" : "Notify me"}</button>
-                    {monitorError && <p style={{ ...SANS, fontSize: 11.5, color: "#F2B5B5", margin: 0, width: "100%" }}>{monitorError}</p>}
-                  </div>
-                )}
-              </div>
-            </div>
+          {/* Left: chart, capped width so it doesn't dominate */}
+          <div style={{ background: "var(--panel)", maxWidth: 720 }}>
+            <FamilySpreadChart
+              listings={listings ?? []}
+              family={family}
+              currentRatePerHour={currentRatePerHour}
+              floorRate={floorRatePerHour}
+              floorProviderShort={floorProviderLabel}
+              bare
+            />
           </div>
 
-          {/* Right: vertical button stack */}
-          <div style={{ background: "#171717", padding: "18px 16px", display: "flex", flexDirection: "column" as const, gap: 10 }}>
-            {!moveDone && !moveOpen && (
-              <>
-                <button
-                  type="button"
-                  onClick={openMove}
-                  style={{
-                    ...SANS, fontSize: 13.5, fontWeight: 600, color: "#171717", background: "#F7F3EA",
-                    padding: "12px 16px", borderRadius: 3, border: "none", cursor: "pointer", letterSpacing: "0.01em",
-                    width: "100%",
-                  }}
-                >
-                  Start my move →
-                </button>
-                <a
-                  href={providerSignupUrl(recommendation.provider)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={handleSelfServeClick}
-                  style={{
-                    ...SANS, fontSize: 13.5, fontWeight: 600, color: "#F7F3EA", background: "transparent",
-                    padding: "12px 16px", borderRadius: 3, border: "1px solid #F7F3EA", cursor: "pointer",
-                    letterSpacing: "0.01em", textDecoration: "none", display: "flex", alignItems: "center",
-                    justifyContent: "center", width: "100%", boxSizing: "border-box" as const,
-                  }}
-                >
-                  Move it yourself →
-                </a>
-              </>
+          {/* Right: move copy + CTA, one cohesive block */}
+          <div style={{ background: "#171717", padding: "20px 20px 22px", display: "flex", flexDirection: "column" as const, gap: 14 }}>
+            <div style={{ ...SANS, fontSize: 13, color: "rgba(247,243,234,0.9)", lineHeight: 1.55 }}>
+              We'll move this to <strong style={{ color: "#F7F3EA" }}>{floorProviderLabel}</strong> at{" "}
+              <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRatePerHour)}/hr</span> — save ~
+              <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtBigMoney(annualSavings!)}/yr</span>.{" "}
+              <span style={{ color: "rgba(247,243,234,0.6)" }}>Performance-based, you only pay from savings.</span>
+            </div>
+
+            {!moveDone ? (
+              !moveOpen ? (
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={openMove}
+                    style={{
+                      ...SANS, fontSize: 13.5, fontWeight: 600, color: "#171717", background: "#F7F3EA",
+                      padding: "12px 16px", borderRadius: 3, border: "none", cursor: "pointer", letterSpacing: "0.01em",
+                      width: "100%",
+                    }}
+                  >
+                    Start My Move →
+                  </button>
+                  <a
+                    href={providerSignupUrl(recommendation.provider)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={handleSelfServeClick}
+                    style={{
+                      ...SANS, fontSize: 13.5, fontWeight: 600, color: "#F7F3EA", background: "transparent",
+                      padding: "12px 16px", borderRadius: 3, border: "1px solid #F7F3EA", cursor: "pointer",
+                      letterSpacing: "0.01em", textDecoration: "none", display: "flex", alignItems: "center",
+                      justifyContent: "center", width: "100%", boxSizing: "border-box" as const,
+                    }}
+                  >
+                    Move It Yourself →
+                  </a>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                  <input type="email" placeholder="you@company.com" value={moveEmail} onChange={e => setMoveEmail(e.target.value)} style={inputStyleLocal} />
+                  <label style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", display: "flex", alignItems: "flex-start" as const, gap: 7, lineHeight: 1.5 }}>
+                    <input type="checkbox" checked={moveConsent} onChange={e => setMoveConsent(e.target.checked)} style={{ marginTop: 2 }} />
+                    I consent to AIInfraWatch contacting me about moving this workload. We'll help coordinate the move — terms confirmed off-page, no automated provisioning.
+                  </label>
+                  <button onClick={submitMove} disabled={moveLoading} style={{
+                    ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: moveLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
+                    padding: "11px 18px", borderRadius: 3, border: "none", cursor: moveLoading ? "not-allowed" : "pointer",
+                  }}>{moveLoading ? "Submitting…" : "Confirm — Start My Move"}</button>
+                  {moveError && <p style={{ ...SANS, fontSize: 12, color: "#F2B5B5", margin: 0 }}>{moveError}</p>}
+                </div>
+              )
+            ) : (
+              <div style={{ ...SANS, fontSize: 13, color: "var(--green)", lineHeight: 1.55 }}>
+                ✓ Got it — we'll reach out to scope the move and confirm terms.
+              </div>
             )}
+
+            {/* RETENTION — monitoring, demoted */}
+            <div style={{ paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
+              {monitorDone ? (
+                <div style={{ ...SANS, fontSize: 12, color: "var(--green)" }}>✓ We'll watch your bill and alert you.</div>
+              ) : !monitorOpen ? (
+                <div style={{ ...SANS, fontSize: 12, color: "rgba(247,243,234,0.55)" }}>
+                  Watch my bill — we'll alert you when you're overpaying.{" "}
+                  <button onClick={openMonitor} style={{ ...SANS, fontSize: 12, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                    Notify Me
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                  <input type="email" placeholder="you@company.com" value={monitorEmail} onChange={e => setMonitorEmail(e.target.value)}
+                    style={inputStyleLocal} />
+                  <button onClick={submitMonitor} disabled={monitorLoading} style={{
+                    ...SANS, fontSize: 12, fontWeight: 600, color: "var(--blue)", background: "transparent",
+                    border: "1px solid var(--blue)", padding: "8px 14px", borderRadius: 3, cursor: monitorLoading ? "not-allowed" : "pointer",
+                    width: "100%",
+                  }}>{monitorLoading ? "Submitting…" : "Notify Me"}</button>
+                  {monitorError && <p style={{ ...SANS, fontSize: 11.5, color: "#F2B5B5", margin: 0 }}>{monitorError}</p>}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : (
@@ -1130,7 +1126,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   const file = e.target.files?.[0];
                   if (file) { setBillFileName(file.name); setBillFile(file); setBillExtracted(null); setBillExtractError(null); setCommitted(false); }
                 }} />
-                <span style={{ fontSize: 15 }}>⬆</span> Choose file
+                <span style={{ fontSize: 15 }}>⬆</span> Choose File
               </label>
               {billFileName && (
                 <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
@@ -1208,7 +1204,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                 border: "1px dashed var(--border-mid)", borderRadius: 3, cursor: "pointer",
                 padding: "10px 18px", marginTop: 10, width: "100%",
               }}>
-                + Add another workload
+                + Add Another Workload
               </button>
             </div>
           )}
@@ -1227,7 +1223,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
               cursor: "pointer", letterSpacing: "0.01em",
             }}
           >
-            Run cost audit →
+            Run Cost Audit →
           </button>
           <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
             No email required to see results
@@ -1354,7 +1350,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
               ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none",
               cursor: earlyAccessSent ? "default" : "pointer", padding: 0, textDecoration: earlyAccessSent ? "none" : "underline",
             }}>
-              {earlyAccessSent ? "You're on the list ✓" : "Notify me"}
+              {earlyAccessSent ? "You're on the list ✓" : "Notify Me"}
             </button>
           </div>
         </div>

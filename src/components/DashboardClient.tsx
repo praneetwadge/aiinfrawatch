@@ -153,14 +153,14 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
                 padding: "11px 22px", borderRadius: 3, textDecoration: "none",
                 letterSpacing: "0.01em", whiteSpace: "nowrap" as const,
               }}>
-                Run cost audit →
+                Run Cost Audit →
               </Link>
               <a href="#market-data" style={{
                 ...SANS, fontSize: 13, color: "var(--text-secondary)",
                 padding: "11px 20px", borderRadius: 3, textDecoration: "none",
                 border: "1px solid var(--border-mid)", whiteSpace: "nowrap" as const,
               }}>
-                View market data ↓
+                View Market Data ↓
               </a>
             </div>
             <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 14, lineHeight: 1.5 }}>
@@ -771,7 +771,7 @@ function RoutingWaitlistModal({ onClose }: { onClose: () => void }) {
               border: "none", borderRadius: 3, padding: "11px 18px",
               cursor: loading ? "not-allowed" : "pointer",
             }}>
-              {loading ? "Submitting…" : "Request beta access"}
+              {loading ? "Submitting…" : "Request Beta Access"}
             </button>
           </>
         )}
@@ -900,7 +900,7 @@ export default function DashboardClient({ summary, listings }: Props) {
                   cursor: "pointer", whiteSpace: "nowrap" as const,
                 }}
               >
-                Learn about routing beta →
+                Learn About Routing Beta →
               </button>
             </div>
           </div>
