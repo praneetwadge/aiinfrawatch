@@ -614,7 +614,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
         {headline}
       </div>
       {hasGap && currentRatePerHour != null ? (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 720px) 300px", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderTop: "none", alignItems: "stretch", justifyContent: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderTop: "none", alignItems: "stretch" }}>
 
           {/* Left: chart */}
           <div style={{ background: "var(--panel)" }}>
@@ -1100,9 +1100,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
                       >
                         Generate Full Verified Audit &amp; Report →
                       </button>
-                      <span style={{ ...SANS, fontSize: 11, color: "var(--text-muted)" }}>
-                        No email required · Instant results
-                      </span>
                     </div>
 
                   </div>
@@ -1222,9 +1219,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
           >
             Run Cost Audit →
           </button>
-          <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
-            No email required to see results
-          </span>
         </div>
 
       </div>{/* end input card wrapper */}
