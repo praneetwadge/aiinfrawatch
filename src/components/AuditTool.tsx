@@ -589,6 +589,9 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
       setMonitorDone(true); setMonitorOpen(false);
+      // "Watch my bill" now also covers routing-beta interest (folded from the separate
+      // roadmap-line signup) — fire-and-forget, never blocks or surfaces errors to the visitor.
+      post(buildNotes("EARLY_ACCESS_ROUTING_BETA")).catch(() => {});
     } catch (e: any) { setMonitorError(e?.message ?? "Network error — try again."); }
     finally { setMonitorLoading(false); }
   };
@@ -611,10 +614,10 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
         {headline}
       </div>
       {hasGap && currentRatePerHour != null ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderTop: "none", alignItems: "stretch" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 720px) 300px", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderTop: "none", alignItems: "stretch", justifyContent: "start" }}>
 
-          {/* Left: chart, capped width so it doesn't dominate */}
-          <div style={{ background: "var(--panel)", maxWidth: 720 }}>
+          {/* Left: chart */}
+          <div style={{ background: "var(--panel)" }}>
             <FamilySpreadChart
               listings={listings ?? []}
               family={family}
@@ -754,7 +757,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const [rows,           setRows]           = useState<WorkloadRow[]>(() => ssRead()?.rows ?? [newRow()]);
   const [committed,      setCommitted]      = useState<boolean>(() => ssRead()?.committed ?? false);
   const [wantsAlerts,    setWantsAlerts]    = useState(true);
-  const [earlyAccessSent, setEarlyAccessSent] = useState(false);
 
   // Results render into a page-level portal target (#audit-results-portal) so they can sit
   // full-width below the hero instead of being trapped in the narrow input column. Falls back
@@ -854,11 +856,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
-  };
-
-  const handleEarlyAccess = async () => {
-    try { await post(buildNotes("EARLY_ACCESS_ROUTING_BETA")); setEarlyAccessSent(true); }
-    catch { setEarlyAccessSent(true); }
   };
 
   const handleRunAudit = async () => {
@@ -1338,21 +1335,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
               </div>
             ) : null
           )}
-        </div>
-      )}
-
-      {/* ── Routing beta roadmap line (§6) ── */}
-      {(showResult || (committed && hasUpload)) && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, padding: "2px 2px" }}>
-            Soon: we move flexible workloads automatically.{" "}
-            <button onClick={handleEarlyAccess} disabled={earlyAccessSent} style={{
-              ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none",
-              cursor: earlyAccessSent ? "default" : "pointer", padding: 0, textDecoration: earlyAccessSent ? "none" : "underline",
-            }}>
-              {earlyAccessSent ? "You're on the list ✓" : "Notify Me"}
-            </button>
-          </div>
         </div>
       )}
           </>
