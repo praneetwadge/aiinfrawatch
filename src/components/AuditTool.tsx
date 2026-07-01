@@ -403,10 +403,6 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
   );
 }
 
-// Short shareable line for the "Share my result" affordance.
-const buildShareLine = (annualSavings: number, family: GpuFamily) =>
-  `I'm overpaying ${fmtBigMoney(annualSavings)}/yr on ${family === "other" ? "GPUs" : family + " GPUs"} — checked on AIInfraWatch.`;
-
 // Fire-and-forget: logs the anonymized, normalized economics for this result
 // to audit_observations. Never blocks or surfaces errors to the visitor.
 function logAuditObservation(payload: {
@@ -525,18 +521,6 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
     if (hasGap) logEvent("overpay_shown");
   }, [family, gpuCount, currentRatePerHour, floorRatePerHour, currentMonthly, situation, workload, inputMode, hasGap, providerLabel, premiumOverFloorPct, savingsPct]);
 
-  const [shareCopied, setShareCopied] = useState(false);
-  const handleShare = async () => {
-    if (!hasGap || annualSavings == null) return;
-    logEvent("share_click");
-    const line = buildShareLine(annualSavings, family);
-    try {
-      await navigator.clipboard.writeText(line);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
-    } catch { /* clipboard unavailable — silently no-op */ }
-  };
-
   // ── "Start my move" capture (primary, performance-based) ──
   const [moveOpen, setMoveOpen]       = useState(false);
   const [moveEmail, setMoveEmail]     = useState("");
@@ -644,16 +628,31 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
 
           {!moveDone ? (
             !moveOpen ? (
-              <button
-                type="button"
-                onClick={openMove}
-                style={{
-                  ...SANS, fontSize: 14, fontWeight: 600, color: "#171717", background: "#F7F3EA",
-                  padding: "12px 24px", borderRadius: 3, border: "none", cursor: "pointer", letterSpacing: "0.01em",
-                }}
-              >
-                Start my move →
-              </button>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const }}>
+                <button
+                  type="button"
+                  onClick={openMove}
+                  style={{
+                    ...SANS, fontSize: 14, fontWeight: 600, color: "#171717", background: "#F7F3EA",
+                    padding: "12px 24px", borderRadius: 3, border: "none", cursor: "pointer", letterSpacing: "0.01em",
+                  }}
+                >
+                  Start my move →
+                </button>
+                <a
+                  href={providerSignupUrl(recommendation.provider)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleSelfServeClick}
+                  style={{
+                    ...SANS, fontSize: 14, fontWeight: 600, color: "#F7F3EA", background: "transparent",
+                    padding: "12px 24px", borderRadius: 3, border: "1px solid #F7F3EA", cursor: "pointer",
+                    letterSpacing: "0.01em", textDecoration: "none", display: "inline-flex", alignItems: "center",
+                  }}
+                >
+                  Move it yourself →
+                </a>
+              </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, maxWidth: 360 }}>
                 <input type="email" placeholder="you@company.com" value={moveEmail} onChange={e => setMoveEmail(e.target.value)} style={inputStyleLocal} />
@@ -673,19 +672,6 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
               ✓ Got it — we'll reach out to scope the move and confirm terms.
             </div>
           )}
-
-          {/* SECONDARY — self-serve, quieter */}
-          <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
-            <a
-              href={providerSignupUrl(recommendation.provider)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={handleSelfServeClick}
-              style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.65)", textDecoration: "underline" }}
-            >
-              Prefer to move it yourself? Go to {floorProviderLabel} →
-            </a>
-          </div>
 
           {/* RETENTION — monitoring, demoted */}
           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
@@ -711,19 +697,6 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
             )}
           </div>
 
-          {/* Share affordance */}
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
-            <button
-              type="button"
-              onClick={handleShare}
-              style={{
-                ...SANS, fontSize: 12, fontWeight: 600, color: "#F7F3EA", background: "transparent",
-                border: "1px solid rgba(247,243,234,0.25)", padding: "8px 14px", borderRadius: 3, cursor: "pointer",
-              }}
-            >
-              {shareCopied ? "Copied ✓" : "Share my result"}
-            </button>
-          </div>
         </div>
       ) : (
         advice && (
@@ -770,12 +743,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const [diagramFileName, setDiagramFileName] = useState<string | null>(() => ssRead()?.diagramFileName ?? null);
   const [rows,           setRows]           = useState<WorkloadRow[]>(() => ssRead()?.rows ?? [newRow()]);
   const [committed,      setCommitted]      = useState<boolean>(() => ssRead()?.committed ?? false);
-  const [email,          setEmail]          = useState("");
   const [wantsAlerts,    setWantsAlerts]    = useState(true);
-  const [loading,        setLoading]        = useState(false);
-  const [error,          setError]          = useState("");
-  const [submitted,      setSubmitted]      = useState(false);
-  const [submittedEmail, setSubmittedEmail] = useState("");
   const [earlyAccessSent, setEarlyAccessSent] = useState(false);
 
   // Persist audit state whenever the fields that matter change.
@@ -879,18 +847,10 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const post = async (notes: string) => {
     const res = await fetch("/api/audit-request", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, monthlySpend: "Unknown / audit needed", workload: primarySnapshot.workload, notes, source: "cost-audit" }),
+      body: JSON.stringify({ email: "", monthlySpend: "Unknown / audit needed", workload: primarySnapshot.workload, notes, source: "cost-audit" }),
     });
     const json = await res.json();
     if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
-  };
-
-  const handleCapture = async () => {
-    if (!email || !email.includes("@")) { setError("Enter a valid work email."); return; }
-    setError(""); setLoading(true);
-    try { await post(buildNotes()); setSubmittedEmail(email); setSubmitted(true); }
-    catch (e: any) { setError(e?.message ?? "Network error — try again."); }
-    finally { setLoading(false); }
   };
 
   const handleEarlyAccess = async () => {
@@ -1444,22 +1404,9 @@ export default function AuditTool({ listings }: AuditToolProps) {
         </div>
       )}
 
-      {/* ── Email breakdown + roadmap line (§2.8, §6) ── */}
-      {(showResult || (committed && hasUpload)) && !submitted && (
+      {/* ── Routing beta roadmap line (§6) ── */}
+      {(showResult || (committed && hasUpload)) && (
         <div style={{ marginTop: 16 }}>
-
-          {/* Email me the full breakdown — unchanged CTA copy */}
-          <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "16px 18px", display: "flex", gap: 10, flexWrap: "wrap" as const, alignItems: "center", marginBottom: 12 }}>
-            <input type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)}
-              style={{ ...inputStyle, width: "auto", flex: "1 1 220px" }} />
-            <button onClick={handleCapture} disabled={loading} style={{
-              ...SANS, fontSize: 12.5, fontWeight: 600, color: "var(--text-secondary)", background: "transparent",
-              padding: "10px 18px", borderRadius: 3, border: "1px solid var(--border-mid)", cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const,
-            }}>{loading ? "Sending…" : "Email me the full breakdown"}</button>
-            {error && <p style={{ ...SANS, fontSize: 12, color: "var(--red)", width: "100%", margin: "4px 0 0" }}>{error}</p>}
-          </div>
-
-          {/* Routing beta — demoted to a single roadmap line, no standalone CTA bar, no pricing. */}
           <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, padding: "2px 2px" }}>
             Soon: we move flexible workloads automatically.{" "}
             <button onClick={handleEarlyAccess} disabled={earlyAccessSent} style={{
@@ -1469,35 +1416,6 @@ export default function AuditTool({ listings }: AuditToolProps) {
               {earlyAccessSent ? "You're on the list ✓" : "Notify me"}
             </button>
           </div>
-        </div>
-      )}
-
-
-      {/* ── Success ── */}
-      {submitted && (
-        <div style={{ marginTop: 16, background: "var(--panel)", border: "1px solid var(--border)", padding: "28px 24px", textAlign: "center" as const }}>
-          <div style={{ fontSize: 22, color: "var(--green)", marginBottom: 10 }}>✓</div>
-          <div style={{ ...SERIF, fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 8 }}>On its way.</div>
-          <div style={{ ...SANS, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6, maxWidth: 460, margin: "0 auto" }}>
-            Breakdown sent to <strong style={{ color: "var(--text-primary)" }}>{submittedEmail}</strong> — expect it within one business day.
-          </div>
-          {!earlyAccessSent ? (
-            <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
-              <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 12 }}>
-                Soon: we move flexible workloads automatically.
-              </div>
-              <button onClick={handleEarlyAccess} style={{
-                ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "#171717",
-                padding: "10px 22px", borderRadius: 3, border: "none", cursor: "pointer",
-              }}>
-                Notify me →
-              </button>
-            </div>
-          ) : (
-            <div style={{ ...SANS, fontSize: 12.5, color: "var(--green)", marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
-              You're on the list.
-            </div>
-          )}
         </div>
       )}
 
