@@ -4,7 +4,6 @@ import { computeMarketSummary, getLatestGpuListings } from "@/lib/db/queries";
 import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
 import AuditTool from "@/components/AuditTool";
-import AuditStatStrip from "@/components/AuditStatStrip";
 import type { GpuListing } from "@/lib/market-helpers";
 
 export const revalidate = 300;
@@ -29,25 +28,21 @@ export default async function Page() {
         <SiteNav />
 
         <main>
-          {/* AuditHero — hard $ promise, single primary CTA. No brochure copy. */}
+          {/* Audit hero — headline + input card in one panel, no scroll before the CTA. */}
           <section style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
-            <div style={{ maxWidth: 920, margin: "0 auto", padding: "44px 32px 30px" }}>
-              <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 14 }}>
+            <div style={{ maxWidth: 920, margin: "0 auto", padding: "32px 32px 28px" }}>
+              <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 10 }}>
                 Cost Audit
               </div>
-              <h1 style={{ ...SERIF, fontSize: 44, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 14 }}>
+              <h1 style={{ ...SERIF, fontSize: 32, fontWeight: 400, lineHeight: 1.15, color: "var(--text-primary)", marginBottom: 8 }}>
                 See what you're overpaying on GPU compute.
               </h1>
-              <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 620, marginBottom: 18 }}>
-                Paste your stack, bill, or provider quote. Get a dollar number against the live reliable-floor market — before you give us an email.
+              <p style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: 620, marginBottom: 20 }}>
+                Paste your stack, upload a bill, or describe your setup. See the number before you give us an email.
               </p>
+
+              <AuditTool listings={listingsData} />
             </div>
-          </section>
-
-          <AuditStatStrip listings={listingsData} />
-
-          <section id="audit-tool" style={{ maxWidth: 920, margin: "0 auto", padding: "28px 32px 8px" }}>
-            <AuditTool listings={listingsData} />
           </section>
 
           {/* Quiet Market-data link — not a co-primary CTA, just a proof-surface pointer. */}
