@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   GpuListing, HYPERSCALERS, fmtMoney, fmtP, getMeta,
 } from "@/lib/market-helpers";
@@ -746,6 +747,15 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const [wantsAlerts,    setWantsAlerts]    = useState(true);
   const [earlyAccessSent, setEarlyAccessSent] = useState(false);
 
+  // Results render into a page-level portal target (#audit-results-portal) so they can sit
+  // full-width below the hero instead of being trapped in the narrow input column. Falls back
+  // to inline rendering (null-safe — portal only fires once the node exists) if the target
+  // isn't present, e.g. if AuditTool is ever used somewhere without the portal div.
+  const [resultsPortalNode, setResultsPortalNode] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setResultsPortalNode(document.getElementById("audit-results-portal"));
+  }, []);
+
   // Persist audit state whenever the fields that matter change.
   // useRef guards against writing on the very first render (no-op — just read back what we wrote).
   const mountedRef = useRef(false);
@@ -1239,6 +1249,9 @@ export default function AuditTool({ listings }: AuditToolProps) {
 
       </div>{/* end input card wrapper */}
 
+      {(() => {
+        const guardAndResults = (
+          <>
       {/* ── Guard ── */}
       {showGuard && (
         <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderLeft: "3px solid var(--amber)", padding: "18px 24px", marginBottom: 16 }}>
@@ -1373,6 +1386,10 @@ export default function AuditTool({ listings }: AuditToolProps) {
           </div>
         </div>
       )}
+          </>
+        );
+        return resultsPortalNode ? createPortal(guardAndResults, resultsPortalNode) : guardAndResults;
+      })()}
 
       <style>{`
         @media (max-width: 760px) {
