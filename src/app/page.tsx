@@ -4,6 +4,7 @@ import { computeMarketSummary, getLatestGpuListings } from "@/lib/db/queries";
 import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
 import AuditTool from "@/components/AuditTool";
+import AuditStatStrip from "@/components/AuditStatStrip";
 import type { GpuListing } from "@/lib/market-helpers";
 
 export const revalidate = 300;
@@ -40,15 +41,10 @@ export default async function Page() {
               <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 620, marginBottom: 18 }}>
                 Paste your stack, bill, or provider quote. Get a dollar number against the live reliable-floor market — before you give us an email.
               </p>
-              <a href="#audit-tool" style={{
-                ...SANS, display: "inline-block", fontSize: 14, fontWeight: 600,
-                color: "#F7F3EA", background: "#171717",
-                padding: "13px 28px", borderRadius: 3, textDecoration: "none", letterSpacing: "0.01em",
-              }}>
-                See what you're overpaying →
-              </a>
             </div>
           </section>
+
+          <AuditStatStrip listings={listingsData} />
 
           <section id="audit-tool" style={{ maxWidth: 920, margin: "0 auto", padding: "28px 32px 8px" }}>
             <AuditTool listings={listingsData} />
