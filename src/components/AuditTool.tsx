@@ -64,8 +64,35 @@ const PROVIDER_SIGNUP_URLS: Record<string, string> = {
   voltagepark: "https://www.voltagepark.com/",
   "voltage park": "https://www.voltagepark.com/",
 };
-const providerSignupUrl = (provider: string) =>
-  PROVIDER_SIGNUP_URLS[provider.toLowerCase()] ?? "#";
+function getClientSessionId(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    let sid = window.sessionStorage.getItem("aiw_sid");
+    if (!sid) {
+      sid = (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : String(Date.now()) + Math.random().toString(36).slice(2);
+      window.sessionStorage.setItem("aiw_sid", sid);
+    }
+    return sid;
+  } catch { return ""; }
+}
+
+const REFERRAL_OVERRIDES: Record<string, string> = {
+  ...(process.env.NEXT_PUBLIC_RUNPOD_REF ? { runpod: `https://runpod.io?ref=${process.env.NEXT_PUBLIC_RUNPOD_REF}` } : {}),
+  ...(process.env.NEXT_PUBLIC_VASTAI_REF ? { vastai: `https://vast.ai/?ref=${process.env.NEXT_PUBLIC_VASTAI_REF}`, "vast.ai": `https://vast.ai/?ref=${process.env.NEXT_PUBLIC_VASTAI_REF}` } : {}),
+};
+
+const referralUrl = (provider: string) => {
+  const key = provider.toLowerCase();
+  const base =
+    REFERRAL_OVERRIDES[key] ??
+    PROVIDER_SIGNUP_URLS[key] ??
+    ("https://www.google.com/search?q=" + encodeURIComponent(provider + " GPU cloud pricing"));
+  const sep = base.includes("?") ? "&" : "?";
+  const sid = getClientSessionId();
+  return `${base}${sep}utm_source=aiinfrawatch&utm_medium=audit&utm_campaign=move_yourself${sid ? `&aiw_sid=${encodeURIComponent(sid)}` : ""}`;
+};
 
 const parseNum = (v: string, fallback: number) => {
   const n = Number(v);
@@ -421,12 +448,14 @@ function logAuditObservation(payload: {
   workload_class: string;
   reliable_floor_usd_hr: number;
   overpay_pct?: number | null;
+  recommended_provider?: string;
+  recommended_rate_usd_hr?: number | null;
 }) {
   try {
     fetch("/api/audit-observation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, session_id: getClientSessionId() }),
       keepalive: true,
     }).catch(() => {});
   } catch { /* never block the UI on telemetry */ }
@@ -438,7 +467,7 @@ function logEvent(event_name: string, kind?: string, meta?: Record<string, unkno
     fetch("/api/event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_name, kind, meta }),
+      body: JSON.stringify({ event_name, kind, meta, session_id: getClientSessionId() }),
       keepalive: true,
     }).catch(() => {});
   } catch { /* never block the UI on telemetry */ }
@@ -520,6 +549,8 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
       workload_class: workload,
       reliable_floor_usd_hr: floorRatePerHour,
       overpay_pct: premiumOverFloorPct ?? (savingsPct ?? undefined),
+      recommended_provider: floorProviderLabel,
+      recommended_rate_usd_hr: floorRatePerHour,
     });
     logEvent("audit_run", inputMode);
     if (hasGap) logEvent("overpay_shown");
@@ -544,6 +575,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: "savings_share",
+          session_id: getClientSessionId(),
           email: moveEmail,
           current_provider: providerLabel,
           gpu_type: family === "other" ? "other" : family,
@@ -577,6 +609,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: "monitor",
+          session_id: getClientSessionId(),
           email: monitorEmail,
           current_provider: providerLabel,
           gpu_type: family === "other" ? "other" : family,
@@ -596,7 +629,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
     finally { setMonitorLoading(false); }
   };
 
-  const handleSelfServeClick = () => logEvent("self_serve_click");
+  const handleSelfServeClick = () => logEvent("self_serve_click", undefined, { provider: floorProviderLabel });
 
   const inputStyleLocal: React.CSSProperties = {
     ...SANS, width: "100%", background: "rgba(247,243,234,0.06)", border: "1px solid rgba(247,243,234,0.22)",
@@ -652,7 +685,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                     Start My Move →
                   </button>
                   <a
-                    href={providerSignupUrl(recommendation.provider)}
+                    href={referralUrl(recommendation.provider)}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={handleSelfServeClick}
@@ -978,10 +1011,11 @@ export default function AuditTool({ listings }: AuditToolProps) {
                     background: "var(--elevated)", border: "1px solid var(--border)",
                     padding: "2px 7px", borderRadius: 2, pointerEvents: "none" as const,
                   }}>
-                    Secure · No data stored
+                    Your bill file is never saved
                   </div>
                 )}
               </div>
+              <a href="/privacy" style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", textDecoration: "underline" }}>How we handle your data</a>
 
               {/* Instant sandbox preview — appears as soon as text is entered */}
               {hasText && (() => {
