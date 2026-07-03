@@ -17,6 +17,8 @@ const schema = z.object({
   workload_class: z.string().optional(),
   reliable_floor_usd_hr: z.number(),
   overpay_pct: z.number().nullable().optional(),
+  recommended_provider: z.string().optional(),
+  recommended_rate_usd_hr: z.number().nullable().optional(),
 });
 
 export async function POST(request: NextRequest) {
