@@ -22,6 +22,8 @@ export interface AuditObservationInput {
   workload_class?: string | null;
   reliable_floor_usd_hr: number;
   overpay_pct?: number | null;
+  recommended_provider?: string | null;
+  recommended_rate_usd_hr?: number | null;
 }
 
 export async function recordAuditObservation(obs: AuditObservationInput): Promise<void> {
@@ -39,6 +41,8 @@ export async function recordAuditObservation(obs: AuditObservationInput): Promis
       workload_class: obs.workload_class || null,
       reliable_floor_usd_hr: obs.reliable_floor_usd_hr,
       overpay_pct: obs.overpay_pct ?? null,
+      recommended_provider: obs.recommended_provider || null,
+      recommended_rate_usd_hr: obs.recommended_rate_usd_hr ?? null,
     });
     if (error) console.error("[audit_observations] insert error:", error.message);
   } catch (err) {
