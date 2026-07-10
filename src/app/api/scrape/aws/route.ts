@@ -1,6 +1,9 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 
+// Same reasoning as /api/cron — AWS's payload is larger than other scrapers'.
+export const maxDuration = 60;
+
 export async function GET(request: NextRequest) {
   try {
     const { scrapeAWS } = await import("@/lib/scrapers/aws");
