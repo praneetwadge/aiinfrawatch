@@ -861,6 +861,15 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const showUploadResult = committed && activeTab === "bill" && hasUpload;
   const showResult       = showTextResult || showManualResult || showUploadResult;
 
+  // The static demo card (src/components/DemoAuditPreview.tsx) is SSR'd directly in
+  // page.tsx for a zero-flash first paint. It has no client logic of its own, so
+  // hiding it once real results exist is done here with a plain DOM toggle — no new
+  // props into ResultSection, no telemetry, no touching computeResult.
+  useEffect(() => {
+    const demo = document.getElementById("audit-demo-preview");
+    if (demo) demo.style.display = showResult ? "none" : "";
+  }, [showResult]);
+
   const inputStyle: React.CSSProperties = {
     ...SANS, width: "100%", background: "var(--panel)", border: "1px solid var(--border-mid)",
     color: "var(--text-primary)", padding: "10px 12px", fontSize: 13.5, outline: "none", borderRadius: 3,
@@ -1162,6 +1171,18 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>{billFileName}</span>
                   <button onClick={() => { setBillFileName(null); setBillFile(null); setBillExtracted(null); setBillExtractError(null); setCommitted(false); }} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>remove</button>
                 </div>
+              )}
+              {!billFileName && (
+                <button
+                  onClick={() => {
+                    setActiveTab("describe");
+                    setSetupText("8x H100 on AWS, 720 hours/month, training");
+                    setCommitted(true);
+                  }}
+                  style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: 12, display: "block" }}
+                >
+                  Don't have a bill? Click here to auto-fill sample data.
+                </button>
               )}
             </div>
           )}
