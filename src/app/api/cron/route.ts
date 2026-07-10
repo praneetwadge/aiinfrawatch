@@ -1,6 +1,14 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 
+// Raises this route's platform-level execution ceiling from Vercel's default
+// up to Hobby's max. This is a per-invocation duration limit — unrelated to
+// the cron *schedule* ("0 0 * * *" in vercel.json), which stays untouched.
+// Needed so AWS's larger payload (see scrapers/aws.ts) has room to finish
+// instead of being killed by the platform before its own internal timeout
+// below even fires.
+export const maxDuration = 60;
+
 export async function GET(request: NextRequest) {
   return POST(request);
 }
@@ -8,13 +16,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const results = [];
 
-  async function tryScraper(name: string, importFn: () => Promise<any>, fnName: string) {
+  async function tryScraper(name: string, importFn: () => Promise<any>, fnName: string, timeoutMs = 8000) {
     try {
       const mod = await importFn();
       const fn = mod[fnName];
       const result = await Promise.race([
         fn(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), timeoutMs))
       ]);
       if (result.listings?.length > 0) {
         const { upsertGpuListings } = await import("@/lib/db/queries");
@@ -27,7 +35,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Hyperscalers
-  await tryScraper("aws",         () => import("@/lib/scrapers/aws"),         "scrapeAWS");
+  // AWS gets a longer budget — its regional pricing catalog is far larger
+  // than any other scraper's payload (see scrapers/aws.ts for why).
+  await tryScraper("aws",         () => import("@/lib/scrapers/aws"),         "scrapeAWS", 25000);
   await tryScraper("azure",       () => import("@/lib/scrapers/azure"),       "scrapeAzure");
   await tryScraper("gcp",         () => import("@/lib/scrapers/gcp"),         "scrapeGCP");
   await tryScraper("oci",         () => import("@/lib/scrapers/oci"),         "scrapeOCI");
