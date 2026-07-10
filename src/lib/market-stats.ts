@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { HYPERSCALERS } from "@/lib/market-helpers";
+import { HYPERSCALERS, getMeta } from "@/lib/market-helpers";
 import type { GpuListing } from "@/lib/market-helpers";
 
 export interface MarketStats {
@@ -31,4 +31,47 @@ export function computeMarketStats(listings: GpuListing[]): MarketStats {
   const a100PremiumPct = a100SpecAvg > 0 && a100HyperAvg > 0 ? ((a100HyperAvg / a100SpecAvg - 1) * 100) : null;
 
   return { activeProviders, cheapestH100High, h100Prices, premiumPct, a100PremiumPct };
+}
+
+// ── Demo scenario ────────────────────────────────────────────────────────────
+// Derives a landing-page demo example strictly from MarketStats — never a new
+// computation, never a hand-picked provider. Reuses the SAME floor price and
+// SAME hyperscaler premium % already shown in the ticker and AuditStatStrip,
+// so the demo card can't numerically disagree with anything else on the page.
+// Returns null if there's no positive premium to show right now (e.g. an H100
+// data gap) — silent is better than a fabricated number.
+export interface DemoExample {
+  gpuCount: number;
+  hoursPerMonth: number;
+  floorRatePerHour: number;
+  floorProviderShort: string;
+  hyperscalerRatePerHour: number;
+  currentMonthly: number;
+  recommendedMonthly: number;
+  annualSavings: number;
+  savingsPct: number;
+}
+
+export function computeDemoExample(
+  stats: MarketStats, gpuCount = 8, hoursPerMonth = 720,
+): DemoExample | null {
+  const floorListing = stats.cheapestH100High;
+  const floorRate = floorListing ? floorListing.price_per_hour : (stats.h100Prices[0] ?? null);
+  if (floorRate == null || stats.premiumPct == null || stats.premiumPct <= 0) return null;
+
+  const hyperscalerRatePerHour = floorRate * (1 + stats.premiumPct / 100);
+  const recommendedMonthly = floorRate * gpuCount * hoursPerMonth;
+  const currentMonthly = hyperscalerRatePerHour * gpuCount * hoursPerMonth;
+  const savings = currentMonthly - recommendedMonthly;
+  if (savings <= 0) return null;
+
+  return {
+    gpuCount, hoursPerMonth,
+    floorRatePerHour: floorRate,
+    floorProviderShort: floorListing ? getMeta(floorListing.provider).short : "specialist cloud",
+    hyperscalerRatePerHour,
+    currentMonthly, recommendedMonthly,
+    annualSavings: savings * 12,
+    savingsPct: Math.round((savings / currentMonthly) * 100),
+  };
 }
