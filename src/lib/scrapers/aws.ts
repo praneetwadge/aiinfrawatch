@@ -14,7 +14,15 @@ import type { GpuListing, ScraperResult } from "@/types";
 const AWS_PRICING_BASE = "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current";
 
 const TARGET_FAMILIES = ["p4d", "p4de", "p5", "g5", "g6"];
-const TARGET_REGIONS = ["us-east-1", "us-west-2", "eu-west-1", "ap-northeast-1"];
+// Was 4 regions fetched in parallel. AWS's regional EC2 pricing index is the
+// FULL catalog (every instance type, not just GPUs) — tens of MB per region.
+// Fetching + parsing 4 of them concurrently in one serverless invocation was
+// blowing past the cron route's internal timeout every single day (confirmed:
+// aws.gpu_listings hadn't refreshed in 7 days while every other provider
+// refreshed daily). Trimmed to us-east-1 only — it's AWS's primary/cheapest
+// GPU region and typically has the broadest instance-type coverage, so this
+// keeps real, live AWS pricing flowing without the payload blowing the budget.
+const TARGET_REGIONS = ["us-east-1"];
 
 // Map AWS instance families to GPU models
 const INSTANCE_GPU_MAP: Record<string, { gpu: string; count: number }> = {
@@ -45,7 +53,7 @@ export async function scrapeAWS(): Promise<ScraperResult> {
         try {
           const url = `${AWS_PRICING_BASE}/${region}/index.json`;
           const { data } = await axios.get(url, {
-            timeout: 30000,
+            timeout: 20000,
             // AWS pricing JSON is large — we only need a slice
             responseType: "json",
           });
