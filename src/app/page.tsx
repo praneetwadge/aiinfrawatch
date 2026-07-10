@@ -4,6 +4,8 @@ import { computeMarketSummary, getLatestGpuListings } from "@/lib/db/queries";
 import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
 import AuditTool from "@/components/AuditTool";
+import AuditStatStrip from "@/components/AuditStatStrip";
+import DemoAuditPreview from "@/components/DemoAuditPreview";
 import type { GpuListing } from "@/lib/market-helpers";
 
 export const revalidate = 300;
@@ -60,8 +62,15 @@ export default async function Page() {
             </div>
           </section>
 
+          {/* Compact 3-stat strip — same source of truth as MarketHero (computeMarketStats). Fills the gap with live proof before the audit tool loads results. */}
+          <AuditStatStrip listings={listingsData} />
+
+          {/* Static, SSR'd demo — fills the results gap on first paint, no JS required.
+              Hidden client-side by AuditTool once a real result exists (see AuditTool.tsx). */}
+          <DemoAuditPreview listings={listingsData} />
+
           {/* Results render here, full-width, via AuditTool's portal — savings number, chart, and CTAs get room to breathe. */}
-          <section style={{ maxWidth: 1360, margin: "0 auto", padding: "32px 32px 8px" }}>
+          <section style={{ maxWidth: 1360, margin: "0 auto", padding: "0 32px 8px" }}>
             <div id="audit-results-portal" />
           </section>
 
