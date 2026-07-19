@@ -48,9 +48,15 @@ export default async function Page() {
                   <h1 style={{ ...SERIF, fontSize: 52, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 20, maxWidth: 640 }}>
                     Stop overpaying for GPU compute.
                   </h1>
-                  <p style={{ ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 520, marginBottom: 26 }}>
+                  <p style={{ ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 520, marginBottom: 0 }}>
                     Most teams are paying hyperscaler prices for commodity compute. We find the gap, show you the number, and help you move — no lock-in, no sales calls.
                   </p>
+
+                  {/* Compact 3-stat strip — moved here from a full-width banded
+                      section below the whole hero grid, and shrunk substantially.
+                      Same computeMarketStats() source of truth as MarketHero on
+                      /market-data. */}
+                  <AuditStatStrip listings={listingsData} />
                 </div>
 
                 {/* Right: audit input — narrower, secondary to the pitch */}
@@ -61,9 +67,6 @@ export default async function Page() {
               </div>
             </div>
           </section>
-
-          {/* Compact 3-stat strip — same source of truth as MarketHero (computeMarketStats). Fills the gap with live proof before the audit tool loads results. */}
-          <AuditStatStrip listings={listingsData} />
 
           {/* Static, SSR'd demo — fills the results gap on first paint, no JS required.
               Hidden client-side by AuditTool once a real result exists (see AuditTool.tsx). */}
