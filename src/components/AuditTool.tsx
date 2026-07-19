@@ -961,9 +961,9 @@ export default function AuditTool({ listings }: AuditToolProps) {
   const removeRow = (id: number) => setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : rs);
 
   const TABS: { id: InputTab; label: string; dot: boolean }[] = [
-    { id: "describe", label: "Describe",             dot: hasText },
     { id: "bill",     label: "Cloud bill",            dot: !!billFileName },
     { id: "manual",   label: "Manual details",        dot: false },
+    { id: "describe", label: "Describe",             dot: hasText },
   ];
 
   const tabBtn = (id: InputTab, label: string, dot: boolean) => (
@@ -993,8 +993,12 @@ export default function AuditTool({ listings }: AuditToolProps) {
           {TABS.map(t => tabBtn(t.id, t.label, t.dot))}
         </div>
 
-        {/* Tab panel */}
-        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "20px 24px" }}>
+        {/* Tab panel — minHeight sized to the tallest of the three default tab
+            states (Manual details, 1 row, ≈380px) so switching tabs before any
+            content grows (typed text, added rows, quick-estimate preview) never
+            hops the page vertically. Content-driven growth beyond this floor is
+            expected and unaffected. */}
+        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "20px 24px", minHeight: 400 }}>
 
           {/* Describe */}
           {activeTab === "describe" && (
