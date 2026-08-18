@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import {
   GpuListing, HYPERSCALERS, fmtMoney, fmtP, getMeta,
 } from "@/lib/market-helpers";
+import { computeMarketStats, computeDemoExample } from "@/lib/market-stats";
 
 const MONO:  React.CSSProperties = { fontFamily: "var(--font-mono)" };
 const SANS:  React.CSSProperties = { fontFamily: "var(--font-sans)" };
@@ -32,7 +33,16 @@ const SETUP_OPTIONS: { value: Situation; label: string }[] = [
   { value: "unsure",      label: "Mixed / not sure" },
 ];
 
-interface AuditToolProps { listings: GpuListing[]; }
+interface AuditToolProps {
+  listings: GpuListing[];
+  // Compact mode: renders a single-row prefilled calculator (GPU + count +
+  // hours + savings number) for use inside the /market-data hero stat strip.
+  // No tabs, no bill upload, no describe box, no CTA capture forms, no
+  // sessionStorage persistence — just the same computeResult() + prefill +
+  // touched-gating logic as the full tool, in a smaller shell. See
+  // "Interactive Hero Calculator" brief §4.
+  compact?: boolean;
+}
 
 // Hardcoded provider deep-links for the secondary "Move it myself →" self-serve
 // link (§2.5 — earns channel/referral, quieter than the primary "Start my
@@ -473,14 +483,30 @@ function logEvent(event_name: string, kind?: string, meta?: Record<string, unkno
   } catch { /* never block the UI on telemetry */ }
 }
 
-function ResultSection({ r, family, gpuCount, hours, situation, workload, label, billActualSpend, billProvider, listings, inputMode }: {
+function ResultSection({ r, family, gpuCount, hours, situation, workload, label, billActualSpend, billProvider, listings, inputMode, isDemoState, compact }: {
   r: ComputedResult; family: GpuFamily; gpuCount: number; hours: number;
   situation: Situation; workload: WorkloadType; label?: string;
   billActualSpend?: number; billProvider?: string; listings?: GpuListing[];
   inputMode: "describe" | "bill" | "manual";
+  // isDemoState: true while this result reflects the unedited, pre-filled
+  // market example rather than a real user-entered setup. Per the hero
+  // calculator brief: no telemetry writes and no lead-capture submissions
+  // are allowed to fire while this is true — it's the same "fabricated,
+  // not real" situation the old static DemoAuditPreview was in.
+  isDemoState?: boolean;
+  // compact: smaller shell for the /market-data hero stat tile — headline
+  // number only, no chart, no CTA capture panel.
+  compact?: boolean;
 }) {
   const { baseline, recommendation, isReliable, currentMonthly, recommendedMonthly, savings, savingsPct, annualSavings, currentRatePerHour, floorRatePerHour, sizingSuspect, reliabilityRisk, isBatchFriendly, workloadLabel, advice } = r;
   const hasGap = !!(savings && savingsPct && annualSavings);
+
+  // Compact-mode font scale — same headline logic/copy, smaller shell.
+  const bigNum   = compact ? 22 : 40;
+  const bigSub   = compact ? 10 : 18;
+  const bodyFont = compact ? 11.5 : 14;
+  const labelFont = compact ? 10 : 12;
+  const cardPad  = compact ? "12px 14px" : "20px 24px";
 
   // The premium over the reliable floor, expressed as a percent of the floor rate.
   // Dynamic: derived from the customer's own effective rate vs the live floor —
@@ -496,13 +522,13 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
   if (hasGap) {
     headline = (
       <>
-        <span style={{ ...SANS, fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", width: "100%", marginBottom: 4 }}>
+        <span style={{ ...SANS, fontSize: labelFont, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", width: "100%", marginBottom: 4 }}>
           You could save:
         </span>
-        <span style={{ ...MONO, fontSize: 40, fontWeight: 700, color: "var(--red)", letterSpacing: "-0.03em", lineHeight: 1 }}>
-          {fmtBigMoney(annualSavings!)}<span style={{ fontSize: 18, color: "var(--text-muted)", fontWeight: 400 }}>/yr</span>
+        <span style={{ ...MONO, fontSize: bigNum, fontWeight: 700, color: "var(--red)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+          {fmtBigMoney(annualSavings!)}<span style={{ fontSize: bigSub, color: "var(--text-muted)", fontWeight: 400 }}>/yr</span>
         </span>
-        <span style={{ ...SANS, fontSize: 14, color: "var(--text-secondary)", marginLeft: 12, alignSelf: "flex-end" as const, lineHeight: 1.5 }}>
+        <span style={{ ...SANS, fontSize: bodyFont, color: "var(--text-secondary)", marginLeft: compact ? 8 : 12, alignSelf: "flex-end" as const, lineHeight: 1.5 }}>
           {currentRatePerHour != null ? (
             <>
               You're paying <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span>
@@ -516,27 +542,30 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
     );
   } else if (sizingSuspect && currentMonthly) {
     headline = (
-      <span style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)" }}>
+      <span style={{ ...SANS, fontSize: bodyFont + 1, color: "var(--text-secondary)" }}>
         We see <span style={{ ...MONO, color: "var(--text-primary)", fontWeight: 600 }}>{fmtMoney(currentMonthly)}/mo</span>, but that doesn't quite match the GPU count you gave us. Double-check your setup below and we'll pin down the exact number.
       </span>
     );
   } else if (currentMonthly) {
     headline = (
-      <span style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)" }}>
+      <span style={{ ...SANS, fontSize: bodyFont + 1, color: "var(--text-secondary)" }}>
         You're already paying close to the best available rate for {family === "other" ? "GPU" : family}. Switching providers won't save much — the bigger win here is using what you're paying for more fully.
       </span>
     );
   } else {
     headline = (
-      <span style={{ ...SANS, fontSize: 15, color: "var(--text-secondary)" }}>
+      <span style={{ ...SANS, fontSize: bodyFont + 1, color: "var(--text-secondary)" }}>
         Tell us who you're with now and we'll size the savings — we don't have a {situation} price to compare for {family === "other" ? "this GPU" : family} yet.
       </span>
     );
   }
 
   // Log the observation + the overpay_shown event once per rendered result —
-  // re-fires whenever any input to the logged payload changes.
+  // re-fires whenever any input to the logged payload changes. Skipped
+  // entirely while isDemoState — a live, unedited market example is not a
+  // real user input and must never be written to audit_observations/events.
   useEffect(() => {
+    if (isDemoState) return;
     logAuditObservation({
       input_mode: inputMode,
       gpu_type: family === "other" ? "other" : family,
@@ -554,7 +583,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
     });
     logEvent("audit_run", inputMode);
     if (hasGap) logEvent("overpay_shown");
-  }, [family, gpuCount, currentRatePerHour, floorRatePerHour, currentMonthly, situation, workload, inputMode, hasGap, providerLabel, premiumOverFloorPct, savingsPct]);
+  }, [family, gpuCount, currentRatePerHour, floorRatePerHour, currentMonthly, situation, workload, inputMode, hasGap, providerLabel, premiumOverFloorPct, savingsPct, isDemoState]);
 
   // ── "Start my move" capture (primary, performance-based) ──
   const [moveOpen, setMoveOpen]       = useState(false);
@@ -563,8 +592,15 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
   const [moveLoading, setMoveLoading] = useState(false);
   const [moveError, setMoveError]     = useState("");
   const [moveDone, setMoveDone]       = useState(false);
+  const [demoPromptMove, setDemoPromptMove] = useState(false);
 
-  const openMove = () => { setMoveOpen(true); setMoveError(""); logEvent("move_with_us_click"); };
+  const openMove = () => {
+    // Guard: clicking the primary CTA while still on the untouched, prefilled
+    // example must never open the real capture form — it would let a demo
+    // click write to `engagements`. Surface a one-line nudge instead.
+    if (isDemoState) { setDemoPromptMove(true); return; }
+    setMoveOpen(true); setMoveError(""); logEvent("move_with_us_click");
+  };
 
   const submitMove = async () => {
     if (!moveEmail || !moveEmail.includes("@")) { setMoveError("Enter a valid work email."); return; }
@@ -598,8 +634,12 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
   const [monitorLoading, setMonitorLoading] = useState(false);
   const [monitorError, setMonitorError] = useState("");
   const [monitorDone, setMonitorDone]   = useState(false);
+  const [demoPromptMonitor, setDemoPromptMonitor] = useState(false);
 
-  const openMonitor = () => { setMonitorOpen(true); setMonitorError(""); logEvent("monitor_click"); };
+  const openMonitor = () => {
+    if (isDemoState) { setDemoPromptMonitor(true); return; }
+    setMonitorOpen(true); setMonitorError(""); logEvent("monitor_click");
+  };
 
   const submitMonitor = async () => {
     if (!monitorEmail || !monitorEmail.includes("@")) { setMonitorError("Enter a valid work email."); return; }
@@ -629,7 +669,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
     finally { setMonitorLoading(false); }
   };
 
-  const handleSelfServeClick = () => logEvent("self_serve_click", undefined, { provider: floorProviderLabel });
+  const handleSelfServeClick = () => { if (!isDemoState) logEvent("self_serve_click", undefined, { provider: floorProviderLabel }); };
 
   const inputStyleLocal: React.CSSProperties = {
     ...SANS, width: "100%", background: "rgba(247,243,234,0.06)", border: "1px solid rgba(247,243,234,0.22)",
@@ -643,10 +683,20 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           {label}
         </div>
       )}
-      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: `3px solid ${hasGap ? "var(--red)" : "var(--border-mid)"}`, padding: "20px 24px", marginBottom: 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: 4 }}>
+      {isDemoState && (
+        <div style={{
+          ...SANS, fontSize: 9.5, fontWeight: 650, color: "var(--amber)",
+          textTransform: "uppercase" as const, letterSpacing: "0.08em",
+          border: "1px solid var(--border-mid)", padding: "2px 7px", borderRadius: 3,
+          display: "inline-block", marginBottom: 6,
+        }}>
+          Demo · Live Market Prices
+        </div>
+      )}
+      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderTop: `3px solid ${hasGap ? "var(--red)" : "var(--border-mid)"}`, padding: cardPad, marginBottom: compact ? 0 : 1, display: "flex", alignItems: "baseline", flexWrap: "wrap" as const, gap: compact ? 2 : 4 }}>
         {headline}
       </div>
-      {hasGap && currentRatePerHour != null ? (
+      {!compact && hasGap && currentRatePerHour != null ? (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderTop: "none", alignItems: "stretch" }}>
 
           {/* Left: chart */}
@@ -698,6 +748,11 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                   >
                     Move It Yourself →
                   </a>
+                  {demoPromptMove && (
+                    <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", lineHeight: 1.5 }}>
+                      Adjust the numbers above to match your setup first.
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
@@ -729,6 +784,11 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                   <button onClick={openMonitor} style={{ ...SANS, fontSize: 12, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
                     Notify Me
                   </button>
+                  {demoPromptMonitor && (
+                    <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", marginTop: 6, lineHeight: 1.5 }}>
+                      Adjust the numbers above to match your setup first.
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
@@ -746,7 +806,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           </div>
         </div>
       ) : (
-        !hasGap && advice && (
+        !compact && !hasGap && advice && (
           <div style={{ background: "#171717", border: "1px solid #171717", borderTop: "none", padding: "16px 24px 18px" }}>
             <div style={{ ...SANS, fontSize: 12.5, color: "rgba(247,243,234,0.7)", lineHeight: 1.6 }}>{advice}</div>
           </div>
@@ -758,25 +818,50 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
 
 /* ── Default workload row factory ── */
 let _nextId = 1;
-const newRow = (): WorkloadRow => ({
-  id: _nextId++, family: "H100", gpuCountStr: "8", hoursStr: "720",
-  situation: "hyperscaler", workload: "evals",
+const newRow = (prefill?: Partial<Pick<WorkloadRow, "family" | "gpuCountStr" | "hoursStr" | "situation" | "workload">>): WorkloadRow => ({
+  id: _nextId++,
+  family: prefill?.family ?? "H100",
+  gpuCountStr: prefill?.gpuCountStr ?? "8",
+  hoursStr: prefill?.hoursStr ?? "720",
+  situation: prefill?.situation ?? "hyperscaler",
+  workload: prefill?.workload ?? "evals",
 });
 
-export default function AuditTool({ listings }: AuditToolProps) {
-  // ── sessionStorage helpers (all access client-side only) ─────────────────
+// Builds the initial manual-tab row from the SAME live-market computation the
+// homepage ticker/AuditStatStrip/old DemoAuditPreview all shared —
+// computeMarketStats() → computeDemoExample() — never a hardcoded number.
+// Falls back to the function's own sane defaults (8 GPUs / 720 hrs) only when
+// there's no positive premium to derive a prefill from right now.
+function buildDemoRow(listings: GpuListing[]): WorkloadRow {
+  const stats = computeMarketStats(listings);
+  const demo = computeDemoExample(stats);
+  return newRow({
+    family: "H100",
+    gpuCountStr: demo ? String(demo.gpuCount) : undefined,
+    hoursStr: demo ? String(demo.hoursPerMonth) : undefined,
+    situation: "hyperscaler",
+  });
+}
+
+export default function AuditTool({ listings, compact = false }: AuditToolProps) {
+  // ── sessionStorage helpers (all access client-side only; skipped entirely
+  // in compact mode — a hero-tile instance must never read or clobber the
+  // full-page audit tool's persisted state) ─────────────────────────────────
   const SS_KEY = "aiw_audit_state";
   const ssRead = () => {
-    if (typeof window === "undefined") return null;
+    if (compact || typeof window === "undefined") return null;
     try { const r = sessionStorage.getItem(SS_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
   };
   const ssWrite = (data: Record<string, unknown>) => {
-    if (typeof window === "undefined") return;
+    if (compact || typeof window === "undefined") return;
     try { sessionStorage.setItem(SS_KEY, JSON.stringify(data)); } catch { /* quota / private */ }
   };
   // ─────────────────────────────────────────────────────────────────────────
 
-  const [activeTab,      setActiveTab]      = useState<InputTab>(() => { const s = ssRead(); return (s?.activeTab as InputTab) ?? "describe"; });
+  // Manual details is now the default active tab — it's the fastest path to
+  // a real number since it's prefilled, not the visual default (Cloud bill →
+  // Manual details → Describe stays as-is per the brief).
+  const [activeTab,      setActiveTab]      = useState<InputTab>(() => { const s = ssRead(); return (s?.activeTab as InputTab) ?? "manual"; });
   const [setupText,      setSetupText]      = useState<string>(() => ssRead()?.setupText ?? "");
   const [billFileName,     setBillFileName]     = useState<string | null>(() => ssRead()?.billFileName ?? null);
   const [billFile,         setBillFile]         = useState<File | null>(null); // File not serializable — never persisted
@@ -787,26 +872,39 @@ export default function AuditTool({ listings }: AuditToolProps) {
     situation: string; workload: string; monthlySpend: number;
     provider: string; confidence: string;
   } | null>(() => ssRead()?.billExtracted ?? null);
-  const [rows,           setRows]           = useState<WorkloadRow[]>(() => ssRead()?.rows ?? [newRow()]);
+  const [rows,           setRows]           = useState<WorkloadRow[]>(() => ssRead()?.rows ?? [buildDemoRow(listings)]);
   const [committed,      setCommitted]      = useState<boolean>(() => ssRead()?.committed ?? false);
   const [wantsAlerts,    setWantsAlerts]    = useState(true);
+
+  // manualTouched: starts false the moment the manual tab is prefilled with a
+  // live market example. Flips true on the first real field edit — from that
+  // point on, the manual flow behaves exactly like today's manual entry
+  // (same telemetry, same CTAs). While false, the result on screen is
+  // functionally the same situation the old DemoAuditPreview was in: a
+  // real-but-generic number, not a real user input — see ResultSection's
+  // isDemoState guard below.
+  const [manualTouched,  setManualTouched]  = useState<boolean>(() => ssRead()?.manualTouched ?? false);
 
   // Results render into a page-level portal target (#audit-results-portal) so they can sit
   // full-width below the hero instead of being trapped in the narrow input column. Falls back
   // to inline rendering (null-safe — portal only fires once the node exists) if the target
-  // isn't present, e.g. if AuditTool is ever used somewhere without the portal div.
+  // isn't present, e.g. if AuditTool is ever used somewhere without the portal div. Not used
+  // in compact mode — the compact tile renders its result inline, in place.
   const [resultsPortalNode, setResultsPortalNode] = useState<HTMLElement | null>(null);
   useEffect(() => {
+    if (compact) return;
     setResultsPortalNode(document.getElementById("audit-results-portal"));
-  }, []);
+  }, [compact]);
 
-  // Persist audit state whenever the fields that matter change.
+  // Persist audit state whenever the fields that matter change. Skipped in
+  // compact mode (see SS_KEY note above).
   // useRef guards against writing on the very first render (no-op — just read back what we wrote).
   const mountedRef = useRef(false);
   useEffect(() => {
+    if (compact) return;
     if (!mountedRef.current) { mountedRef.current = true; return; }
-    ssWrite({ activeTab, setupText, billFileName, billExtracted, rows, committed });
-  }, [activeTab, setupText, billFileName, billExtracted, rows, committed]);
+    ssWrite({ activeTab, setupText, billFileName, billExtracted, rows, committed, manualTouched });
+  }, [activeTab, setupText, billFileName, billExtracted, rows, committed, manualTouched, compact]);
 
   const parsed    = useMemo(() => parseStackText(setupText), [setupText]);
   const hasText   = setupText.trim().length > 0;
@@ -856,19 +954,13 @@ export default function AuditTool({ listings }: AuditToolProps) {
       : null,
   [committed, showGuard, listings, primarySnapshot]);
 
-  const showTextResult   = committed && activeTab === "describe" && hasText && !showGuard && !!primaryResult;
-  const showManualResult = committed && activeTab === "manual" && rows.length > 0 && manualResults.some(r => !!r.result);
-  const showUploadResult = committed && activeTab === "bill" && hasUpload;
+  const showTextResult   = !compact && committed && activeTab === "describe" && hasText && !showGuard && !!primaryResult;
+  // Manual tab no longer waits for "Run Cost Audit" — it's prefilled, so the
+  // result renders the moment it's on screen. In compact mode the tool is
+  // always, implicitly, the manual tab.
+  const showManualResult = (compact || activeTab === "manual") && rows.length > 0 && manualResults.some(r => !!r.result);
+  const showUploadResult = !compact && committed && activeTab === "bill" && hasUpload;
   const showResult       = showTextResult || showManualResult || showUploadResult;
-
-  // The static demo card (src/components/DemoAuditPreview.tsx) is SSR'd directly in
-  // page.tsx for a zero-flash first paint. It has no client logic of its own, so
-  // hiding it once real results exist is done here with a plain DOM toggle — no new
-  // props into ResultSection, no telemetry, no touching computeResult.
-  useEffect(() => {
-    const demo = document.getElementById("audit-demo-preview");
-    if (demo) demo.style.display = showResult ? "none" : "";
-  }, [showResult]);
 
   const inputStyle: React.CSSProperties = {
     ...SANS, width: "100%", background: "var(--panel)", border: "1px solid var(--border-mid)",
@@ -955,10 +1047,12 @@ export default function AuditTool({ listings }: AuditToolProps) {
     }, 50);
   };
 
-  const updateRow = (id: number, patch: Partial<WorkloadRow>) =>
+  const updateRow = (id: number, patch: Partial<WorkloadRow>) => {
     setRows(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r));
-  const addRow    = () => setRows(rs => [...rs, newRow()]);
-  const removeRow = (id: number) => setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : rs);
+    setManualTouched(true);
+  };
+  const addRow    = () => { setRows(rs => [...rs, newRow()]); setManualTouched(true); };
+  const removeRow = (id: number) => { setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : rs); setManualTouched(true); };
 
   const TABS: { id: InputTab; label: string; dot: boolean }[] = [
     { id: "bill",     label: "Cloud bill",            dot: !!billFileName },
@@ -981,6 +1075,65 @@ export default function AuditTool({ listings }: AuditToolProps) {
       {dot && <span style={{ ...MONO, fontSize: 9, color: "var(--blue)", marginLeft: 5 }}>●</span>}
     </button>
   );
+
+  // ── Compact shell (used inside the /market-data hero stat strip) ──
+  // Same computeResult()/prefill/touched-gating as the full tool above —
+  // deliberately NOT a separate copy of that logic — just a much smaller
+  // input row and no chart/CTA panel. See brief §4.
+  if (compact) {
+    const compactSelectStyle: React.CSSProperties = {
+      ...inputStyle, padding: "7px 8px", fontSize: 12.5, appearance: "auto",
+    };
+    const compactNumStyle: React.CSSProperties = {
+      ...inputStyle, padding: "7px 8px", fontSize: 12.5,
+    };
+    const compactLabel: React.CSSProperties = {
+      ...SANS, fontSize: 9, fontWeight: 600, color: "var(--text-muted)",
+      textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 3, display: "block",
+    };
+    const row = rows[0];
+    const compactResult = manualResults[0]?.result ?? null;
+    return (
+      <div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 64px 72px", gap: 8, marginBottom: 10 }}>
+          <div>
+            <label style={compactLabel}>GPU</label>
+            <select value={row.family} onChange={e => updateRow(row.id, { family: e.target.value as GpuFamily })} style={compactSelectStyle}>
+              {(["H100", "A100", "L40S", "A10G"] as GpuFamily[]).map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={compactLabel}>Count</label>
+            <input type="number" min={1} value={row.gpuCountStr}
+              onChange={e => updateRow(row.id, { gpuCountStr: e.target.value })}
+              onBlur={() => updateRow(row.id, { gpuCountStr: String(parseNum(row.gpuCountStr, 1)) })}
+              style={compactNumStyle} />
+          </div>
+          <div>
+            <label style={compactLabel}>Hrs/mo</label>
+            <input type="number" min={1} max={8760} value={row.hoursStr}
+              onChange={e => updateRow(row.id, { hoursStr: e.target.value })}
+              onBlur={() => updateRow(row.id, { hoursStr: String(parseNum(row.hoursStr, 720)) })}
+              style={compactNumStyle} />
+          </div>
+        </div>
+        {compactResult && (
+          <ResultSection
+            r={compactResult}
+            family={row.family}
+            gpuCount={parseNum(row.gpuCountStr, 8)}
+            hours={parseNum(row.hoursStr, 720)}
+            situation={row.situation}
+            workload={row.workload}
+            listings={listings}
+            inputMode="manual"
+            isDemoState={!manualTouched}
+            compact
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -1384,6 +1537,7 @@ export default function AuditTool({ listings }: AuditToolProps) {
                   listings={listings}
                   label={rows.length > 1 ? `Workload ${idx + 1} — ${row.family} · ${row.gpuCountStr}× · ${row.hoursStr}h/mo` : undefined}
                   inputMode="manual"
+                  isDemoState={!manualTouched}
                 />
               </div>
             ) : null

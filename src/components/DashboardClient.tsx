@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
+import AuditTool from "@/components/AuditTool";
 import {
   GpuListing, HYPERSCALERS, PROVIDER_META,
   getMeta, fmtP, fmtMoney, minsAgo,
@@ -124,15 +125,6 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
     : null;
   const h100Color = cheapestH100High ? "var(--green)" : "var(--amber)";
 
-  // H100 range — all pricing types (stat 3)
-  const h100AllPrices = listings
-    .filter(l => l.gpu_model.includes("H100"))
-    .map(l => l.price_per_hour)
-    .sort((a, b) => a - b);
-  const h100ProvCount = new Set(
-    listings.filter(l => l.gpu_model.includes("H100")).map(l => l.provider)
-  ).size;
-
   return (
     <div style={{ background: "var(--panel)", borderBottom: "2px solid var(--border)" }}>
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "56px 32px 48px" }}>
@@ -149,23 +141,6 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
             <p style={{ ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 520, marginBottom: 26 }}>
               Real-time GPU price intelligence across {activeProviders} providers. See what your stack should cost — and what it actually does.
             </p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <Link href="/cost-audit" style={{
-                ...SANS, fontSize: 13.5, fontWeight: 600,
-                color: "#F7F3EA", background: "#171717",
-                padding: "11px 22px", borderRadius: 3, textDecoration: "none",
-                letterSpacing: "0.01em", whiteSpace: "nowrap" as const,
-              }}>
-                Run Cost Audit →
-              </Link>
-              <a href="#market-data" style={{
-                ...SANS, fontSize: 13, color: "var(--text-secondary)",
-                padding: "11px 20px", borderRadius: 3, textDecoration: "none",
-                border: "1px solid var(--border-mid)", whiteSpace: "nowrap" as const,
-              }}>
-                View Market Data ↓
-              </a>
-            </div>
             <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", marginTop: 14, lineHeight: 1.5 }}>
               Most stacks overpay by 20–40%. Paste a bill or describe your setup to find out exactly.
             </p>
@@ -210,32 +185,15 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
               )}
             </div>
 
-            {/* Stat 3: H100 market range */}
+            {/* Stat 3: interactive calculator — replaces the old H100 market-range
+                tile (lowest-value stat per prior review). Same underlying
+                AuditTool component as "/", parameterized compact — prefilled
+                from live market data, editable in place, no logic fork. */}
             <div style={{ background: "var(--bg)", padding: "20px 24px" }}>
-              <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
-                {h100AllPrices.length
-                  ? `H100 range · ${h100ProvCount} provider${h100ProvCount !== 1 ? "s" : ""}`
-                  : "H100 market range"}
+              <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 10 }}>
+                Try it — edit the numbers
               </div>
-              {h100AllPrices.length >= 2 ? (
-                <>
-                  <div style={{ ...MONO, fontSize: 24, fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.02em", lineHeight: 1 }}>
-                    {fmtP(h100AllPrices[0])}<span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 400 }}>–{fmtP(h100AllPrices[h100AllPrices.length - 1])}</span>
-                  </div>
-                  <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
-                    per GPU/hr — cheapest to highest quoted
-                  </div>
-                </>
-              ) : h100AllPrices.length === 1 ? (
-                <>
-                  <div style={{ ...MONO, fontSize: 24, fontWeight: 500, color: "var(--text-secondary)", letterSpacing: "-0.02em", lineHeight: 1 }}>
-                    {fmtP(h100AllPrices[0])}
-                  </div>
-                  <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>per GPU/hr · 1 provider quoting</div>
-                </>
-              ) : (
-                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>Not in current snapshot</div>
-              )}
+              <AuditTool listings={listings} compact />
             </div>
           </div>
         </div>
