@@ -5,7 +5,6 @@ import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
 import AuditTool from "@/components/AuditTool";
 import AuditStatStrip from "@/components/AuditStatStrip";
-import DemoAuditPreview from "@/components/DemoAuditPreview";
 import type { GpuListing } from "@/lib/market-helpers";
 
 export const revalidate = 300;
@@ -59,7 +58,11 @@ export default async function Page() {
                   <AuditStatStrip listings={listingsData} />
                 </div>
 
-                {/* Right: audit input — narrower, secondary to the pitch */}
+                {/* Right: audit input — narrower, secondary to the pitch. Manual
+                    details is the default active tab and loads prefilled with a
+                    live market example (see AuditTool.tsx), so a real, editable
+                    savings number is visible the moment the hero loads — this
+                    absorbs the job the old static DemoAuditPreview used to do. */}
                 <div>
                   <AuditTool listings={listingsData} />
                 </div>
@@ -67,10 +70,6 @@ export default async function Page() {
               </div>
             </div>
           </section>
-
-          {/* Static, SSR'd demo — fills the results gap on first paint, no JS required.
-              Hidden client-side by AuditTool once a real result exists (see AuditTool.tsx). */}
-          <DemoAuditPreview listings={listingsData} />
 
           {/* Results render here, full-width, via AuditTool's portal — savings number, chart, and CTAs get room to breathe. */}
           <section style={{ maxWidth: 1360, margin: "0 auto", padding: "0 32px 8px" }}>
