@@ -34,10 +34,16 @@ export default async function Page() {
         <SiteNav />
 
         <main>
-          {/* Audit hero — wide pitch left, compact input tabs right. Results render full-width below via portal. */}
+          {/* Audit hero — wide pitch left, wider input tabs right. Right column
+              widened from a fixed 460px to 620px: at 460px the Quick Estimate
+              4-metric grid and card content were cramped into a narrow column,
+              which stacked rows tall and inflated hero height. Wider column
+              lets that content breathe horizontally instead of vertically.
+              Padding/gap trimmed slightly for the same reason — less dead
+              vertical space before the market-data link / results portal. */}
           <section style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
-            <div style={{ maxWidth: 1360, margin: "0 auto", padding: "56px 32px 48px" }}>
-              <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 460px", gap: 64, alignItems: "start" }}>
+            <div style={{ maxWidth: 1360, margin: "0 auto", padding: "48px 32px 40px" }}>
+              <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 620px", gap: 48, alignItems: "start" }}>
 
                 {/* Left: pitch */}
                 <div>
@@ -58,11 +64,13 @@ export default async function Page() {
                   <AuditStatStrip listings={listingsData} />
                 </div>
 
-                {/* Right: audit input — narrower, secondary to the pitch. Manual
-                    details is the default active tab and loads prefilled with a
-                    live market example (see AuditTool.tsx), so a real, editable
-                    savings number is visible the moment the hero loads — this
-                    absorbs the job the old static DemoAuditPreview used to do. */}
+                {/* Right: audit input — wider now (620px, was 460px) so card
+                    content lays out horizontally rather than stacking tall.
+                    Manual details is the default active tab and loads prefilled
+                    with a live market example (see AuditTool.tsx), so a real,
+                    editable savings number is visible the moment the hero loads
+                    — this absorbs the job the old static DemoAuditPreview used
+                    to do. */}
                 <div>
                   <AuditTool listings={listingsData} />
                 </div>
