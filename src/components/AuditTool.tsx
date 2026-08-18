@@ -1281,27 +1281,6 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
                       ))}
                     </div>
 
-                    {/* CTA */}
-                    <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" as const }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCommitted(true);
-                          setTimeout(() => {
-                            document.getElementById("audit-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                          }, 50);
-                        }}
-                        style={{
-                          ...SANS, fontSize: 13, fontWeight: 600,
-                          color: "#F7F3EA", background: "#171717",
-                          padding: "10px 20px", borderRadius: 3, border: "none",
-                          cursor: "pointer", letterSpacing: "0.01em",
-                        }}
-                      >
-                        Generate Full Verified Audit &amp; Report →
-                      </button>
-                    </div>
-
                   </div>
                 );
               })()}
