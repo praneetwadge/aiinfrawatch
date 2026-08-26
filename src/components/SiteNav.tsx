@@ -24,11 +24,13 @@ const Logo = () => (
 export default function SiteNav() {
   const path = usePathname();
 
-  // Reorg: nav collapsed to two items. Routing Beta removed (demoted to a
-  // single roadmap line inside the audit result / homepage — see AuditTool).
+  // Nav: Audit, Market Data, Research. Routing Beta removed (superseded by
+  // the content/research funnel). Research is the top-of-funnel wedge —
+  // deep-dives on GPU pricing + regional energy dynamics.
   const navLinks = [
     { href: "/",            label: "Audit" },
     { href: "/market-data", label: "Market Data" },
+    { href: "/research",    label: "Research" },
   ];
 
   const isActive = (href: string) => href === "/" ? path === "/" : path.startsWith(href);
