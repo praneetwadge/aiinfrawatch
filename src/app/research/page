@@ -1,0 +1,30 @@
+// REPO PATH: src/app/research/page.tsx  (NEW FILE — create folder "research" under src/app/)
+import type { Metadata } from "next";
+import ResearchClient from "@/components/ResearchClient";
+import SiteNav from "@/components/SiteNav";
+import MarketTicker from "@/components/MarketTicker";
+import { getLatestGpuListings } from "@/lib/db/queries";
+import type { GpuListing } from "@/types";
+
+export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "Research",
+  description:
+    "In-depth analysis of AI infrastructure economics — GPU pricing, energy markets, and the intersection nobody else is covering.",
+};
+
+export default async function Page() {
+  // MarketTicker needs listings to render its rolling data strip. Same
+  // pattern as market-data/page.tsx; keeps the ticker consistent across all
+  // pages that render SiteNav.
+  const listings: GpuListing[] = await getLatestGpuListings({ limit: 4000 }).catch(() => []);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text-primary)" }}>
+      <MarketTicker listings={listings} summary={null} />
+      <SiteNav />
+      <ResearchClient />
+    </div>
+  );
+}
