@@ -77,9 +77,7 @@ export default async function MethodologyPage() {
               We show our work.
             </h1>
             <p style={{ ...SANS, fontSize: 15.5, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 640 }}>
-              Every price on AIInfraWatch is traceable to a source. Some providers expose a public pricing
-              API we query on each refresh; others publish only a rate card we verify by hand and date.
-              We label which is which — on this page and in the data — so you always know how fresh a number is.
+              Every price traces to a source. Some providers expose a live API; others publish rate cards we verify by hand and date. We label which — so you always know how fresh each number is.
             </p>
           </div>
         </section>
@@ -90,15 +88,13 @@ export default async function MethodologyPage() {
             <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "18px 20px" }}>
               <div style={{ ...SANS, fontSize: 13.5, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>Observed</div>
               <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                A price that appears in a provider's listing. The hardware exists at this rate, but availability
-                is unconfirmed — it may be a spot rate, a single region, or capacity that's already gone.
+                A price that appears in a provider's listing. Availability unconfirmed — could be spot, a single region, or already gone.
               </div>
             </div>
             <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "18px 20px" }}>
               <div style={{ ...SANS, fontSize: 13.5, fontWeight: 600, color: "var(--green)", marginBottom: 6 }}>Reliable</div>
               <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                A price on confirmed high-availability, non-spot capacity. This is what we anchor savings to —
-                a rate you could actually commit production workloads to, not an interruptible headline number.
+                Confirmed high-availability, non-spot capacity. What we anchor savings to — a rate you can commit production workloads to.
               </div>
             </div>
           </div>
@@ -127,22 +123,20 @@ export default async function MethodologyPage() {
           </div>
 
           <p style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6, marginTop: 14 }}>
-            <strong style={{ color: "var(--text-secondary)" }}>Live API</strong> prices refresh every run against the provider's
-            public pricing endpoint. <strong style={{ color: "var(--text-secondary)" }}>Rate card</strong> prices are transcribed
-            from a provider's published pricing as of the date shown and re-verified periodically — treat them as indicative,
-            not real-time. We're migrating rate-card providers to live sources where a public API exists.
+            <strong style={{ color: "var(--text-secondary)" }}>Live API</strong> prices refresh every run.
+            {" "}<strong style={{ color: "var(--text-secondary)" }}>Rate card</strong> prices are transcribed as of the date shown — treat as indicative, not real-time. We're moving rate-card providers to live APIs where possible.
           </p>
         </section>
 
         <section style={{ maxWidth: 920, margin: "0 auto", padding: "8px 32px 72px" }}>
           <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 12 }}>
-            How a price becomes a number you can trust
+            How a price becomes trusted
           </div>
           <ol style={{ ...SANS, fontSize: 13.5, color: "var(--text-secondary)", lineHeight: 1.7, paddingLeft: 20, margin: 0 }}>
-            <li style={{ marginBottom: 8 }}>We fetch or transcribe each provider's GPU rates and normalise model names (an "H100 SXM5" and an "H100 80GB SXM" become one comparable class).</li>
-            <li style={{ marginBottom: 8 }}>Each listing is validated before it's stored — non-positive prices, decimal-shift artifacts, and implausible values are rejected, not published.</li>
-            <li style={{ marginBottom: 8 }}>For any GPU class we separate <em>observed</em> (cheapest listing) from <em>reliable</em> (cheapest confirmed-availability, non-spot listing). Savings are always anchored to reliable.</li>
-            <li>Refresh runs daily. Listings older than the refresh window drop out rather than going stale silently.</li>
+            <li style={{ marginBottom: 8 }}>Fetch or transcribe each provider's rates. Normalize model names — "H100 SXM5" and "H100 80GB SXM" become one class.</li>
+            <li style={{ marginBottom: 8 }}>Validate every listing before storing. Reject non-positive prices, decimal-shift artifacts, implausible values.</li>
+            <li style={{ marginBottom: 8 }}>For each GPU class, separate <em>observed</em> (cheapest listing) from <em>reliable</em> (cheapest high-availability, non-spot). Savings anchor to reliable.</li>
+            <li>Refresh daily. Listings older than the window drop out — never stale silently.</li>
           </ol>
         </section>
       </main>
