@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
@@ -136,10 +136,10 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
               Market Data
             </div>
             <h1 style={{ ...SERIF, fontSize: 52, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 20, maxWidth: 640 }}>
-              The AI compute market moves daily. Your bill doesn't.
+              AI compute costs, from silicon to megawatt.
             </h1>
             <p style={{ ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 520, marginBottom: 26 }}>
-              Real-time GPU price intelligence across {activeProviders} providers. See what your stack should cost — and what it actually does.
+              GPU price intelligence across {activeProviders} providers, mapped to the regional energy costs that set the real floor. See what your stack should actually cost.
             </p>
             <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", marginTop: 14, lineHeight: 1.5 }}>
               Most stacks overpay by 20–40%. Paste a bill or describe your setup to find out exactly.
@@ -598,155 +598,9 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
 }
 
 
-// ── Routing Waitlist Modal ────────────────────────────────────────────────────
-
-const CLOUD_OPTIONS = ["AWS", "GCP (Google Cloud)", "Azure", "CoreWeave", "Lambda Labs", "Other / Mixed"];
-const SPEND_TIERS   = ["Under $10k/mo", "$10k–$50k/mo", "$50k–$200k/mo", "$200k–$1M/mo", "Over $1M/mo", "Not sure"];
-
-function RoutingWaitlistModal({ onClose }: { onClose: () => void }) {
-  const [name,       setName]       = useState("");
-  const [company,    setCompany]    = useState("");
-  const [spend,      setSpend]      = useState("");
-  const [provider,   setProvider]   = useState("");
-  const [email,      setEmail]      = useState("");
-  const [loading,    setLoading]    = useState(false);
-  const [submitted,  setSubmitted]  = useState(false);
-  const [error,      setError]      = useState("");
-  const overlayRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
-  }, [onClose]);
-
-  const inputStyle: React.CSSProperties = {
-    fontFamily: "var(--font-sans)", width: "100%",
-    background: "var(--bg)", border: "1px solid var(--border-mid)",
-    color: "var(--text-primary)", padding: "10px 12px",
-    fontSize: 13.5, outline: "none", borderRadius: 3,
-  };
-  const labelStyle: React.CSSProperties = {
-    fontFamily: "var(--font-sans)", display: "block",
-    fontSize: 10.5, fontWeight: 650, color: "var(--text-muted)",
-    textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 6,
-  };
-
-  const handleSubmit = async () => {
-    if (!email.includes("@")) { setError("Enter a valid work email."); return; }
-    if (!spend) { setError("Select your monthly compute spend."); return; }
-    setError(""); setLoading(true);
-    try {
-      const notes = [
-        name     && `Name: ${name}`,
-        company  && `Company: ${company}`,
-        spend    && `Spend: ${spend}`,
-        provider && `Primary cloud: ${provider}`,
-        "ROUTING_BETA_WAITLIST",
-      ].filter(Boolean).join(" · ");
-      const res = await fetch("/api/audit-request", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, monthlySpend: spend, workload: "routing-beta", notes, source: "load-balancer" }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
-      setSubmitted(true);
-    } catch (e: any) {
-      setError(e?.message ?? "Network error — try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div
-      ref={overlayRef}
-      onClick={e => { if (e.target === overlayRef.current) onClose(); }}
-      style={{
-        position: "fixed", inset: 0, zIndex: 9999,
-        background: "rgba(0,0,0,0.55)", display: "flex",
-        alignItems: "center", justifyContent: "center", padding: "20px",
-      }}
-    >
-      <div style={{
-        background: "var(--panel)", border: "1px solid var(--border-mid)",
-        maxWidth: 500, width: "100%", padding: "32px 28px", position: "relative",
-        boxShadow: "0 24px 80px rgba(0,0,0,0.18)",
-      }}>
-        <button onClick={onClose} style={{
-          position: "absolute", top: 16, right: 18,
-          fontFamily: "var(--font-sans)", fontSize: 18, color: "var(--text-muted)",
-          background: "none", border: "none", cursor: "pointer", lineHeight: 1, padding: 0,
-        }}>✕</button>
-
-        {submitted ? (
-          <div style={{ textAlign: "center", padding: "12px 0" }}>
-            <div style={{ fontSize: 28, color: "var(--green)", marginBottom: 12 }}>✓</div>
-            <div style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 8 }}>You're on the list.</div>
-            <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
-              We'll reach out before the routing beta opens. Expect a note at <strong style={{ color: "var(--text-primary)" }}>{email}</strong>.
-            </div>
-          </div>
-        ) : (
-          <>
-            <div style={{ fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 8 }}>Routing Beta — Waitlist</div>
-            <div style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 4 }}>Join the beta</div>
-            <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 20 }}>
-              Automated routing for flexible GPU workloads. First-batch access for teams at $10k+/mo.
-            </div>
-            <div style={{ display: "grid", gap: 14 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>Name</label>
-                  <input value={name} onChange={e => setName(e.target.value)} placeholder="Alex Chen" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Company</label>
-                  <input value={company} onChange={e => setCompany(e.target.value)} placeholder="Acme AI" style={inputStyle} />
-                </div>
-              </div>
-              <div>
-                <label style={labelStyle}>Work email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Monthly compute spend</label>
-                <select value={spend} onChange={e => setSpend(e.target.value)} style={{ ...inputStyle, appearance: "auto" as any }}>
-                  <option value="">Select range…</option>
-                  {SPEND_TIERS.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Primary cloud provider</label>
-                <select value={provider} onChange={e => setProvider(e.target.value)} style={{ ...inputStyle, appearance: "auto" as any }}>
-                  <option value="">Select provider…</option>
-                  {CLOUD_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-            {error && <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--red)", marginTop: 10 }}>{error}</p>}
-            <button onClick={handleSubmit} disabled={loading} style={{
-              fontFamily: "var(--font-sans)", width: "100%", marginTop: 18,
-              fontSize: 13.5, fontWeight: 650,
-              color: "#F7F3EA", background: loading ? "var(--text-muted)" : "#171717",
-              border: "none", borderRadius: 3, padding: "11px 18px",
-              cursor: loading ? "not-allowed" : "pointer",
-            }}>
-              {loading ? "Submitting…" : "Request Beta Access"}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardClient({ summary, listings }: Props) {
-  const [showRoutingModal, setShowRoutingModal] = useState(false);
-
   const { activeProviders, cheapestH100High, h100Prices, premiumPct, a100PremiumPct } = computeMarketStats(listings);
 
   const updatedAgo = minsAgo(summary?.last_updated);
@@ -826,44 +680,32 @@ export default function DashboardClient({ summary, listings }: Props) {
         </div>
       </div>
 
-      {/* ── Routing Beta teaser ── */}
+      {/* ── Research teaser ── */}
       <div style={{ background: "var(--elevated)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ maxWidth: 1360, margin: "0 auto", padding: "36px 32px" }}>
+        <div style={{ maxWidth: 1360, margin: "0 auto", padding: "40px 32px" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 32, flexWrap: "wrap" as const }}>
-            <div style={{ flex: "1 1 420px" }}>
-              <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 8 }}>Coming next</div>
-              <div style={{ ...SERIF, fontSize: 22, fontWeight: 400, color: "var(--text-primary)", marginBottom: 6 }}>Automatically act on what the audit finds.</div>
-              <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 22 }}>
-                Routing beta moves flexible workloads to the cheapest reliable GPU — no manual work. Three signals drive it:
+            <div style={{ flex: "1 1 520px", maxWidth: 640 }}>
+              <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 10 }}>Research</div>
+              <div style={{ ...SERIF, fontSize: 26, fontWeight: 400, color: "var(--text-primary)", lineHeight: 1.2, marginBottom: 10 }}>
+                AI infrastructure economics, from the compute-and-energy edge.
               </div>
-              <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>
-                {[
-                  { label: "Dynamic Cost & Supply Arbitrage", body: "Routes burst capacity to the cheapest reliable slot as rates shift across providers." },
-                  { label: "Energy Grid & Time-of-Use Rate Matching", body: "Schedules batch jobs into cheapest electricity windows — overnight or off-peak." },
-                  { label: "Proactive Spot Eviction Prediction", body: "Detects eviction signals early and migrates before interruption, not after." },
-                ].map(s => (
-                  <div key={s.label} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <div style={{ width: 3, flexShrink: 0, height: 48, background: "var(--border-mid)", marginTop: 2 }} />
-                    <div>
-                      <div style={{ ...SANS, fontSize: 12.5, fontWeight: 600, color: "var(--text-primary)", marginBottom: 2 }}>{s.label}</div>
-                      <div style={{ ...SANS, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>{s.body}</div>
-                    </div>
-                  </div>
-                ))}
+              <div style={{ ...SANS, fontSize: 13.5, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+                Weekly analysis of what's actually moving in GPU pricing — and the regional power dynamics nobody else is tracking. First deep-dive drops soon.
               </div>
             </div>
-            <div style={{ flexShrink: 0, alignSelf: "flex-start" as const, paddingTop: 4 }}>
-              <button
-                onClick={() => setShowRoutingModal(true)}
+            <div style={{ flexShrink: 0, alignSelf: "flex-start" as const, paddingTop: 8 }}>
+              <Link
+                href="/research"
                 style={{
                   ...SANS, fontSize: 13, fontWeight: 600,
-                  color: "var(--text-primary)", border: "1px solid var(--border-mid)",
-                  padding: "9px 20px", borderRadius: 3, background: "transparent",
-                  cursor: "pointer", whiteSpace: "nowrap" as const,
+                  color: "#F7F3EA", background: "#171717",
+                  padding: "10px 20px", borderRadius: 3, textDecoration: "none",
+                  whiteSpace: "nowrap" as const, letterSpacing: "0.01em",
+                  display: "inline-block",
                 }}
               >
-                Learn About Routing Beta →
-              </button>
+                Get The Research →
+              </Link>
             </div>
           </div>
         </div>
@@ -876,7 +718,7 @@ export default function DashboardClient({ summary, listings }: Props) {
           <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
             <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>AIInfraWatch · {activeProviders} {activeProviders === 1 ? "provider" : "providers"} · Updated daily</span>
             <Link href="/methodology" style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}>Methodology</Link>
-            <Link href="/load-balancer" style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}>Routing Beta</Link>
+            <Link href="/research" style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}>Research</Link>
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {[["API","/api/gpu-prices"],["llms.txt","/llms.txt"],["OpenAPI","/openapi.json"]].map(([l,h]) => (
@@ -887,7 +729,6 @@ export default function DashboardClient({ summary, listings }: Props) {
         </div>
       </div>
 
-      {showRoutingModal && <RoutingWaitlistModal onClose={() => setShowRoutingModal(false)} />}
     </div>
   );
 }
