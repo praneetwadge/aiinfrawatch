@@ -290,7 +290,7 @@ function computeResult(
   } else if (savingsPct !== null && savingsPct >= 10) {
     advice = `That gap is real money.${!isBatchFriendly ? " This workload is latency-sensitive, so don't just move it — " : " "}Lock in reserved pricing first, then move when you're ready.`;
   } else if (savingsPct !== null) {
-    advice = `You're already paying close to the best price for ${family === "other" ? "this GPU" : family}. The bigger opportunity now is using more of what you're paying for, not switching providers.`;
+    advice = `You're already close to the ${family === "other" ? "GPU" : family} floor. The bigger win now is using more of what you're paying for, not switching providers.`;
   } else if (!baseline) {
     advice = `We don't have ${situation} prices for ${family === "other" ? "this GPU" : family} yet. Run the full audit and we'll find region-specific options.`;
   }
@@ -368,7 +368,7 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
       <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 3 }}>
         {family} — where your bill lands
       </div>
-      <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginBottom: 16 }}>Every cloud, cheapest to most expensive</div>
+      <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginBottom: 16 }}>Cheapest to most expensive</div>
 
       {/* scale ticks */}
       <div style={{ display: "grid", gridTemplateColumns: "96px 1fr 56px", gap: 12, marginBottom: 8 }}>
@@ -437,7 +437,7 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
       </div>
       {cheaperCount > 0 && (
         <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", marginTop: 12, lineHeight: 1.6 }}>
-          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{cheaperCount} cloud{cheaperCount !== 1 ? "s" : ""}</span> {cheaperCount !== 1 ? "sell" : "sells"} {family} cheaper than the <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span> you're paying. The best price right now is <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRate)}/hr</span>{floorProviderShort ? ` (${floorProviderShort})` : ""}.
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{cheaperCount} cloud{cheaperCount !== 1 ? "s" : ""}</span> cheaper than <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span>. Floor: <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRate)}/hr</span>{floorProviderShort ? ` (${floorProviderShort})` : ""}.
         </div>
       )}
     </div>
@@ -532,7 +532,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           {currentRatePerHour != null ? (
             <>
               You're paying <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span>
-              {premiumOverFloorPct != null && premiumOverFloorPct > 0 ? <>, which is <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{premiumOverFloorPct}% more</span></> : ", more"} than the best available price for the same {family === "other" ? "GPU" : family} setup right now.
+              {premiumOverFloorPct != null && premiumOverFloorPct > 0 ? <>, <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{premiumOverFloorPct}% above</span> the {family === "other" ? "GPU" : family} floor.</> : ", above the market floor."}
             </>
           ) : (
             <>That's {savingsPct}% of your {family === "other" ? "GPU" : family} bill — same GPUs, same hours, at a price other providers already offer.</>
@@ -549,7 +549,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
   } else if (currentMonthly) {
     headline = (
       <span style={{ ...SANS, fontSize: bodyFont + 1, color: "var(--text-secondary)" }}>
-        You're already paying close to the best available rate for {family === "other" ? "GPU" : family}. Switching providers won't save much — the bigger win here is using what you're paying for more fully.
+        You're already close to the {family === "other" ? "GPU" : family} floor. Switching won't save much — the bigger win is using more of what you're paying for.
       </span>
     );
   } else {
@@ -714,10 +714,10 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           {/* Right: move copy + CTA, one cohesive block */}
           <div style={{ background: "#171717", padding: "20px 20px 22px", display: "flex", flexDirection: "column" as const, gap: 14 }}>
             <div style={{ ...SANS, fontSize: 13, color: "rgba(247,243,234,0.9)", lineHeight: 1.55 }}>
-              We'll move this to <strong style={{ color: "#F7F3EA" }}>{floorProviderLabel}</strong> at{" "}
+              Move to <strong style={{ color: "#F7F3EA" }}>{floorProviderLabel}</strong> at{" "}
               <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRatePerHour)}/hr</span> — save ~
               <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtBigMoney(annualSavings!)}/yr</span>.{" "}
-              <span style={{ color: "rgba(247,243,234,0.6)" }}>Performance-based, you only pay from savings.</span>
+              <span style={{ color: "rgba(247,243,234,0.6)" }}>You only pay from savings.</span>
             </div>
 
             {!moveDone ? (
@@ -750,7 +750,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                   </a>
                   {demoPromptMove && (
                     <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", lineHeight: 1.5 }}>
-                      Adjust the numbers above to match your setup first.
+                      Enter your real numbers first.
                     </div>
                   )}
                 </div>
@@ -759,7 +759,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                   <input type="email" placeholder="you@company.com" value={moveEmail} onChange={e => setMoveEmail(e.target.value)} style={inputStyleLocal} />
                   <label style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", display: "flex", alignItems: "flex-start" as const, gap: 7, lineHeight: 1.5 }}>
                     <input type="checkbox" checked={moveConsent} onChange={e => setMoveConsent(e.target.checked)} style={{ marginTop: 2 }} />
-                    I consent to AIInfraWatch contacting me about moving this workload. We'll help coordinate the move — terms confirmed off-page, no automated provisioning.
+                    I consent to AIInfraWatch contacting me about moving this workload.
                   </label>
                   <button onClick={submitMove} disabled={moveLoading} style={{
                     ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: moveLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
@@ -770,7 +770,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
               )
             ) : (
               <div style={{ ...SANS, fontSize: 13, color: "var(--green)", lineHeight: 1.55 }}>
-                ✓ Got it — we'll reach out to scope the move and confirm terms.
+                ✓ Got it — we'll reach out to scope the move.
               </div>
             )}
 
@@ -780,13 +780,13 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                 <div style={{ ...SANS, fontSize: 12, color: "var(--green)" }}>✓ We'll watch your bill and alert you.</div>
               ) : !monitorOpen ? (
                 <div style={{ ...SANS, fontSize: 12, color: "rgba(247,243,234,0.55)" }}>
-                  Watch my bill — we'll alert you when you're overpaying.{" "}
+                  Watch my bill for overpay alerts.{" "}
                   <button onClick={openMonitor} style={{ ...SANS, fontSize: 12, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
                     Notify Me
                   </button>
                   {demoPromptMonitor && (
                     <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", marginTop: 6, lineHeight: 1.5 }}>
-                      Adjust the numbers above to match your setup first.
+                      Enter your real numbers first.
                     </div>
                   )}
                 </div>
@@ -1056,7 +1056,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
 
   const TABS: { id: InputTab; label: string; dot: boolean }[] = [
     { id: "bill",     label: "Cloud bill",            dot: !!billFileName },
-    { id: "manual",   label: "Manual details",        dot: false },
+    { id: "manual",   label: "Manual",                dot: false },
     { id: "describe", label: "Describe",             dot: hasText },
   ];
 
@@ -1156,12 +1156,11 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
           {/* Describe */}
           {activeTab === "describe" && (
             <div>
-              <label style={labelStyle}>Paste raw text, a quote, or describe your stack</label>
               <div style={{ position: "relative" as const }}>
                 <textarea
                   value={setupText}
                   onChange={e => { setSetupText(e.target.value); setCommitted(false); }}
-                  placeholder={"Paste raw CSV lines, AWS/GCP bill text, or infrastructure quotes here...\n(e.g., 32x H100 SXM5 1yr reserved, or: 8×A100 on CoreWeave, batch inference, ~600 hrs/mo)"}
+                  placeholder={"e.g. 8x H100 on AWS, 720 hrs/mo, training"}
                   rows={6}
                   style={{
                     ...inputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.55,
@@ -1177,113 +1176,32 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
                     background: "var(--elevated)", border: "1px solid var(--border)",
                     padding: "2px 7px", borderRadius: 2, pointerEvents: "none" as const,
                   }}>
-                    Your bill file is never saved
+                    Never saved
                   </div>
                 )}
               </div>
               <a href="/privacy" style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", textDecoration: "underline" }}>How we handle your data</a>
 
-              {/* Instant sandbox preview — appears as soon as text is entered */}
-              {hasText && (() => {
-                const gpuCount  = parsed.gpuCount  ?? 8;
-                const hours     = parsed.hours     ?? 720;
-                const family    = parsed.family    ?? "H100";
-                const situation = parsed.situation ?? "hyperscaler";
-
-                // Compute a quick preview estimate from live listings
-                const familyListings = family === "other"
-                  ? listings
-                  : listings.filter(l => l.gpu_model.toUpperCase().includes(family));
-                const sorted   = [...familyListings].sort((a, b) => a.price_per_hour - b.price_per_hour);
-                const reliable = familyListings.filter(l => l.availability === "high").sort((a, b) => a.price_per_hour - b.price_per_hour);
-                const floor    = reliable[0] ?? sorted[0];
-
-                // Baseline: hyperscaler proxy if available
-                const hyperscalerListings = familyListings.filter(l => HYPERSCALERS.includes(l.provider.toLowerCase()));
-                const baselineListing = hyperscalerListings.sort((a, b) => a.price_per_hour - b.price_per_hour)[0] ?? null;
-                const baselineRate = baselineListing?.price_per_hour ?? (floor?.price_per_hour ?? 0) * 1.45;
-
-                const currentMonthly     = baselineRate * gpuCount * hours;
-                const recommendedMonthly = floor ? floor.price_per_hour * gpuCount * hours : currentMonthly * 0.65;
-                const savingsPctLow  = Math.max(0, Math.round((currentMonthly - recommendedMonthly) / currentMonthly * 100));
-                const savingsPctHigh = Math.min(savingsPctLow + 18, 65);
-                const hasLiveData    = !!floor;
-
-                return (
-                  <div style={{
-                    marginTop: 12,
-                    border: "1px solid var(--border-mid)",
-                    borderLeft: "3px solid var(--blue)",
-                    background: "var(--elevated)",
-                  }}>
-                    {/* Header */}
-                    <div style={{
-                      padding: "10px 16px",
-                      borderBottom: "1px solid var(--border)",
-                      display: "flex", alignItems: "center", gap: 8,
+              {/* Parsed terms — lightweight confirmation the parser understood the input.
+                  Replaces the previous full Quick Estimate card (4-metric grid) which
+                  duplicated the Results section rendered below after Run Cost Audit. */}
+              {hasText && parsed.matchedTerms.length > 0 && (
+                <div style={{ marginTop: 12, display: "flex", gap: 5, flexWrap: "wrap" as const, alignItems: "center" }}>
+                  <span style={{ ...MONO, fontSize: 9.5, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" as const, marginRight: 4 }}>
+                    Parsed
+                  </span>
+                  {parsed.matchedTerms.map(term => (
+                    <span key={term} style={{
+                      ...MONO, fontSize: 10.5, color: "var(--blue)",
+                      background: "rgba(43,108,176,0.08)",
+                      border: "1px solid rgba(43,108,176,0.2)",
+                      padding: "2px 7px", borderRadius: 2,
                     }}>
-                      <span style={{ ...MONO, fontSize: 9, color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase" as const }}>
-                        Quick estimate
-                      </span>
-                      {parsed.matchedTerms.length > 0 && (
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
-                          {parsed.matchedTerms.map(term => (
-                            <span key={term} style={{ ...MONO, fontSize: 9, color: "var(--blue)", background: "rgba(43,108,176,0.1)", border: "1px solid rgba(43,108,176,0.2)", padding: "1px 6px", borderRadius: 2 }}>
-                              {term}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <span style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", marginLeft: "auto" }}>
-                        {hasLiveData ? "Updated daily · rate card" : "Estimated"}
-                      </span>
-                    </div>
-
-                    {/* 4-metric preview grid */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--border)" }} className="sandbox-grid">
-                      {[
-                        {
-                          label: "Detected GPU Count",
-                          value: `${gpuCount}× ${family === "other" ? "GPU" : family}`,
-                          sub: parsed.gpuCount ? "from your text" : "default estimate",
-                          color: parsed.gpuCount ? "var(--text-primary)" : "var(--text-muted)",
-                        },
-                        {
-                          label: "Current Estimated Spend",
-                          value: `$${Math.round(currentMonthly).toLocaleString()}/mo`,
-                          sub: `at ${situation === "hyperscaler" ? "hyperscaler" : "market"} rates`,
-                          color: "var(--amber)",
-                        },
-                        {
-                          label: "AIInfraWatch Routing Price",
-                          value: `$${Math.round(recommendedMonthly).toLocaleString()}/mo`,
-                          sub: floor ? `${getMeta(floor.provider).short} · reliable floor` : "estimated floor",
-                          color: "var(--green)",
-                        },
-                        {
-                          label: "Estimated Potential Savings",
-                          value: `~${savingsPctLow}–${savingsPctHigh}%`,
-                          sub: "same GPUs, same hours",
-                          color: "var(--green)",
-                        },
-                      ].map(m => (
-                        <div key={m.label} style={{ background: "var(--panel)", padding: "14px 16px" }}>
-                          <div style={{ ...SANS, fontSize: 9.5, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 4 }}>
-                            {m.label}
-                          </div>
-                          <div style={{ ...MONO, fontSize: 18, fontWeight: 600, color: m.color, letterSpacing: "-0.02em", lineHeight: 1 }}>
-                            {m.value}
-                          </div>
-                          <div style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", marginTop: 3 }}>
-                            {m.sub}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                  </div>
-                );
-              })()}
+                      {term}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1292,7 +1210,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
             <div>
               <label style={labelStyle}>Upload your cloud bill</label>
               <p style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 16 }}>
-                CSV, PDF, or Excel from AWS Cost Explorer, GCP Billing, or Azure Cost Management.
+                CSV, PDF, or Excel.
               </p>
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", ...SANS, fontSize: 13, color: "var(--blue)", border: "1px solid var(--border-mid)", padding: "10px 18px", borderRadius: 3, background: "var(--elevated)" }}>
                 <input type="file" accept=".csv,.pdf,.xlsx,.xls" style={{ display: "none" }} onChange={e => {
@@ -1317,7 +1235,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
                   }}
                   style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: 12, display: "block" }}
                 >
-                  Don't have a bill? Click here to auto-fill sample data.
+                  Try sample data →
                 </button>
               )}
             </div>
@@ -1326,7 +1244,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
           {/* Manual details */}
           {activeTab === "manual" && (
             <div>
-              <label style={labelStyle}>Workload details — one row per GPU type or use case</label>
+              <label style={labelStyle}>One row per workload</label>
               <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
                 {rows.map((row, idx) => (
                   <div key={row.id} style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderRadius: 3, padding: "16px 18px" }}>
@@ -1389,7 +1307,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
                 border: "1px dashed var(--border-mid)", borderRadius: 3, cursor: "pointer",
                 padding: "10px 18px", marginTop: 10, width: "100%",
               }}>
-                + Add Another Workload
+                + Add Workload
               </button>
             </div>
           )}
@@ -1422,7 +1340,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
         <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderLeft: "3px solid var(--amber)", padding: "18px 24px", marginBottom: 16 }}>
           <div style={{ ...SANS, fontSize: 13.5, color: "var(--text-primary)", fontWeight: 600, marginBottom: 4 }}>Name a GPU and provider to get your number.</div>
           <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
-            Add a GPU family (H100, A100, L40S, A10G) and a provider, or{" "}
+            Add a GPU family and provider, or{" "}
             <button onClick={() => setActiveTab("manual")} style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>enter details manually</button>.
           </div>
         </div>
