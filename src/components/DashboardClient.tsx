@@ -130,19 +130,13 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "56px 32px 48px" }}>
 
         <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 460px", gap: 64, alignItems: "start" }}>
-          {/* Left: headline + CTAs */}
+          {/* Left: headline */}
           <div>
-            <div style={{ ...MONO, fontSize: 10, color: "var(--blue)", letterSpacing: "0.14em", textTransform: "uppercase" as const, marginBottom: 16 }}>
-              Market Data
-            </div>
             <h1 style={{ ...SERIF, fontSize: 52, fontWeight: 400, lineHeight: 1.08, color: "var(--text-primary)", marginBottom: 20, maxWidth: 640 }}>
               AI compute costs, from silicon to megawatt.
             </h1>
-            <p style={{ ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 520, marginBottom: 26 }}>
-              GPU price intelligence across {activeProviders} providers, mapped to the regional energy costs that set the real floor. See what your stack should actually cost.
-            </p>
-            <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", marginTop: 14, lineHeight: 1.5 }}>
-              Most stacks overpay by 20–40%. Paste a bill or describe your setup to find out exactly.
+            <p style={{ ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 520 }}>
+              GPU price intelligence across {activeProviders} providers, priced against the regional energy costs that set the real floor.
             </p>
           </div>
 
@@ -603,8 +597,6 @@ function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
 export default function DashboardClient({ summary, listings }: Props) {
   const { activeProviders, cheapestH100High, h100Prices, premiumPct, a100PremiumPct } = computeMarketStats(listings);
 
-  const updatedAgo = minsAgo(summary?.last_updated);
-
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text-primary)" }}>
       <style>{`
@@ -635,7 +627,6 @@ export default function DashboardClient({ summary, listings }: Props) {
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "40px 32px 0" }}>
 
         <div style={{ marginBottom: 24 }}>
-          <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 8 }}>The cheapest price and the cheapest safe price are not the same.</div>
           <div className="charts-grid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 14 }}>
             <H100SpreadChart listings={listings} />
             <GpuSmallMultiples listings={listings} />
@@ -680,37 +671,6 @@ export default function DashboardClient({ summary, listings }: Props) {
         </div>
       </div>
 
-      {/* ── Research teaser ── */}
-      <div style={{ background: "var(--elevated)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ maxWidth: 1360, margin: "0 auto", padding: "40px 32px" }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 32, flexWrap: "wrap" as const }}>
-            <div style={{ flex: "1 1 520px", maxWidth: 640 }}>
-              <div style={{ ...SANS, fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.09em", marginBottom: 10 }}>Research</div>
-              <div style={{ ...SERIF, fontSize: 26, fontWeight: 400, color: "var(--text-primary)", lineHeight: 1.2, marginBottom: 10 }}>
-                AI infrastructure economics, from the compute-and-energy edge.
-              </div>
-              <div style={{ ...SANS, fontSize: 13.5, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-                Weekly analysis of what's actually moving in GPU pricing — and the regional power dynamics nobody else is tracking. First deep-dive drops soon.
-              </div>
-            </div>
-            <div style={{ flexShrink: 0, alignSelf: "flex-start" as const, paddingTop: 8 }}>
-              <Link
-                href="/research"
-                style={{
-                  ...SANS, fontSize: 13, fontWeight: 600,
-                  color: "#F7F3EA", background: "#171717",
-                  padding: "10px 20px", borderRadius: 3, textDecoration: "none",
-                  whiteSpace: "nowrap" as const, letterSpacing: "0.01em",
-                  display: "inline-block",
-                }}
-              >
-                Get The Research →
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* ── Footer ── */}
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "24px 32px 64px" }}>
         <Rule />
@@ -718,17 +678,14 @@ export default function DashboardClient({ summary, listings }: Props) {
           <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
             <span style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>AIInfraWatch · {activeProviders} {activeProviders === 1 ? "provider" : "providers"} · Updated daily</span>
             <Link href="/methodology" style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}>Methodology</Link>
-            <Link href="/research" style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "none" }}>Research</Link>
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {[["API","/api/gpu-prices"],["llms.txt","/llms.txt"],["OpenAPI","/openapi.json"]].map(([l,h]) => (
               <a key={l} href={h} style={{ ...MONO, fontSize: 10.5, color: "var(--text-muted)", textDecoration: "none" }}>{l}</a>
             ))}
-            <span style={{ ...MONO, fontSize: 10.5, color: "var(--text-muted)" }}>{updatedAgo}</span>
           </div>
         </div>
       </div>
-
     </div>
   );
 }

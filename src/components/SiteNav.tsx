@@ -24,13 +24,12 @@ const Logo = () => (
 export default function SiteNav() {
   const path = usePathname();
 
-  // Nav: Audit, Market Data, Research. Routing Beta removed (superseded by
-  // the content/research funnel). Research is the top-of-funnel wedge —
-  // deep-dives on GPU pricing + regional energy dynamics.
+  // Nav: Audit, Market Data. Two items only — no Research, no Routing Beta,
+  // no Pricing. Insight/research signals live inside the market-data page
+  // itself, not on a dedicated route.
   const navLinks = [
     { href: "/",            label: "Audit" },
     { href: "/market-data", label: "Market Data" },
-    { href: "/research",    label: "Research" },
   ];
 
   const isActive = (href: string) => href === "/" ? path === "/" : path.startsWith(href);
