@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "AIInfraWatch — AI Infrastructure Markets", template: "%s · AIInfraWatch" },
-  description: "Stop wasting money on AI compute. GPU pricing, availability signals, and workload routing intelligence for AI infrastructure teams.",
+  title: { default: "AIInfraWatch — AI compute costs, from silicon to megawatt", template: "%s · AIInfraWatch" },
+  description: "GPU price intelligence across 15 providers, priced against the regional energy costs that set the real floor. Audit your compute spend, see what you'd save.",
   robots: { index: true, follow: true },
   openGraph: {
-    title: "AIInfraWatch — AI Infrastructure Markets",
-    description: "GPU pricing, availability signals, and cost audits for AI teams.",
+    title: "AIInfraWatch — AI compute costs, from silicon to megawatt",
+    description: "GPU price intelligence across 15 providers, mapped to the regional energy costs that set the real floor.",
     url: "https://aiinfrawatch.vercel.app",
     siteName: "AIInfraWatch",
     type: "website",
