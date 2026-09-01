@@ -290,7 +290,7 @@ function computeResult(
   } else if (savingsPct !== null && savingsPct >= 10) {
     advice = `That gap is real money.${!isBatchFriendly ? " This workload is latency-sensitive, so don't just move it — " : " "}Lock in reserved pricing first, then move when you're ready.`;
   } else if (savingsPct !== null) {
-    advice = `You're already close to the ${family === "other" ? "GPU" : family} floor. The bigger win now is using more of what you're paying for, not switching providers.`;
+    advice = `You're already paying close to the best price for ${family === "other" ? "this GPU" : family}. The bigger opportunity now is using more of what you're paying for, not switching providers.`;
   } else if (!baseline) {
     advice = `We don't have ${situation} prices for ${family === "other" ? "this GPU" : family} yet. Run the full audit and we'll find region-specific options.`;
   }
@@ -368,7 +368,7 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
       <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 3 }}>
         {family} — where your bill lands
       </div>
-      <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginBottom: 16 }}>Cheapest to most expensive</div>
+      <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginBottom: 16 }}>Every cloud, cheapest to most expensive</div>
 
       {/* scale ticks */}
       <div style={{ display: "grid", gridTemplateColumns: "96px 1fr 56px", gap: 12, marginBottom: 8 }}>
@@ -437,7 +437,7 @@ function FamilySpreadChart({ listings, family, currentRatePerHour, floorRate, fl
       </div>
       {cheaperCount > 0 && (
         <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", marginTop: 12, lineHeight: 1.6 }}>
-          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{cheaperCount} cloud{cheaperCount !== 1 ? "s" : ""}</span> cheaper than <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span>. Floor: <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRate)}/hr</span>{floorProviderShort ? ` (${floorProviderShort})` : ""}.
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{cheaperCount} cloud{cheaperCount !== 1 ? "s" : ""}</span> {cheaperCount !== 1 ? "sell" : "sells"} {family} cheaper than the <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span> you're paying. The best price right now is <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRate)}/hr</span>{floorProviderShort ? ` (${floorProviderShort})` : ""}.
         </div>
       )}
     </div>
@@ -532,7 +532,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           {currentRatePerHour != null ? (
             <>
               You're paying <span style={{ ...MONO, color: "var(--red)", fontWeight: 600 }}>{fmtP(currentRatePerHour)}/hr</span>
-              {premiumOverFloorPct != null && premiumOverFloorPct > 0 ? <>, <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{premiumOverFloorPct}% above</span> the {family === "other" ? "GPU" : family} floor.</> : ", above the market floor."}
+              {premiumOverFloorPct != null && premiumOverFloorPct > 0 ? <>, which is <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{premiumOverFloorPct}% more</span></> : ", more"} than the best available price for the same {family === "other" ? "GPU" : family} setup right now.
             </>
           ) : (
             <>That's {savingsPct}% of your {family === "other" ? "GPU" : family} bill — same GPUs, same hours, at a price other providers already offer.</>
@@ -549,7 +549,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
   } else if (currentMonthly) {
     headline = (
       <span style={{ ...SANS, fontSize: bodyFont + 1, color: "var(--text-secondary)" }}>
-        You're already close to the {family === "other" ? "GPU" : family} floor. Switching won't save much — the bigger win is using more of what you're paying for.
+        You're already paying close to the best available rate for {family === "other" ? "GPU" : family}. Switching providers won't save much — the bigger win here is using what you're paying for more fully.
       </span>
     );
   } else {
@@ -714,10 +714,10 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
           {/* Right: move copy + CTA, one cohesive block */}
           <div style={{ background: "#171717", padding: "20px 20px 22px", display: "flex", flexDirection: "column" as const, gap: 14 }}>
             <div style={{ ...SANS, fontSize: 13, color: "rgba(247,243,234,0.9)", lineHeight: 1.55 }}>
-              Move to <strong style={{ color: "#F7F3EA" }}>{floorProviderLabel}</strong> at{" "}
+              We'll move this to <strong style={{ color: "#F7F3EA" }}>{floorProviderLabel}</strong> at{" "}
               <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtP(floorRatePerHour)}/hr</span> — save ~
               <span style={{ ...MONO, color: "var(--green)", fontWeight: 600 }}>{fmtBigMoney(annualSavings!)}/yr</span>.{" "}
-              <span style={{ color: "rgba(247,243,234,0.6)" }}>You only pay from savings.</span>
+              <span style={{ color: "rgba(247,243,234,0.6)" }}>Performance-based, you only pay from savings.</span>
             </div>
 
             {!moveDone ? (
@@ -750,7 +750,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                   </a>
                   {demoPromptMove && (
                     <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", lineHeight: 1.5 }}>
-                      Enter your real numbers first.
+                      Adjust the numbers above to match your setup first.
                     </div>
                   )}
                 </div>
@@ -759,7 +759,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                   <input type="email" placeholder="you@company.com" value={moveEmail} onChange={e => setMoveEmail(e.target.value)} style={inputStyleLocal} />
                   <label style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", display: "flex", alignItems: "flex-start" as const, gap: 7, lineHeight: 1.5 }}>
                     <input type="checkbox" checked={moveConsent} onChange={e => setMoveConsent(e.target.checked)} style={{ marginTop: 2 }} />
-                    I consent to AIInfraWatch contacting me about moving this workload.
+                    I consent to AIInfraWatch contacting me about moving this workload. We'll help coordinate the move — terms confirmed off-page, no automated provisioning.
                   </label>
                   <button onClick={submitMove} disabled={moveLoading} style={{
                     ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: moveLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
@@ -770,7 +770,7 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
               )
             ) : (
               <div style={{ ...SANS, fontSize: 13, color: "var(--green)", lineHeight: 1.55 }}>
-                ✓ Got it — we'll reach out to scope the move.
+                ✓ Got it — we'll reach out to scope the move and confirm terms.
               </div>
             )}
 
@@ -780,13 +780,13 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                 <div style={{ ...SANS, fontSize: 12, color: "var(--green)" }}>✓ We'll watch your bill and alert you.</div>
               ) : !monitorOpen ? (
                 <div style={{ ...SANS, fontSize: 12, color: "rgba(247,243,234,0.55)" }}>
-                  Watch my bill for overpay alerts.{" "}
+                  Watch my bill — we'll alert you when you're overpaying.{" "}
                   <button onClick={openMonitor} style={{ ...SANS, fontSize: 12, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
                     Notify Me
                   </button>
                   {demoPromptMonitor && (
                     <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", marginTop: 6, lineHeight: 1.5 }}>
-                      Enter your real numbers first.
+                      Adjust the numbers above to match your setup first.
                     </div>
                   )}
                 </div>
@@ -858,11 +858,12 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
   };
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Manual details is now the default active tab — it's the fastest path to
-  // a real number since it's prefilled, not the visual default (Cloud bill →
-  // Manual details → Describe stays as-is per the brief).
-  const [activeTab,      setActiveTab]      = useState<InputTab>(() => { const s = ssRead(); return (s?.activeTab as InputTab) ?? "manual"; });
-  const [setupText,      setSetupText]      = useState<string>(() => ssRead()?.setupText ?? "");
+  // Single-input model: tabs removed from UI. activeTab stays as an internal
+  // enum for the bill-upload code path; setupText is prefilled with a live
+  // demo example so results render on first paint without any interaction.
+  const DEMO_TEXT = "8x H100 on AWS, 720 hrs/mo, training";
+  const [activeTab,      setActiveTab]      = useState<InputTab>(() => { const s = ssRead(); return (s?.activeTab as InputTab) ?? "describe"; });
+  const [setupText,      setSetupText]      = useState<string>(() => ssRead()?.setupText ?? DEMO_TEXT);
   const [billFileName,     setBillFileName]     = useState<string | null>(() => ssRead()?.billFileName ?? null);
   const [billFile,         setBillFile]         = useState<File | null>(null); // File not serializable — never persisted
   const [billExtracting,   setBillExtracting]   = useState(false);
@@ -873,16 +874,13 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
     provider: string; confidence: string;
   } | null>(() => ssRead()?.billExtracted ?? null);
   const [rows,           setRows]           = useState<WorkloadRow[]>(() => ssRead()?.rows ?? [buildDemoRow(listings)]);
-  const [committed,      setCommitted]      = useState<boolean>(() => ssRead()?.committed ?? false);
+  const [committed,      setCommitted]      = useState<boolean>(() => ssRead()?.committed ?? true);
   const [wantsAlerts,    setWantsAlerts]    = useState(true);
 
-  // manualTouched: starts false the moment the manual tab is prefilled with a
-  // live market example. Flips true on the first real field edit — from that
-  // point on, the manual flow behaves exactly like today's manual entry
-  // (same telemetry, same CTAs). While false, the result on screen is
-  // functionally the same situation the old DemoAuditPreview was in: a
-  // real-but-generic number, not a real user input — see ResultSection's
-  // isDemoState guard below.
+  // userEdited: flips true when the visitor edits the text or uploads a file.
+  // While false, the on-screen result is a demo derived from live market data —
+  // real numbers, but not user input. Prevents funnel logging on demo state
+  // (see ResultSection's isDemoState guard).
   const [manualTouched,  setManualTouched]  = useState<boolean>(() => ssRead()?.manualTouched ?? false);
 
   // Results render into a page-level portal target (#audit-results-portal) so they can sit
@@ -934,7 +932,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
     };
   }, [hasText, parsed, firstRow]);
 
-  const showGuard = committed && activeTab === "describe" && hasText && !primarySnapshot.hasFamily;
+  const showGuard = activeTab === "describe" && hasText && !primarySnapshot.hasFamily;
 
   const manualResults = useMemo(() =>
     rows.map(row => ({
@@ -949,17 +947,16 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
   [rows, listings]);
 
   const primaryResult = useMemo(() =>
-    committed && !showGuard
+    !showGuard
       ? computeResult(listings, primarySnapshot.family, primarySnapshot.gpuCount, primarySnapshot.hours, primarySnapshot.situation, primarySnapshot.workload)
       : null,
-  [committed, showGuard, listings, primarySnapshot]);
+  [showGuard, listings, primarySnapshot]);
 
-  const showTextResult   = !compact && committed && activeTab === "describe" && hasText && !showGuard && !!primaryResult;
-  // Manual tab no longer waits for "Run Cost Audit" — it's prefilled, so the
-  // result renders the moment it's on screen. In compact mode the tool is
-  // always, implicitly, the manual tab.
-  const showManualResult = (compact || activeTab === "manual") && rows.length > 0 && manualResults.some(r => !!r.result);
-  const showUploadResult = !compact && committed && activeTab === "bill" && hasUpload;
+  // Auto-render: no "committed" gate. As soon as there's parseable input,
+  // results appear.
+  const showTextResult   = !compact && activeTab === "describe" && hasText && !showGuard && !!primaryResult;
+  const showManualResult = compact && rows.length > 0 && manualResults.some(r => !!r.result);
+  const showUploadResult = !compact && activeTab === "bill" && hasUpload;
   const showResult       = showTextResult || showManualResult || showUploadResult;
 
   const inputStyle: React.CSSProperties = {
@@ -992,95 +989,16 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
     if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
   };
 
-  const handleRunAudit = async () => {
-    if (activeTab === "bill" && billFile) {
-      setBillExtracting(true);
-      setBillExtractError(null);
-      setBillExtracted(null);
-      setCommitted(true);
-      try {
-        const isPdf = billFile.type === "application/pdf" || billFile.name.toLowerCase().endsWith(".pdf");
-        let body: any;
-        if (isPdf) {
-          const ab = await billFile.arrayBuffer();
-          const bytes = new Uint8Array(ab);
-          // Chunk to avoid call stack overflow on large files
-          let bin = "";
-          const CHUNK = 8192;
-          for (let i = 0; i < bytes.length; i += CHUNK) {
-            bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-          }
-          body = { base64: btoa(bin), mediaType: "application/pdf", fileName: billFile.name };
-        } else {
-          const text = await billFile.text();
-          body = { text, fileName: billFile.name };
-        }
-        const res = await fetch("/api/extract-bill", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const json = await res.json();
-        if (json.success && json.data) {
-          setBillExtracted(json.data);
-        } else if (json.error === "no_gpu_found") {
-          setBillExtractError("No GPU line items found — try the Describe tab to enter details manually.");
-        } else {
-          // Surface the server-side reason so failures are debuggable in the UI, not silent.
-          if (json.detail) console.error("[extract-bill]", json.error, json.detail);
-          const diag = json.detail ? ` (${json.detail})` : "";
-          setBillExtractError(`Could not read this file${diag} — try a CSV export or use the Describe tab.`);
-        }
-      } catch {
-        setBillExtractError("Network error reading bill — try again.");
-      } finally {
-        setBillExtracting(false);
-        setTimeout(() => {
-          document.getElementById("audit-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 80);
-      }
-      return;
-    }
-    setCommitted(true);
-    setTimeout(() => {
-      document.getElementById("audit-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
-  };
-
-  const updateRow = (id: number, patch: Partial<WorkloadRow>) => {
-    setRows(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r));
-    setManualTouched(true);
-  };
-  const addRow    = () => { setRows(rs => [...rs, newRow()]); setManualTouched(true); };
-  const removeRow = (id: number) => { setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : rs); setManualTouched(true); };
-
-  const TABS: { id: InputTab; label: string; dot: boolean }[] = [
-    { id: "bill",     label: "Cloud bill",            dot: !!billFileName },
-    { id: "manual",   label: "Manual",                dot: false },
-    { id: "describe", label: "Describe",             dot: hasText },
-  ];
-
-  const tabBtn = (id: InputTab, label: string, dot: boolean) => (
-    <button key={id} type="button" onClick={() => setActiveTab(id)} style={{
-      ...SANS, fontSize: 12.5, fontWeight: activeTab === id ? 600 : 400,
-      color: activeTab === id ? "var(--text-primary)" : "var(--text-muted)",
-      background: activeTab === id ? "var(--panel)" : "var(--elevated)",
-      border: "1px solid var(--border)",
-      borderBottom: activeTab === id ? "1px solid var(--panel)" : "1px solid var(--border)",
-      padding: "8px 16px", cursor: "pointer", borderRadius: "3px 3px 0 0",
-      marginBottom: -1, position: "relative" as const, zIndex: activeTab === id ? 1 : 0,
-      whiteSpace: "nowrap" as const,
-    }}>
-      {label}
-      {dot && <span style={{ ...MONO, fontSize: 9, color: "var(--blue)", marginLeft: 5 }}>●</span>}
-    </button>
-  );
 
   // ── Compact shell (used inside the /market-data hero stat strip) ──
   // Same computeResult()/prefill/touched-gating as the full tool above —
   // deliberately NOT a separate copy of that logic — just a much smaller
   // input row and no chart/CTA panel. See brief §4.
   if (compact) {
+    const updateRow = (id: number, patch: Partial<WorkloadRow>) => {
+      setRows(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r));
+      setManualTouched(true);
+    };
     const compactSelectStyle: React.CSSProperties = {
       ...inputStyle, padding: "7px 8px", fontSize: 12.5, appearance: "auto",
     };
@@ -1141,50 +1059,110 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
       {/* ── Input card ── */}
       <div style={{ marginBottom: 16 }}>
 
-        {/* Tab bar */}
-        <div style={{ display: "flex", gap: 3, flexWrap: "wrap" as const }}>
-          {TABS.map(t => tabBtn(t.id, t.label, t.dot))}
-        </div>
+        {/* Single unified input surface — no tabs. Textarea prefilled with a
+            live demo example so results appear on first paint. Inline upload
+            link swaps to a bill-uploaded state that auto-fires extraction. */}
+        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "20px 24px" }}>
 
-        {/* Tab panel — minHeight sized to the tallest of the three default tab
-            states (Manual details, 1 row, ≈380px) so switching tabs before any
-            content grows (typed text, added rows, quick-estimate preview) never
-            hops the page vertically. Content-driven growth beyond this floor is
-            expected and unaffected. */}
-        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", padding: "20px 24px", minHeight: 400 }}>
-
-          {/* Describe */}
-          {activeTab === "describe" && (
+          {billFileName ? (
+            /* ── Bill uploaded state ── */
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{ ...MONO, fontSize: 13, color: "var(--green)" }}>✓</span>
+                <span style={{ ...SANS, fontSize: 14, color: "var(--text-primary)", fontWeight: 500 }}>{billFileName}</span>
+                {billExtracting && <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>reading…</span>}
+                <button
+                  onClick={() => {
+                    setBillFileName(null); setBillFile(null); setBillExtracted(null); setBillExtractError(null);
+                    setActiveTab("describe");
+                  }}
+                  style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: "auto", textDecoration: "underline" }}
+                >
+                  Use text instead
+                </button>
+              </div>
+              {billExtractError && (
+                <div style={{ ...SANS, fontSize: 12.5, color: "var(--red)", marginTop: 6, lineHeight: 1.5 }}>{billExtractError}</div>
+              )}
+            </div>
+          ) : (
+            /* ── Text input state (default) ── */
             <div>
               <div style={{ position: "relative" as const }}>
                 <textarea
                   value={setupText}
-                  onChange={e => { setSetupText(e.target.value); setCommitted(false); }}
-                  placeholder={"e.g. 8x H100 on AWS, 720 hrs/mo, training"}
-                  rows={6}
+                  onChange={e => { setSetupText(e.target.value); setManualTouched(true); }}
+                  placeholder="e.g. 8x H100 on AWS, 720 hrs/mo, training"
+                  rows={4}
                   style={{
-                    ...inputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.55,
-                    border: hasText ? "1px solid var(--border-mid)" : "1px solid var(--border-mid)",
-                    background: "var(--panel)",
+                    ...inputStyle, minHeight: 96, resize: "vertical", lineHeight: 1.55,
+                    border: "1px solid var(--border-mid)", background: "var(--panel)",
                   }}
                 />
-                {!hasText && (
-                  <div style={{
-                    position: "absolute" as const, top: 10, right: 10,
-                    ...MONO, fontSize: 9, color: "var(--text-muted)",
-                    letterSpacing: "0.08em", textTransform: "uppercase" as const,
-                    background: "var(--elevated)", border: "1px solid var(--border)",
-                    padding: "2px 7px", borderRadius: 2, pointerEvents: "none" as const,
-                  }}>
-                    Never saved
-                  </div>
-                )}
               </div>
-              <a href="/privacy" style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", textDecoration: "underline" }}>How we handle your data</a>
 
-              {/* Parsed terms — lightweight confirmation the parser understood the input.
-                  Replaces the previous full Quick Estimate card (4-metric grid) which
-                  duplicated the Results section rendered below after Run Cost Audit. */}
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 8 }}>
+                <label style={{
+                  ...SANS, fontSize: 12.5, color: "var(--blue)", cursor: "pointer",
+                  display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "underline",
+                }}>
+                  <input
+                    type="file"
+                    accept=".csv,.pdf,.xlsx,.xls"
+                    style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setBillFileName(file.name); setBillFile(file);
+                      setBillExtracted(null); setBillExtractError(null);
+                      setActiveTab("bill"); setManualTouched(true);
+                      // Auto-fire extraction — no separate Run button.
+                      setBillExtracting(true);
+                      try {
+                        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+                        let body: any;
+                        if (isPdf) {
+                          const ab = await file.arrayBuffer();
+                          const bytes = new Uint8Array(ab);
+                          let bin = "";
+                          const CHUNK = 8192;
+                          for (let i = 0; i < bytes.length; i += CHUNK) {
+                            bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+                          }
+                          body = { base64: btoa(bin), mediaType: "application/pdf", fileName: file.name };
+                        } else {
+                          const text = await file.text();
+                          body = { text, fileName: file.name };
+                        }
+                        const res = await fetch("/api/extract-bill", {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(body),
+                        });
+                        const json = await res.json();
+                        if (json.success && json.data) {
+                          setBillExtracted(json.data);
+                        } else if (json.error === "no_gpu_found") {
+                          setBillExtractError("No GPU line items found — try describing your setup as text.");
+                        } else {
+                          if (json.detail) console.error("[extract-bill]", json.error, json.detail);
+                          setBillExtractError("Could not read this file — try a CSV export or describe as text.");
+                        }
+                      } catch {
+                        setBillExtractError("Network error — try again.");
+                      } finally {
+                        setBillExtracting(false);
+                      }
+                    }}
+                  />
+                  📎 or upload a bill
+                </label>
+
+                <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)" }}>
+                  Never saved · <a href="/privacy" style={{ color: "var(--text-muted)", textDecoration: "underline" }}>Privacy</a>
+                </div>
+              </div>
+
+              {/* Parsed terms — confirmation the parser understood the input */}
               {hasText && parsed.matchedTerms.length > 0 && (
                 <div style={{ marginTop: 12, display: "flex", gap: 5, flexWrap: "wrap" as const, alignItems: "center" }}>
                   <span style={{ ...MONO, fontSize: 9.5, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" as const, marginRight: 4 }}>
@@ -1204,130 +1182,6 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
               )}
             </div>
           )}
-
-          {/* Cloud bill */}
-          {activeTab === "bill" && (
-            <div>
-              <label style={labelStyle}>Upload your cloud bill</label>
-              <p style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 16 }}>
-                CSV, PDF, or Excel.
-              </p>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", ...SANS, fontSize: 13, color: "var(--blue)", border: "1px solid var(--border-mid)", padding: "10px 18px", borderRadius: 3, background: "var(--elevated)" }}>
-                <input type="file" accept=".csv,.pdf,.xlsx,.xls" style={{ display: "none" }} onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) { setBillFileName(file.name); setBillFile(file); setBillExtracted(null); setBillExtractError(null); setCommitted(false); }
-                }} />
-                <span style={{ fontSize: 15 }}>⬆</span> Choose File
-              </label>
-              {billFileName && (
-                <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ ...MONO, fontSize: 11.5, color: "var(--green)" }}>✓</span>
-                  <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>{billFileName}</span>
-                  <button onClick={() => { setBillFileName(null); setBillFile(null); setBillExtracted(null); setBillExtractError(null); setCommitted(false); }} style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>remove</button>
-                </div>
-              )}
-              {!billFileName && (
-                <button
-                  onClick={() => {
-                    setActiveTab("describe");
-                    setSetupText("8x H100 on AWS, 720 hours/month, training");
-                    setCommitted(true);
-                  }}
-                  style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: 12, display: "block" }}
-                >
-                  Try sample data →
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Manual details */}
-          {activeTab === "manual" && (
-            <div>
-              <label style={labelStyle}>One row per workload</label>
-              <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
-                {rows.map((row, idx) => (
-                  <div key={row.id} style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderRadius: 3, padding: "16px 18px" }}>
-                    <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.07em", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
-                      WORKLOAD {idx + 1}
-                      {rows.length > 1 && (
-                        <button onClick={() => removeRow(row.id)} style={{ ...SANS, fontSize: 10.5, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                          remove
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column" as const, gap: 12, marginBottom: 12 }}>
-                      <div>
-                        <label style={labelStyle}>Workload type</label>
-                        <select value={row.workload} onChange={e => updateRow(row.id, { workload: e.target.value as WorkloadType })} style={{ ...inputStyle, appearance: "auto" }}>
-                          {WORKLOAD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Current provider</label>
-                        <select value={row.situation} onChange={e => updateRow(row.id, { situation: e.target.value as Situation })} style={{ ...inputStyle, appearance: "auto" }}>
-                          {SETUP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>GPU family</label>
-                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const }}>
-                          {(["H100","A100","L40S","A10G","other"] as GpuFamily[]).map(f => (
-                            <button key={f} type="button" onClick={() => updateRow(row.id, { family: f })} style={{
-                              ...MONO, fontSize: 11, padding: "6px 10px", borderRadius: 3, cursor: "pointer",
-                              border: `1px solid ${row.family === f ? "var(--blue)" : "var(--border-mid)"}`,
-                              background: row.family === f ? "rgba(43,108,176,0.08)" : "var(--panel)",
-                              color: row.family === f ? "var(--blue)" : "var(--text-secondary)",
-                            }}>{f}</button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                      <div>
-                        <label style={labelStyle}>GPU count</label>
-                        <input type="number" min={1} value={row.gpuCountStr}
-                          onChange={e => updateRow(row.id, { gpuCountStr: e.target.value })}
-                          onBlur={() => updateRow(row.id, { gpuCountStr: String(parseNum(row.gpuCountStr, 1)) })}
-                          style={inputStyle} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Hours / month</label>
-                        <input type="number" min={1} max={8760} value={row.hoursStr}
-                          onChange={e => updateRow(row.id, { hoursStr: e.target.value })}
-                          onBlur={() => updateRow(row.id, { hoursStr: String(parseNum(row.hoursStr, 720)) })}
-                          style={inputStyle} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button type="button" onClick={addRow} style={{
-                ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none",
-                border: "1px dashed var(--border-mid)", borderRadius: 3, cursor: "pointer",
-                padding: "10px 18px", marginTop: 10, width: "100%",
-              }}>
-                + Add Workload
-              </button>
-            </div>
-          )}
-
-        </div>{/* end tab panel */}
-
-        {/* ── Run audit CTA — always visible ── */}
-        <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 14 }}>
-          <button
-            type="button"
-            onClick={handleRunAudit}
-            style={{
-              ...SANS, fontSize: 14, fontWeight: 600,
-              color: "#F7F3EA", background: "#171717",
-              padding: "13px 32px", borderRadius: 3, border: "none",
-              cursor: "pointer", letterSpacing: "0.01em",
-            }}
-          >
-            Run Cost Audit →
-          </button>
         </div>
 
       </div>{/* end input card wrapper */}
@@ -1338,10 +1192,9 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
       {/* ── Guard ── */}
       {showGuard && (
         <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderLeft: "3px solid var(--amber)", padding: "18px 24px", marginBottom: 16 }}>
-          <div style={{ ...SANS, fontSize: 13.5, color: "var(--text-primary)", fontWeight: 600, marginBottom: 4 }}>Name a GPU and provider to get your number.</div>
+          <div style={{ ...SANS, fontSize: 13.5, color: "var(--text-primary)", fontWeight: 600, marginBottom: 4 }}>Name a GPU to get your number.</div>
           <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
-            Add a GPU family and provider, or{" "}
-            <button onClick={() => setActiveTab("manual")} style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>enter details manually</button>.
+            Include a GPU family (H100, A100, L40S, A10G) in your description.
           </div>
         </div>
       )}

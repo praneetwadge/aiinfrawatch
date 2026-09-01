@@ -6,7 +6,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const SANS: React.CSSProperties = { fontFamily: "var(--font-sans)" };
-const MONO: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 const BODY: React.CSSProperties = { fontFamily: "var(--font-body)" };
 
 const Logo = () => (
@@ -21,54 +20,27 @@ const Logo = () => (
   </Link>
 );
 
+// Single-page site. "Audit" is a scroll anchor to #audit on / (works from
+// any page via /#audit). "Methodology" is a separate route.
 export default function SiteNav() {
   const path = usePathname();
-
-  // Nav: Audit, Market Data. Two items only — no Research, no Routing Beta,
-  // no Pricing. Insight/research signals live inside the market-data page
-  // itself, not on a dedicated route.
-  const navLinks = [
-    { href: "/",            label: "Audit" },
-    { href: "/market-data", label: "Market Data" },
-  ];
-
-  const isActive = (href: string) => href === "/" ? path === "/" : path.startsWith(href);
-  const onAuditPage = path === "/" || path.startsWith("/cost-audit");
+  const onHome = path === "/";
+  const linkStyle = (active: boolean): React.CSSProperties => ({
+    ...SANS, fontSize: 13, fontWeight: active ? 600 : 400,
+    color: active ? "var(--text-primary)" : "var(--text-muted)",
+    padding: "5px 12px", borderRadius: 4,
+    background: active ? "var(--elevated)" : "transparent",
+    textDecoration: "none",
+  });
 
   return (
     <header style={{ borderBottom: "1px solid var(--border)", background: "var(--panel)", boxShadow: "0 1px 0 rgba(20,20,20,0.06)", position: "sticky" as const, top: 0, zIndex: 40 }}>
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "0 32px", height: 54, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        {/* Left: logo + nav */}
-        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-          <Logo />
-          <div style={{ width: 1, height: 16, background: "var(--border)" }} />
-          <nav style={{ display: "flex", gap: 4 }}>
-            {navLinks.map(({ href, label }) => (
-              <Link key={href} href={href} style={{
-                ...SANS, fontSize: 13, fontWeight: isActive(href) ? 600 : 400,
-                color: isActive(href) ? "var(--text-primary)" : "var(--text-muted)",
-                padding: "5px 12px", borderRadius: 4,
-                background: isActive(href) ? "var(--elevated)" : "transparent",
-                textDecoration: "none",
-              }}>{label}</Link>
-            ))}
-          </nav>
-        </div>
-
-        {/* Right: primary CTA — hidden on the audit page itself since the page CTA does the job */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: onAuditPage ? 0 : undefined }}>
-          {!onAuditPage && (
-            <Link href="/" style={{
-              ...SANS, fontSize: 12.5, fontWeight: 600,
-              color: "#F7F3EA", background: "#171717",
-              padding: "7px 16px", borderRadius: 3,
-              textDecoration: "none", letterSpacing: "0.01em",
-              whiteSpace: "nowrap" as const,
-            }}>
-              Audit My Stack
-            </Link>
-          )}
-        </div>
+        <Logo />
+        <nav style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <a href={onHome ? "#audit" : "/#audit"} style={linkStyle(false)}>Audit</a>
+          <Link href="/methodology" style={linkStyle(path.startsWith("/methodology"))}>Methodology</Link>
+        </nav>
       </div>
     </header>
   );

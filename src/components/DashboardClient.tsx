@@ -92,7 +92,7 @@ function ConfidenceBadge({ level }: { level: ConfidenceLevel }) {
   );
 }
 
-const Rule = ({ my = 0 }: { my?: number }) => (
+export const Rule = ({ my = 0 }: { my?: number }) => (
   <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: `${my}px 0` }} />
 );
 
@@ -136,7 +136,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
               AI compute costs, from silicon to megawatt.
             </h1>
             <p style={{ ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: 520 }}>
-              GPU prices across {activeProviders} providers, mapped to regional energy costs.
+              GPU price intelligence across {activeProviders} providers, priced against the regional energy costs that set the real floor.
             </p>
           </div>
 
@@ -146,7 +146,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
             {/* Stat 1: H100 floor */}
             <div style={{ background: "var(--bg)", padding: "20px 24px" }}>
               <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
-                {cheapestH100High ? "H100 reliable from" : h100Prices.length ? "H100 observed (not reliable)" : "H100 not in snapshot"}
+                {cheapestH100High ? "H100 — production safe from" : h100Prices.length ? "H100 — observed floor (not reliable)" : "H100 — not in snapshot"}
               </div>
               {h100Value ? (
                 <>
@@ -164,18 +164,18 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
             <div style={{ background: "var(--bg)", padding: "20px 24px" }}>
               <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5 }}>
                 {effectivePremium !== null && effectivePremium > 0
-                  ? `Hyperscaler premium (${premiumIsH100 ? "H100" : "A100"})`
-                  : "Hyperscaler vs specialist"}
+                  ? `Hyperscaler overprice vs specialists (${premiumIsH100 ? "H100" : "A100"})`
+                  : "Hyperscaler vs specialist pricing"}
               </div>
               {effectivePremium !== null && effectivePremium > 0 ? (
                 <>
                   <div style={{ ...MONO, fontSize: 24, fontWeight: 500, color: "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>
                     +{Math.round(effectivePremium)}%
                   </div>
-                  <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>above specialist floor</div>
+                  <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>more than specialist clouds</div>
                 </>
               ) : (
-                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>No premium right now</div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)" }}>No material premium right now</div>
               )}
             </div>
 
@@ -185,7 +185,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
                 from live market data, editable in place, no logic fork. */}
             <div style={{ background: "var(--bg)", padding: "20px 24px" }}>
               <div style={{ ...SANS, fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 10 }}>
-                Try it
+                Try it — edit the numbers
               </div>
               <AuditTool listings={listings} compact />
             </div>
@@ -199,7 +199,7 @@ function MarketHero({ listings, summary, activeProviders, cheapestH100High, h100
 
 // ── H100 Spread Chart ─────────────────────────────────────────────────────────
 
-function H100SpreadChart({ listings }: { listings: GpuListing[] }) {
+export function H100SpreadChart({ listings }: { listings: GpuListing[] }) {
   const data = useMemo(() => {
     const h100 = listings.filter(l => l.gpu_model.includes("H100"));
     const byProvider: Record<string, { prices: number[]; cat: string }> = {};
@@ -235,7 +235,7 @@ function H100SpreadChart({ listings }: { listings: GpuListing[] }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
         <div>
           <h3 style={{ ...SANS, fontSize: 13.5, fontWeight: 600, color: "var(--text-primary)" }}>H100 Pricing by Provider</h3>
-          <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>Spreads and premiums by provider</p>
+          <p style={{ ...SANS, fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>What the headline price hides — spreads and premiums</p>
         </div>
         {premiumX && (
           <div style={{ textAlign: "right" as const, background: "var(--amber-dim)", border: "1px solid rgba(183,121,31,0.25)", padding: "6px 12px" }}>
@@ -284,7 +284,7 @@ function H100SpreadChart({ listings }: { listings: GpuListing[] }) {
             <span style={{ ...SANS, fontSize: 11, color: "var(--text-muted)" }}>{l}</span>
           </div>
         ))}
-        {premiumX && <span style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", flex: 1, textAlign: "right" as const }}>Hyperscalers charge {premiumX}× the specialist average.</span>}
+        {premiumX && <span style={{ ...SANS, fontSize: 11, color: "var(--text-muted)", flex: 1, textAlign: "right" as const }}>Hyperscalers {premiumX}× more than specialists on avg.</span>}
       </div>
     </div>
   );
@@ -292,7 +292,7 @@ function H100SpreadChart({ listings }: { listings: GpuListing[] }) {
 
 // ── GPU Small Multiples ───────────────────────────────────────────────────────
 
-function GpuSmallMultiples({ listings }: { listings: GpuListing[] }) {
+export function GpuSmallMultiples({ listings }: { listings: GpuListing[] }) {
   const cards = ["H100", "A100", "L40S", "A10G"].map(family => {
     const ls = listings.filter(l => l.gpu_model.includes(family));
     if (!ls.length) return null;
@@ -320,17 +320,17 @@ function GpuSmallMultiples({ listings }: { listings: GpuListing[] }) {
             {!c.minReliable ? (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ ...MONO, fontSize: 26, fontWeight: 600, color: "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>No reliable supply</div>
-                <div style={{ ...SANS, fontSize: 11.5, color: "var(--amber)", marginTop: 5 }}>Cheapest observed {fmtP(c.min)}/hr isn't production-safe.</div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--amber)", marginTop: 5 }}>Cheapest observed {fmtP(c.min)}/hr is not a production routing target.</div>
               </div>
             ) : hasGap ? (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ ...MONO, fontSize: 26, fontWeight: 600, color: "var(--amber)", letterSpacing: "-0.02em", lineHeight: 1 }}>+{c.gapPct}%</div>
-                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-secondary)", marginTop: 5 }}>reliable supply — {fmtP(c.min)} observed → {fmtP(c.minReliable)} reliable</div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-secondary)", marginTop: 5 }}>for confirmed availability — {fmtP(c.min)} observed vs {fmtP(c.minReliable)} reliable</div>
               </div>
             ) : (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ ...MONO, fontSize: 26, fontWeight: 600, color: "var(--green)", letterSpacing: "-0.02em", lineHeight: 1 }}>Floor is reliable</div>
-                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-secondary)", marginTop: 5 }}>{fmtP(c.min)}/hr — no premium for high availability.</div>
+                <div style={{ ...SANS, fontSize: 11.5, color: "var(--text-secondary)", marginTop: 5 }}>High-availability supply at {fmtP(c.min)}/hr — no markup needed for confirmed uptime.</div>
               </div>
             )}
 
@@ -353,7 +353,7 @@ function GpuSmallMultiples({ listings }: { listings: GpuListing[] }) {
 
 // ── Freshness Badge ───────────────────────────────────────────────────────────
 
-function FreshnessBadge({ iso }: { iso?: string }) {
+export function FreshnessBadge({ iso }: { iso?: string }) {
   const mins = iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 60000) : 999;
   const color = mins < 120 ? "var(--green)" : mins < 720 ? "var(--amber)" : "var(--red)";
   return (
@@ -367,7 +367,7 @@ function FreshnessBadge({ iso }: { iso?: string }) {
 
 // ── Provider Explorer ─────────────────────────────────────────────────────────
 
-function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
+export function ProviderExplorer({ listings }: { listings: GpuListing[] }) {
   const getDefaultFamily = () => {
     if (listings.some(l => l.gpu_model.includes("H100"))) return "H100";
     if (listings.some(l => l.gpu_model.includes("A100"))) return "A100";
@@ -661,12 +661,12 @@ export default function DashboardClient({ summary, listings }: Props) {
             Data Sources &amp; Methodology
           </div>
           <p style={{ ...SANS, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 10, maxWidth: 860 }}>
-            Prices from public APIs and rate cards across {activeProviders} providers, refreshed daily.
-            {" "}<strong style={{ fontWeight: 600, color: "var(--text-primary)" }}>Observed</strong> = listing exists.
+            Prices from public pricing APIs and dated provider rate cards across {activeProviders} providers — live-API sources refresh daily; rate-card sources are verified periodically.
+            {" "}<strong style={{ fontWeight: 600, color: "var(--text-primary)" }}>Observed</strong> = listing exists, availability unconfirmed.
             {" "}<strong style={{ fontWeight: 600, color: "var(--text-primary)" }}>Reliable</strong> = confirmed high availability, non-spot.
           </p>
           <Link href="/methodology" style={{ ...SANS, fontSize: 12.5, color: "var(--blue)", textDecoration: "none", fontWeight: 600 }}>
-            See full methodology →
+            See full methodology &amp; per-provider data sources →
           </Link>
         </div>
       </div>
