@@ -1111,10 +1111,9 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
           {billFileName ? (
             /* ── Bill uploaded state ── */
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" as const }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const }}>
                 <span style={{ ...MONO, fontSize: 13, color: "var(--green)" }}>✓</span>
                 <span style={{ ...SANS, fontSize: 14, color: "var(--text-primary)", fontWeight: 500 }}>{billFileName}</span>
-                {billExtracting && <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>reading…</span>}
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
                   <label style={{ ...SANS, fontSize: 12, color: "var(--blue)", cursor: "pointer", textDecoration: "underline" }}>
                     <input
@@ -1136,9 +1135,27 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
                   </button>
                 </div>
               </div>
-              {billExtractError && (
-                <div style={{ ...SANS, fontSize: 12.5, color: "var(--red)", marginTop: 6, lineHeight: 1.5 }}>{billExtractError}</div>
-              )}
+
+              {/* Bill status lives inside the same card — reading state, the
+                  extracted summary, or the error — instead of a separate
+                  bar further down the page. */}
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                {billExtracting ? (
+                  <span style={{ ...SANS, fontSize: 13, color: "var(--text-muted)" }}>Reading your bill…</span>
+                ) : billExtracted ? (
+                  <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                    <strong style={{ color: "var(--green)" }}>Your bill:</strong>{" "}
+                    {billExtracted.provider} · {billExtracted.family} · {billExtracted.gpuCount} GPU{billExtracted.gpuCount !== 1 ? "s" : ""} · ${billExtracted.monthlySpend.toLocaleString()}/mo
+                    {billExtracted.confidence !== "high" && (
+                      <span style={{ color: "var(--text-muted)" }}> (best guess — double-check below)</span>
+                    )}
+                  </span>
+                ) : billExtractError ? (
+                  <span style={{ ...SANS, fontSize: 13, color: "var(--amber)", lineHeight: 1.5 }}>{billExtractError}</span>
+                ) : (
+                  <span style={{ ...SANS, fontSize: 13, color: "var(--text-muted)" }}>Bill received — comparing it to today's prices…</span>
+                )}
+              </div>
             </div>
           ) : (
             /* ── Text input state (default) ── */
@@ -1263,44 +1280,24 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
             const exResult = ex && exFamily
               ? computeResult(listings, exFamily, safeGpuCount, safeHours, exSituation, exWorkload, safeSpend)
               : null;
-            
-            const accentColor = billExtracting ? "var(--border-mid)" : ex ? "var(--green)" : billExtractError ? "var(--amber)" : "var(--border-mid)";
+
+            // Bill status (reading/summary/error) now renders inline in the
+            // upload box itself — see the "Bill uploaded state" branch above.
+            // Only the actual comparison result belongs in this portal.
+            if (!exResult || !exFamily) return null;
             return (
-              <div>
-                <div style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderLeft: `3px solid ${accentColor}`, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", flexWrap: "wrap" as const, gap: 6 }}>
-                  {billExtracting ? (
-                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-muted)" }}>Reading your bill…</span>
-                  ) : ex ? (
-                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>
-                      <strong style={{ color: "var(--green)" }}>Your bill summary:</strong>{" "}
-                      {ex.provider} · {ex.family} · {ex.gpuCount} GPU{ex.gpuCount !== 1 ? "s" : ""} · ${ex.monthlySpend.toLocaleString()}/mo
-                      {ex.confidence !== "high" && (
-                        <span style={{ color: "var(--text-muted)" }}> (best guess — double-check below)</span>
-                      )}
-                    </span>
-                  ) : billExtractError ? (
-                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>
-                      <strong style={{ color: "var(--amber)" }}>Couldn't read that file.</strong> {billExtractError} Try the Describe tab instead.
-                    </span>
-                  ) : (
-                    <span style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)" }}>Bill received — comparing it to today's prices…</span>
-                  )}
-                </div>
-                {exResult && exFamily && (
-                  <ResultSection
-                    r={exResult}
-                    family={exFamily}
-                    gpuCount={safeGpuCount}
-                    hours={safeHours}
-                    situation={exSituation}
-                    workload={exWorkload}
-                    billActualSpend={safeSpend}
-                    billProvider={ex!.provider}
-                    listings={listings}
-                    inputMode="bill"
-                  />
-                )}
-              </div>
+              <ResultSection
+                r={exResult}
+                family={exFamily}
+                gpuCount={safeGpuCount}
+                hours={safeHours}
+                situation={exSituation}
+                workload={exWorkload}
+                billActualSpend={safeSpend}
+                billProvider={ex!.provider}
+                listings={listings}
+                inputMode="bill"
+              />
             );
           })()}
 
