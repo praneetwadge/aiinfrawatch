@@ -1218,10 +1218,17 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
           <>
       {/* ── Guard ── */}
       {showGuard && (
-        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderLeft: "3px solid var(--amber)", padding: "18px 24px", marginBottom: 16 }}>
-          <div style={{ ...SANS, fontSize: 13.5, color: "var(--text-primary)", fontWeight: 600, marginBottom: 4 }}>Name a GPU to get your number.</div>
-          <div style={{ ...SANS, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
-            Include a GPU family (H100, A100, L40S, A10G) in your description.
+        <div style={{
+          background: "var(--amber-dim)", border: "1px solid rgba(151,90,22,0.3)",
+          borderLeft: "4px solid var(--amber)", padding: "20px 24px", marginBottom: 16,
+          display: "flex", alignItems: "flex-start", gap: 12,
+        }}>
+          <span style={{ ...MONO, fontSize: 20, fontWeight: 600, color: "var(--amber)", lineHeight: 1 }}>!</span>
+          <div>
+            <div style={{ ...SANS, fontSize: 15, color: "var(--amber)", fontWeight: 700, marginBottom: 4 }}>Name a GPU to get your number.</div>
+            <div style={{ ...SANS, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              Include a GPU family — H100, A100, L40S, or A10G — in your description, then run the audit again.
+            </div>
           </div>
         </div>
       )}
@@ -1229,9 +1236,6 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
       {/* ── Results ── */}
       {showResult && (
         <div id="audit-results" style={{ marginBottom: 16 }}>
-          <div style={{ ...MONO, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 10 }}>
-            Results
-          </div>
 
           {showUploadResult && activeTab === "bill" && (() => {
             const ex = billExtracted;
