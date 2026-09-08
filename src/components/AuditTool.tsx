@@ -932,7 +932,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
     };
   }, [hasText, parsed, firstRow]);
 
-  const showGuard = activeTab === "describe" && hasText && !primarySnapshot.hasFamily;
+  const showGuard = committed && activeTab === "describe" && hasText && !primarySnapshot.hasFamily;
 
   const manualResults = useMemo(() =>
     rows.map(row => ({
@@ -952,9 +952,10 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
       : null,
   [showGuard, listings, primarySnapshot]);
 
-  // Auto-render: no "committed" gate. As soon as there's parseable input,
-  // results appear.
-  const showTextResult   = !compact && activeTab === "describe" && hasText && !showGuard && !!primaryResult;
+  // Explicit run: results wait for the "Run Cost Audit" button (committed).
+  // Typing sets committed=false immediately, so a stale result can't sit on
+  // screen next to text it no longer matches.
+  const showTextResult   = !compact && activeTab === "describe" && hasText && committed && !showGuard && !!primaryResult;
   const showManualResult = compact && rows.length > 0 && manualResults.some(r => !!r.result);
   const showUploadResult = !compact && activeTab === "bill" && hasUpload;
   const showResult       = showTextResult || showManualResult || showUploadResult;
@@ -1091,7 +1092,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
               <div style={{ position: "relative" as const }}>
                 <textarea
                   value={setupText}
-                  onChange={e => { setSetupText(e.target.value); setManualTouched(true); }}
+                  onChange={e => { setSetupText(e.target.value); setManualTouched(true); setActiveTab("describe"); setCommitted(false); }}
                   placeholder="e.g. 8x H100 on AWS, 720 hrs/mo, training"
                   rows={4}
                   style={{
@@ -1101,7 +1102,33 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
                 />
               </div>
 
-              <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 8 }}>
+              {/* Explicit run action — gates showGuard/showTextResult via
+                  `committed`. Typing sets committed=false; clicking here sets
+                  it true. The demo text loads with committed=true (from
+                  sessionStorage default), so the worked example still shows
+                  on first paint with no click required. */}
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const }}>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab("describe"); setCommitted(true); }}
+                  disabled={!hasText}
+                  style={{
+                    ...SANS, fontSize: 13.5, fontWeight: 600, color: "#F7F3EA",
+                    background: hasText ? "#171717" : "var(--border-mid)",
+                    padding: "11px 22px", borderRadius: 3, border: "none",
+                    cursor: hasText ? "pointer" : "not-allowed",
+                  }}
+                >
+                  Run Cost Audit →
+                </button>
+                {hasText && !committed && (
+                  <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>
+                    Click to see your number
+                  </span>
+                )}
+              </div>
+
+              <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 8 }}>
                 <label style={{
                   ...SANS, fontSize: 12.5, color: "var(--blue)", cursor: "pointer",
                   display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "underline",
