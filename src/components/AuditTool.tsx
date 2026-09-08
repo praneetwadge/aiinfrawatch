@@ -1054,6 +1054,49 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
     );
   }
 
+  const handleFileSelect = async (file: File | undefined) => {
+    if (!file) return;
+    setBillFileName(file.name); setBillFile(file);
+    setBillExtracted(null); setBillExtractError(null);
+    setActiveTab("bill"); setManualTouched(true);
+    // Auto-fire extraction — no separate Run button.
+    setBillExtracting(true);
+    try {
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      let body: any;
+      if (isPdf) {
+        const ab = await file.arrayBuffer();
+        const bytes = new Uint8Array(ab);
+        let bin = "";
+        const CHUNK = 8192;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+        }
+        body = { base64: btoa(bin), mediaType: "application/pdf", fileName: file.name };
+      } else {
+        const text = await file.text();
+        body = { text, fileName: file.name };
+      }
+      const res = await fetch("/api/extract-bill", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setBillExtracted(json.data);
+      } else if (json.error === "no_gpu_found") {
+        setBillExtractError("No GPU line items found — try describing your setup as text.");
+      } else {
+        if (json.detail) console.error("[extract-bill]", json.error, json.detail);
+        setBillExtractError("Could not read this file — try a CSV export or describe as text.");
+      }
+    } catch {
+      setBillExtractError("Network error — try again.");
+    } finally {
+      setBillExtracting(false);
+    }
+  };
+
   return (
     <div>
 
@@ -1068,19 +1111,30 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
           {billFileName ? (
             /* ── Bill uploaded state ── */
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" as const }}>
                 <span style={{ ...MONO, fontSize: 13, color: "var(--green)" }}>✓</span>
                 <span style={{ ...SANS, fontSize: 14, color: "var(--text-primary)", fontWeight: 500 }}>{billFileName}</span>
                 {billExtracting && <span style={{ ...SANS, fontSize: 12, color: "var(--text-muted)" }}>reading…</span>}
-                <button
-                  onClick={() => {
-                    setBillFileName(null); setBillFile(null); setBillExtracted(null); setBillExtractError(null);
-                    setActiveTab("describe");
-                  }}
-                  style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: "auto", textDecoration: "underline" }}
-                >
-                  Use text instead
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+                  <label style={{ ...SANS, fontSize: 12, color: "var(--blue)", cursor: "pointer", textDecoration: "underline" }}>
+                    <input
+                      type="file"
+                      accept=".csv,.pdf,.xlsx,.xls"
+                      style={{ display: "none" }}
+                      onChange={(e) => handleFileSelect(e.target.files?.[0])}
+                    />
+                    Upload a different bill
+                  </label>
+                  <button
+                    onClick={() => {
+                      setBillFileName(null); setBillFile(null); setBillExtracted(null); setBillExtractError(null);
+                      setActiveTab("describe");
+                    }}
+                    style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                  >
+                    Use text instead
+                  </button>
+                </div>
               </div>
               {billExtractError && (
                 <div style={{ ...SANS, fontSize: 12.5, color: "var(--red)", marginTop: 6, lineHeight: 1.5 }}>{billExtractError}</div>
@@ -1137,49 +1191,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
                     type="file"
                     accept=".csv,.pdf,.xlsx,.xls"
                     style={{ display: "none" }}
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      setBillFileName(file.name); setBillFile(file);
-                      setBillExtracted(null); setBillExtractError(null);
-                      setActiveTab("bill"); setManualTouched(true);
-                      // Auto-fire extraction — no separate Run button.
-                      setBillExtracting(true);
-                      try {
-                        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-                        let body: any;
-                        if (isPdf) {
-                          const ab = await file.arrayBuffer();
-                          const bytes = new Uint8Array(ab);
-                          let bin = "";
-                          const CHUNK = 8192;
-                          for (let i = 0; i < bytes.length; i += CHUNK) {
-                            bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-                          }
-                          body = { base64: btoa(bin), mediaType: "application/pdf", fileName: file.name };
-                        } else {
-                          const text = await file.text();
-                          body = { text, fileName: file.name };
-                        }
-                        const res = await fetch("/api/extract-bill", {
-                          method: "POST", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify(body),
-                        });
-                        const json = await res.json();
-                        if (json.success && json.data) {
-                          setBillExtracted(json.data);
-                        } else if (json.error === "no_gpu_found") {
-                          setBillExtractError("No GPU line items found — try describing your setup as text.");
-                        } else {
-                          if (json.detail) console.error("[extract-bill]", json.error, json.detail);
-                          setBillExtractError("Could not read this file — try a CSV export or describe as text.");
-                        }
-                      } catch {
-                        setBillExtractError("Network error — try again.");
-                      } finally {
-                        setBillExtracting(false);
-                      }
-                    }}
+                    onChange={(e) => handleFileSelect(e.target.files?.[0])}
                   />
                   📎 or upload a bill
                 </label>
