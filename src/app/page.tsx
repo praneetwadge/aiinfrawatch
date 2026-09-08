@@ -33,6 +33,7 @@ export default async function Page() {
           input::placeholder { color: var(--text-muted); }
           @media (max-width: 900px) {
             .charts-grid { grid-template-columns: 1fr !important; }
+            .hero-grid   { grid-template-columns: 1fr !important; }
           }
         `}</style>
 
@@ -40,24 +41,30 @@ export default async function Page() {
         <SiteNav />
 
         <main>
-          {/* ── Hero: audit is the primary action ── */}
+          {/* ── Hero: audit is the primary action. Text left, tool right —
+              keeps the section short so Results sit close to the fold
+              instead of stacking three vertical blocks before it. ── */}
           <section id="audit" style={{ background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
-            <div style={{ maxWidth: 1000, margin: "0 auto", padding: "56px 32px 40px", textAlign: "center" as const }}>
-              <h1 style={{
-                ...SERIF, fontSize: 52, fontWeight: 400, lineHeight: 1.08,
-                color: "var(--text-primary)", marginBottom: 18, maxWidth: 820, marginInline: "auto",
-              }}>
-                You&rsquo;re probably overpaying for GPU compute.
-              </h1>
-              <p style={{
-                ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.6,
-                maxWidth: 640, marginInline: "auto", marginBottom: 36,
-              }}>
-                Paste your setup below and see how it compares to real pricing across {activeProviders} providers — free, and nothing is saved.
-              </p>
+            <div style={{ maxWidth: 1360, margin: "0 auto", padding: "48px 32px 44px" }}>
+              <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "start" }}>
+                <div>
+                  <h1 style={{
+                    ...SERIF, fontSize: 42, fontWeight: 400, lineHeight: 1.12,
+                    color: "var(--text-primary)", marginBottom: 16,
+                  }}>
+                    You&rsquo;re probably overpaying for GPU compute.
+                  </h1>
+                  <p style={{
+                    ...SANS, fontSize: 16.5, color: "var(--text-secondary)", lineHeight: 1.6,
+                    maxWidth: 460,
+                  }}>
+                    Paste your setup and see how it compares to real pricing across {activeProviders} providers — free, and nothing is saved.
+                  </p>
+                </div>
 
-              <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "left" as const }}>
-                <AuditTool listings={listings} />
+                <div>
+                  <AuditTool listings={listings} />
+                </div>
               </div>
             </div>
           </section>
