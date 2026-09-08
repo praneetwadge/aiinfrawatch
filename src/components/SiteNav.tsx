@@ -38,7 +38,10 @@ export default function SiteNav() {
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "0 32px", height: 54, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Logo />
         <nav style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <a href={onHome ? "#audit" : "/#audit"} style={linkStyle(false)}>Audit</a>
+          {/* "Audit" only makes sense as a way back to the audit section from
+              another page. On "/" itself it points at the section the user
+              is already looking at, so it's hidden there. */}
+          {!onHome && <a href="/#audit" style={linkStyle(false)}>Audit</a>}
           <Link href="/methodology" style={linkStyle(path.startsWith("/methodology"))}>Methodology</Link>
         </nav>
       </div>
