@@ -47,13 +47,13 @@ export default async function Page() {
                 ...SERIF, fontSize: 52, fontWeight: 400, lineHeight: 1.08,
                 color: "var(--text-primary)", marginBottom: 18, maxWidth: 820, marginInline: "auto",
               }}>
-                AI compute costs, from silicon to megawatt.
+                You&rsquo;re probably overpaying for GPU compute.
               </h1>
               <p style={{
                 ...SANS, fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.6,
                 maxWidth: 640, marginInline: "auto", marginBottom: 36,
               }}>
-                GPU prices across {activeProviders} providers, mapped to regional energy costs.
+                Paste your setup below and see how it compares to real pricing across {activeProviders} providers — free, and nothing is saved.
               </p>
 
               <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "left" as const }}>
