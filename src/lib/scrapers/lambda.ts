@@ -9,20 +9,24 @@ import type { GpuListing, ScraperResult } from "@/types";
 
 const LAMBDA_API = "https://cloud.lambdalabs.com/api/v1/instance-types";
 
-// Lambda Labs GPU instance pricing (rate card — published pricing page, Jun 2025)
+// Lambda Labs GPU instance pricing (rate card — published pricing page, Jul 2026)
+// H100 SXM/PCIe repriced 2026-09 after Lambda raised on-demand H100 rates
+// through 2025-2026 (public reporting + a Jul 30 2026 pull of Lambda's own
+// instance page). A100/A10G/RTX rows below are the ORIGINAL Jun 2025 values,
+// carried over unverified — re-check those before trusting them for savings math.
 const LAMBDA_INSTANCES = [
-  { name: "gpu_1x_h100_sxm5",  gpu: "H100 SXM5 80GB", count: 1,  price: 2.49,  region: "us-east-1" },
-  { name: "gpu_2x_h100_sxm5",  gpu: "H100 SXM5 80GB", count: 2,  price: 4.98,  region: "us-east-1" },
-  { name: "gpu_4x_h100_sxm5",  gpu: "H100 SXM5 80GB", count: 4,  price: 9.96,  region: "us-east-1" },
-  { name: "gpu_8x_h100_sxm5",  gpu: "H100 SXM5 80GB", count: 8,  price: 19.92, region: "us-east-1" },
-  { name: "gpu_1x_a100_sxm4",  gpu: "A100 SXM 80GB",  count: 1,  price: 1.99,  region: "us-east-1" },
-  { name: "gpu_8x_a100_sxm4",  gpu: "A100 SXM 80GB",  count: 8,  price: 15.92, region: "us-east-1" },
-  { name: "gpu_1x_a10",        gpu: "A10G 24GB",       count: 1,  price: 0.60,  region: "us-east-1" },
-  { name: "gpu_1x_rtx6000",    gpu: "RTX 6000 Ada",    count: 1,  price: 0.50,  region: "us-east-1" },
-  { name: "gpu_1x_a6000",      gpu: "RTX A6000 48GB",  count: 1,  price: 0.80,  region: "us-east-1" },
-  { name: "gpu_8x_a6000",      gpu: "RTX A6000 48GB",  count: 8,  price: 6.40,  region: "us-east-1" },
-  { name: "gpu_1x_h100_pcie",  gpu: "H100 PCIe 80GB",  count: 1,  price: 2.49,  region: "us-west-2" },
-  { name: "gpu_8x_h100_pcie",  gpu: "H100 PCIe 80GB",  count: 8,  price: 19.92, region: "us-west-2" },
+  { name: "gpu_1x_h100_sxm5",  gpu: "H100 SXM5 80GB", count: 1,  price: 4.29,  region: "us-east-1" },
+  { name: "gpu_2x_h100_sxm5",  gpu: "H100 SXM5 80GB", count: 2,  price: 8.58,  region: "us-east-1" },
+  { name: "gpu_4x_h100_sxm5",  gpu: "H100 SXM5 80GB", count: 4,  price: 17.16, region: "us-east-1" },
+  { name: "gpu_8x_h100_sxm5",  gpu: "H100 SXM5 80GB", count: 8,  price: 34.32, region: "us-east-1" },
+  { name: "gpu_1x_a100_sxm4",  gpu: "A100 SXM 80GB",  count: 1,  price: 1.99,  region: "us-east-1" }, // unverified — see note above
+  { name: "gpu_8x_a100_sxm4",  gpu: "A100 SXM 80GB",  count: 8,  price: 15.92, region: "us-east-1" }, // unverified — see note above
+  { name: "gpu_1x_a10",        gpu: "A10G 24GB",       count: 1,  price: 0.60,  region: "us-east-1" }, // unverified — see note above
+  { name: "gpu_1x_rtx6000",    gpu: "RTX 6000 Ada",    count: 1,  price: 0.50,  region: "us-east-1" }, // unverified — see note above
+  { name: "gpu_1x_a6000",      gpu: "RTX A6000 48GB",  count: 1,  price: 0.80,  region: "us-east-1" }, // unverified — see note above
+  { name: "gpu_8x_a6000",      gpu: "RTX A6000 48GB",  count: 8,  price: 6.40,  region: "us-east-1" }, // unverified — see note above
+  { name: "gpu_1x_h100_pcie",  gpu: "H100 PCIe 80GB",  count: 1,  price: 3.29,  region: "us-west-2" },
+  { name: "gpu_8x_h100_pcie",  gpu: "H100 PCIe 80GB",  count: 8,  price: 26.32, region: "us-west-2" },
 ];
 
 function mapLambdaGpu(name: string): string | null {
@@ -98,7 +102,7 @@ export async function scrapeLambdaLabs(): Promise<ScraperResult> {
       price_per_hour: inst.price,
       region: inst.region,
       availability: "high",
-      raw_data: { instance_name: inst.name, source: "rate_card", rate_card_date: "2025-06" },
+      raw_data: { instance_name: inst.name, source: "rate_card", rate_card_date: "2026-07" },
       fetched_at: fetchedAt,
     }));
 
