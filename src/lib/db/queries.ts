@@ -32,61 +32,51 @@ export async function getLatestGpuListings(opts?: {
     return (data as GpuListing[]) ?? [];
   }
 
-  // Dual-priority fetch: DC-class GPUs first (60% of limit), then everything else (40%)
-  // Prevents price-ascending sort + row limit from cutting off H100/A100 listings
+  // The scraper cron inserts a fresh row every run instead of upserting, so
+  // the 25h window holds many duplicate copies of the same real listings
+  // (verified 2026-09-08: 3,380 raw rows in-window, only 166 actually
+  // distinct provider+gpu_model+region+pricing_type combos). The old version
+  // of this function sorted those duplicate-laden rows by price and cut off
+  // at dcLimit/consumerLimit BEFORE deduping — so a real, current listing
+  // could silently vanish if enough cheap duplicate rows outranked it (this
+  // is exactly how AWS's H100 on-demand price, a real 8-GPU-instance rate,
+  // went missing: ~2,500 duplicate cheaper-GPU rows outranked it before the
+  // old cutoff ever got there). Fix: fetch the recent window once, dedupe to
+  // one (latest) row per listing identity, THEN apply the DC-class-priority
+  // split/sort/limit on the clean set. Root cause (insert-not-upsert in the
+  // scrapers/upsert path) is still open — this fixes the read side, which is
+  // what every price shown on the site actually depends on.
+  const { data: rawRows, error: rawError } = await supabaseAdmin
+    .from("gpu_listings")
+    .select("*")
+    .gte("fetched_at", cutoff)
+    .order("fetched_at", { ascending: false })
+    .limit(5000);
+  if (rawError) throw rawError;
+
+  const latestByKey = new Map<string, GpuListing>();
+  for (const row of (rawRows as GpuListing[]) ?? []) {
+    const key = `${row.provider}|${row.gpu_model}|${row.region}|${row.pricing_type}`;
+    if (!latestByKey.has(key)) latestByKey.set(key, row); // rows are newest-first, so first hit wins
+  }
+  const deduped = Array.from(latestByKey.values());
+
+  // Dual-priority split: DC-class GPUs get 60% of the limit, everything else
+  // gets 40% — same intent as before, just applied to deduplicated rows now.
   const dcLimit      = Math.ceil(totalLimit * 0.6);
   const consumerLimit = totalLimit - dcLimit;
+  const isDcClass = (model: string) => DC_KEYWORDS.some(k => model.toUpperCase().includes(k));
 
-  // Build OR filter for DC keywords
-  const dcFilter = DC_KEYWORDS.map(k => `gpu_model.ilike.%${k}%`).join(",");
+  const dcRows = deduped
+    .filter(l => isDcClass(l.gpu_model))
+    .sort((a, b) => a.price_per_hour - b.price_per_hour)
+    .slice(0, dcLimit);
+  const consumerRows = deduped
+    .filter(l => !isDcClass(l.gpu_model))
+    .sort((a, b) => a.price_per_hour - b.price_per_hour)
+    .slice(0, consumerLimit);
 
-  const [dcRes, consumerRes] = await Promise.all([
-    supabaseAdmin
-      .from("gpu_listings")
-      .select("*")
-      .gte("fetched_at", cutoff)
-      .or(dcFilter)
-      .order("price_per_hour", { ascending: true })
-      .limit(dcLimit),
-    supabaseAdmin
-      .from("gpu_listings")
-      .select("*")
-      .gte("fetched_at", cutoff)
-      .not("gpu_model", "ilike", `%H100%`)
-      .not("gpu_model", "ilike", `%H200%`)
-      .not("gpu_model", "ilike", `%A100%`)
-      .not("gpu_model", "ilike", `%L40S%`)
-      .not("gpu_model", "ilike", `%B200%`)
-      .not("gpu_model", "ilike", `%MI300%`)
-      .order("price_per_hour", { ascending: true })
-      .limit(consumerLimit),
-  ]);
-
-  if (dcRes.error)       throw dcRes.error;
-  if (consumerRes.error) throw consumerRes.error;
-
-  // TEMP DIAGNOSTIC — investigating H100 rows missing from /market-data despite
-  // existing in the DB. Logs the raw shape of what Supabase actually returned
-  // for the DC-priority branch so we can see real runtime behavior vs. the
-  // equivalent hand-run SQL (which does return H100 rows). Remove once resolved.
-  console.log(`[getLatestGpuListings DIAG] dcRes.data length: ${(dcRes.data ?? []).length}, dcLimit was: ${dcLimit}`);
-  const dcModelCounts: Record<string, number> = {};
-  for (const row of (dcRes.data ?? [])) {
-    const m = (row as any).gpu_model ?? "UNKNOWN";
-    const key = DC_KEYWORDS.find(k => m.toUpperCase().includes(k)) ?? "NO_MATCH";
-    dcModelCounts[key] = (dcModelCounts[key] ?? 0) + 1;
-  }
-  console.log(`[getLatestGpuListings DIAG] dcRes model breakdown:`, JSON.stringify(dcModelCounts));
-
-  // Merge, deduplicate by id, sort by price
-  const seen = new Set<string>();
-  const merged: GpuListing[] = [];
-  for (const row of [...(dcRes.data ?? []), ...(consumerRes.data ?? [])]) {
-    if (!seen.has(row.id)) {
-      seen.add(row.id);
-      merged.push(row as GpuListing);
-    }
-  }
+  const merged = [...dcRows, ...consumerRows];
 
   if (opts?.pricing_type) {
     return merged.filter(l => l.pricing_type === opts.pricing_type)
