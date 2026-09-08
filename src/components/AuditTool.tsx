@@ -1167,7 +1167,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
                   placeholder="e.g. 8x H100 on AWS, 720 hrs/mo, training"
                   rows={4}
                   style={{
-                    ...inputStyle, minHeight: 96, resize: "vertical", lineHeight: 1.55,
+                    ...inputStyle, minHeight: 96, resize: "vertical", lineHeight: 1.55, fontSize: 16,
                     border: "1px solid var(--border-mid)", background: "var(--panel)",
                   }}
                 />
