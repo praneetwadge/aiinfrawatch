@@ -154,7 +154,7 @@ export async function upsertGpuListings(listings: GpuListing[]): Promise<UpsertR
 
   if (!clean.length) return report;
 
-  const { error } = await supabaseAdmin.from("gpu_listings").insert(
+  const { error } = await supabaseAdmin.from("gpu_listings").upsert(
     clean.map((l) => ({
       provider: l.provider_slug,
       gpu_model: l.gpu_model,
@@ -170,10 +170,32 @@ export async function upsertGpuListings(listings: GpuListing[]): Promise<UpsertR
       interconnect: l.interconnect,
       raw_data: l.raw_data,
       fetched_at: l.fetched_at,
-    }))
+    })),
+    { onConflict: "provider,gpu_model,region,pricing_type" }
   );
   if (error) throw error;
   report.inserted = clean.length;
+
+  // Also log every observation to price_history (append-only — no conflict
+  // handling, repeated identical prices are a normal, correct time series).
+  // Best-effort: a history-log hiccup must never break the listings upsert
+  // that the whole site actually depends on for current prices.
+  try {
+    const { error: histError } = await supabaseAdmin.from("price_history").insert(
+      clean.map((l) => ({
+        provider: l.provider_slug,
+        gpu_model: l.gpu_model,
+        pricing_type: l.pricing_type,
+        region: l.region,
+        price_per_hour: l.price_per_hour,
+        recorded_at: l.fetched_at,
+      }))
+    );
+    if (histError) console.warn("[upsertGpuListings] price_history insert failed (non-fatal):", histError.message);
+  } catch (e) {
+    console.warn("[upsertGpuListings] price_history insert threw (non-fatal):", e);
+  }
+
   return report;
 }
 
