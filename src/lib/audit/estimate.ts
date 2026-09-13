@@ -31,7 +31,7 @@ export const HYPERSCALER_MULTIPLE = 2.4;
 const HOURS_PER_MONTH = 730; // 24/7. Most production assumptions live here.
 
 const HYPERSCALERS = ["aws", "amazon", "azure", "microsoft", "gcp", "google", "oracle", "oci", "ibm"];
-const NEOCLOUDS = ["coreweave", "lambda", "nebius", "crusoe", "fluidstack", "voltagepark", "gmi", "paperspace"];
+const NEOCLOUDS = ["coreweave", "lambda", "nebius", "crusoe", "voltagepark", "gmi", "paperspace"];
 const MARKETPLACES = ["runpod", "vast", "vastai", "tensordock", "salad"];
 
 export type ParsedSetup = {
