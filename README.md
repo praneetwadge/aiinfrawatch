@@ -43,14 +43,16 @@ curl https://aiinfrawatch.vercel.app/api/scrape/runpod
 SELECT provider, COUNT(*) FROM gpu_listings GROUP BY provider ORDER BY count DESC;
 ```
 
-Hardcoded pricing (APIs too large for serverless): `gcp, lambda, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark`
+Hardcoded pricing (APIs too large for serverless): `gcp, lambda, oci, paperspace, crusoe, ibm, gmi, voltagepark`
 
 ---
 
 ## Providers tracked
 
-16 live providers: RunPod, AWS, Azure, GCP, CoreWeave, Lambda, Nebius, TensorDock, OCI, Paperspace, Crusoe, FluidStack, IBM, GMI, VoltagePark  
+15 live providers: RunPod, AWS, Azure, GCP, CoreWeave, Lambda, Nebius, TensorDock, OCI, Paperspace, Crusoe, IBM, GMI, VoltagePark  
 1 partial: Vast.ai
+
+FluidStack removed (see CHANGELOG / migration 005) — exited self-serve rental, enterprise-only now. Historical pricing kept in `price_history` for the market dataset.
 
 ---
 

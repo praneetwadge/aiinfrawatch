@@ -30,7 +30,7 @@ page.tsx        → getLatestGpuListings({ limit: 2000 }) — never lower (H100 
 src/**          → no puppeteer, no dotenv
 ```
 
-Hardcoded pricing (live API too large for serverless): `gcp, lambda, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark`
+Hardcoded pricing (live API too large for serverless): `gcp, lambda, oci, paperspace, crusoe, ibm, gmi, voltagepark`
 
 **Cron fragility**: 25hr window is a hard cutoff. If cron runs late or fails, the entire site shows empty. The window is locked — fix must be on the cron side (retrigger manually via `/api/cron` with `Authorization: Bearer pwxlive-cron-2026`).
 
@@ -77,8 +77,9 @@ Hardcoded pricing (live API too large for serverless): `gcp, lambda, oci, papers
 
 ## Providers
 
-**Live (16)**: runpod, aws, azure, gcp, coreweave, lambda, nebius, tensordock, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark
+**Live (15)**: runpod, aws, azure, gcp, coreweave, lambda, nebius, tensordock, oci, paperspace, crusoe, ibm, gmi, voltagepark
 **Partial (1)**: vastai
+**Removed**: fluidstack — exited self-serve rental, enterprise-only now (`providers.self_serve = false` as of migration 005). Historical price_history retained.
 
 ---
 
