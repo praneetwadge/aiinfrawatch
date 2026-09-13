@@ -584,72 +584,85 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
     if (hasGap) logEvent("overpay_shown");
   }, [family, gpuCount, currentRatePerHour, floorRatePerHour, currentMonthly, situation, workload, inputMode, hasGap, providerLabel, premiumOverFloorPct, savingsPct, isDemoState]);
 
-  // ── "Start my move" capture (primary, performance-based) ──
-  const [moveOpen, setMoveOpen]       = useState(false);
-  const [moveEmail, setMoveEmail]     = useState("");
-  const [moveConsent, setMoveConsent] = useState(false);
-  const [moveLoading, setMoveLoading] = useState(false);
-  const [moveError, setMoveError]     = useState("");
-  const [moveDone, setMoveDone]       = useState(false);
-  const [demoPromptMove, setDemoPromptMove] = useState(false);
+  // ── CTA A: "Start Moving" — capture email, then redirect to the referral-
+  // tagged provider link. Previously this was an ungated outbound <a> with no
+  // capture at all; every click that didn't convert left zero trace. Email is
+  // required to proceed, but the redirect itself never waits on the network
+  // call succeeding — a failed capture must never strand someone mid-click.
+  const [referralOpen, setReferralOpen]       = useState(false);
+  const [referralEmail, setReferralEmail]     = useState("");
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralError, setReferralError]     = useState("");
+  const [referralDone, setReferralDone]       = useState(false);
+  const [demoPromptReferral, setDemoPromptReferral] = useState(false);
+  const [referralTargetUrl, setReferralTargetUrl]   = useState("");
 
-  const openMove = () => {
-    // Guard: clicking the primary CTA while still on the untouched, prefilled
-    // example must never open the real capture form — it would let a demo
-    // click write to `engagements`. Surface a one-line nudge instead.
-    if (isDemoState) { setDemoPromptMove(true); return; }
-    setMoveOpen(true); setMoveError(""); logEvent("move_with_us_click");
+  const openReferral = () => {
+    if (isDemoState) { setDemoPromptReferral(true); return; }
+    setReferralOpen(true); setReferralError("");
   };
 
-  const submitMove = async () => {
-    if (!moveEmail || !moveEmail.includes("@")) { setMoveError("Enter a valid work email."); return; }
-    if (!moveConsent) { setMoveError("Consent is required to proceed."); return; }
-    setMoveError(""); setMoveLoading(true);
+  const submitReferral = async () => {
+    if (!referralEmail || !referralEmail.includes("@")) { setReferralError("Enter a valid email."); return; }
+    setReferralError(""); setReferralLoading(true);
+
+    // Open the tab synchronously, inside the same click's call stack, so
+    // browsers don't treat it as a blocked pop-up once the `await` below runs.
+    const url = referralUrl(recommendation.provider);
+    const newTab = window.open(url, "_blank", "noopener,noreferrer");
+    setReferralTargetUrl(url);
+    logEvent("self_serve_click", undefined, { provider: floorProviderLabel });
+
     try {
       const res = await fetch("/api/engagement", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          kind: "savings_share",
+          kind: "self_serve_referral",
           session_id: getClientSessionId(),
-          email: moveEmail,
+          email: referralEmail,
           current_provider: providerLabel,
           gpu_type: family === "other" ? "other" : family,
           est_monthly_spend_usd: currentMonthly ?? undefined,
           est_annual_savings_usd: annualSavings ?? undefined,
           target_provider: floorProviderLabel,
-          consent: moveConsent,
+          consent: true,
         }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
-      setMoveDone(true); setMoveOpen(false);
-    } catch (e: any) { setMoveError(e?.message ?? "Network error — try again."); }
-    finally { setMoveLoading(false); }
+      if (!res.ok || !json.success) console.warn("[referral] capture failed (non-blocking):", json.error);
+    } catch (e) {
+      console.warn("[referral] capture threw (non-blocking):", e);
+    } finally {
+      setReferralLoading(false); setReferralDone(true);
+      if (!newTab) setReferralError("Pop-up blocked — use the link below to continue.");
+    }
   };
 
-  // ── "Notify me" capture (retention, demoted) ──
-  const [monitorOpen, setMonitorOpen]   = useState(false);
-  const [monitorEmail, setMonitorEmail] = useState("");
-  const [monitorLoading, setMonitorLoading] = useState(false);
-  const [monitorError, setMonitorError] = useState("");
-  const [monitorDone, setMonitorDone]   = useState(false);
-  const [demoPromptMonitor, setDemoPromptMonitor] = useState(false);
+  // ── CTA B: "Get the Full Migration Report" — interest capture for the paid
+  // ($99) report. Stubbed: no charge flow yet, this just captures qualified,
+  // paid-intent leads for when the report-generation agent ships. ──
+  const [reportOpen, setReportOpen]       = useState(false);
+  const [reportEmail, setReportEmail]     = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError]     = useState("");
+  const [reportDone, setReportDone]       = useState(false);
+  const [demoPromptReport, setDemoPromptReport] = useState(false);
 
-  const openMonitor = () => {
-    if (isDemoState) { setDemoPromptMonitor(true); return; }
-    setMonitorOpen(true); setMonitorError(""); logEvent("monitor_click");
+  const openReport = () => {
+    if (isDemoState) { setDemoPromptReport(true); return; }
+    setReportOpen(true); setReportError(""); logEvent("report_request_click");
   };
 
-  const submitMonitor = async () => {
-    if (!monitorEmail || !monitorEmail.includes("@")) { setMonitorError("Enter a valid work email."); return; }
-    setMonitorError(""); setMonitorLoading(true);
+  const submitReport = async () => {
+    if (!reportEmail || !reportEmail.includes("@")) { setReportError("Enter a valid email."); return; }
+    setReportError(""); setReportLoading(true);
     try {
       const res = await fetch("/api/engagement", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          kind: "monitor",
+          kind: "report_request",
           session_id: getClientSessionId(),
-          email: monitorEmail,
+          email: reportEmail,
           current_provider: providerLabel,
           gpu_type: family === "other" ? "other" : family,
           est_monthly_spend_usd: currentMonthly ?? undefined,
@@ -660,15 +673,10 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
-      setMonitorDone(true); setMonitorOpen(false);
-      // "Watch my bill" now also covers routing-beta interest (folded from the separate
-      // roadmap-line signup) — fire-and-forget, never blocks or surfaces errors to the visitor.
-      post(buildNotes("EARLY_ACCESS_ROUTING_BETA")).catch(() => {});
-    } catch (e: any) { setMonitorError(e?.message ?? "Network error — try again."); }
-    finally { setMonitorLoading(false); }
+      setReportDone(true); setReportOpen(false);
+    } catch (e: any) { setReportError(e?.message ?? "Network error — try again."); }
+    finally { setReportLoading(false); }
   };
-
-  const handleSelfServeClick = () => { if (!isDemoState) logEvent("self_serve_click", undefined, { provider: floorProviderLabel }); };
 
   const inputStyleLocal: React.CSSProperties = {
     ...SANS, width: "100%", background: "rgba(247,243,234,0.06)", border: "1px solid rgba(247,243,234,0.22)",
@@ -719,35 +727,21 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
               <span style={{ color: "rgba(247,243,234,0.6)" }}>Performance-based, you only pay from savings.</span>
             </div>
 
-            {!moveDone ? (
-              !moveOpen ? (
+            {!referralDone ? (
+              !referralOpen ? (
                 <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
                   <button
                     type="button"
-                    onClick={openMove}
+                    onClick={openReferral}
                     style={{
                       ...SANS, fontSize: 13.5, fontWeight: 600, color: "#171717", background: "#F7F3EA",
                       padding: "12px 16px", borderRadius: 3, border: "none", cursor: "pointer", letterSpacing: "0.01em",
                       width: "100%",
                     }}
                   >
-                    Start My Move →
+                    Start Moving →
                   </button>
-                  <a
-                    href={referralUrl(recommendation.provider)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={handleSelfServeClick}
-                    style={{
-                      ...SANS, fontSize: 13.5, fontWeight: 600, color: "#F7F3EA", background: "transparent",
-                      padding: "12px 16px", borderRadius: 3, border: "1px solid #F7F3EA", cursor: "pointer",
-                      letterSpacing: "0.01em", textDecoration: "none", display: "flex", alignItems: "center",
-                      justifyContent: "center", width: "100%", boxSizing: "border-box" as const,
-                    }}
-                  >
-                    Move It Yourself →
-                  </a>
-                  {demoPromptMove && (
+                  {demoPromptReferral && (
                     <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", lineHeight: 1.5 }}>
                       Adjust the numbers above to match your setup first.
                     </div>
@@ -755,50 +749,59 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-                  <input type="email" placeholder="you@company.com" value={moveEmail} onChange={e => setMoveEmail(e.target.value)} style={inputStyleLocal} />
-                  <label style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", display: "flex", alignItems: "flex-start" as const, gap: 7, lineHeight: 1.5 }}>
-                    <input type="checkbox" checked={moveConsent} onChange={e => setMoveConsent(e.target.checked)} style={{ marginTop: 2 }} />
-                    I consent to AIInfraWatch contacting me about moving this workload. We'll help coordinate the move — terms confirmed off-page, no automated provisioning.
-                  </label>
-                  <button onClick={submitMove} disabled={moveLoading} style={{
-                    ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: moveLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
-                    padding: "11px 18px", borderRadius: 3, border: "none", cursor: moveLoading ? "not-allowed" : "pointer",
-                  }}>{moveLoading ? "Submitting…" : "Confirm — Start My Move"}</button>
-                  {moveError && <p style={{ ...SANS, fontSize: 12, color: "#F2B5B5", margin: 0 }}>{moveError}</p>}
+                  <input type="email" placeholder="you@company.com" value={referralEmail} onChange={e => setReferralEmail(e.target.value)} style={inputStyleLocal} />
+                  <button onClick={submitReferral} disabled={referralLoading} style={{
+                    ...SANS, fontSize: 13, fontWeight: 600, color: "#171717", background: referralLoading ? "rgba(247,243,234,0.5)" : "#F7F3EA",
+                    padding: "11px 18px", borderRadius: 3, border: "none", cursor: referralLoading ? "not-allowed" : "pointer",
+                  }}>{referralLoading ? "Opening…" : "Continue →"}</button>
+                  {referralError && <p style={{ ...SANS, fontSize: 12, color: "#F2B5B5", margin: 0 }}>{referralError}</p>}
                 </div>
               )
             ) : (
               <div style={{ ...SANS, fontSize: 13, color: "var(--green)", lineHeight: 1.55 }}>
-                ✓ Got it — we'll reach out to scope the move and confirm terms.
+                ✓ Opened {floorProviderLabel} in a new tab.{" "}
+                <a href={referralTargetUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--green)" }}>
+                  Didn't open? Click here →
+                </a>
               </div>
             )}
 
-            {/* RETENTION — monitoring, demoted */}
+            {/* CTA B — paid report interest capture (stubbed until the report agent ships) */}
             <div style={{ paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
-              {monitorDone ? (
-                <div style={{ ...SANS, fontSize: 12, color: "var(--green)" }}>✓ We'll watch your bill and alert you.</div>
-              ) : !monitorOpen ? (
-                <div style={{ ...SANS, fontSize: 12, color: "rgba(247,243,234,0.55)" }}>
-                  Watch my bill — we'll alert you when you're overpaying.{" "}
-                  <button onClick={openMonitor} style={{ ...SANS, fontSize: 12, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
-                    Notify Me
+              {reportDone ? (
+                <div style={{ ...SANS, fontSize: 12, color: "var(--green)" }}>✓ Got it — we'll email you the moment migration plans are ready.</div>
+              ) : !reportOpen ? (
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={openReport}
+                    style={{
+                      ...SANS, fontSize: 13, fontWeight: 600, color: "#F7F3EA", background: "transparent",
+                      padding: "11px 16px", borderRadius: 3, border: "1px solid #F7F3EA", cursor: "pointer",
+                      letterSpacing: "0.01em", width: "100%",
+                    }}
+                  >
+                    Get the Full Migration Report →
                   </button>
-                  {demoPromptMonitor && (
-                    <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", marginTop: 6, lineHeight: 1.5 }}>
+                  <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.5)", lineHeight: 1.5 }}>
+                    Need more help? A step-by-step move plan — what to move, in what order, with zero-downtime cutover. $99, launching soon.
+                  </div>
+                  {demoPromptReport && (
+                    <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", lineHeight: 1.5 }}>
                       Adjust the numbers above to match your setup first.
                     </div>
                   )}
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-                  <input type="email" placeholder="you@company.com" value={monitorEmail} onChange={e => setMonitorEmail(e.target.value)}
+                  <input type="email" placeholder="you@company.com" value={reportEmail} onChange={e => setReportEmail(e.target.value)}
                     style={inputStyleLocal} />
-                  <button onClick={submitMonitor} disabled={monitorLoading} style={{
+                  <button onClick={submitReport} disabled={reportLoading} style={{
                     ...SANS, fontSize: 12, fontWeight: 600, color: "var(--blue)", background: "transparent",
-                    border: "1px solid var(--blue)", padding: "8px 14px", borderRadius: 3, cursor: monitorLoading ? "not-allowed" : "pointer",
+                    border: "1px solid var(--blue)", padding: "8px 14px", borderRadius: 3, cursor: reportLoading ? "not-allowed" : "pointer",
                     width: "100%",
-                  }}>{monitorLoading ? "Submitting…" : "Notify Me"}</button>
-                  {monitorError && <p style={{ ...SANS, fontSize: 11.5, color: "#F2B5B5", margin: 0 }}>{monitorError}</p>}
+                  }}>{reportLoading ? "Submitting…" : "Get Early Access →"}</button>
+                  {reportError && <p style={{ ...SANS, fontSize: 11.5, color: "#F2B5B5", margin: 0 }}>{reportError}</p>}
                 </div>
               )}
             </div>
