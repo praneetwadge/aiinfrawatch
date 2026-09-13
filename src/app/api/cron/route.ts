@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   await tryScraper("runpod",      () => import("@/lib/scrapers/runpod"),      "scrapeRunPod");
   await tryScraper("vastai",      () => import("@/lib/scrapers/vastai"),      "scrapeVastAi");
   await tryScraper("tensordock",  () => import("@/lib/scrapers/tensordock"),  "scrapeTensorDock");
-  await tryScraper("fluidstack",  () => import("@/lib/scrapers/fluidstack"),  "scrapeFluidStack");
+  // FluidStack removed — exited self-serve rental, enterprise-only now (see providers.self_serve).
 
   const succeeded = results.filter(r => r.success).length;
   return NextResponse.json({
