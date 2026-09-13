@@ -14,7 +14,7 @@ export interface GpuListing {
   fetched_at?: string;
 }
 
-export const TOTAL_TRACKED = 16;
+export const TOTAL_TRACKED = 15;
 
 // Provenance is tracked honestly per provider. `source` reflects how that
 // provider's prices actually reach us:
@@ -43,7 +43,6 @@ export const PROVIDER_META: Record<string, { cat: string; color: string; source:
   paperspace:     { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-05",    short: "Paperspace" },
   crusoe:         { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-05",    short: "Crusoe" },
   "crusoe energy":{ cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-05",    short: "Crusoe" },
-  fluidstack:     { cat: "Marketplace",  color: "var(--violet)", source: "rate_card", asOf: "2026-05",    short: "FluidStack" },
   ibm:            { cat: "Hyperscaler",  color: "var(--amber)",  source: "live",                          short: "IBM" },
   "ibm cloud":    { cat: "Hyperscaler",  color: "var(--amber)",  source: "live",                          short: "IBM" },
   gmi:            { cat: "Neocloud",     color: "var(--blue)",   source: "rate_card", asOf: "2026-04",    short: "GMI" },
