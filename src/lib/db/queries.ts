@@ -154,8 +154,26 @@ export async function upsertGpuListings(listings: GpuListing[]): Promise<UpsertR
 
   if (!clean.length) return report;
 
+  // Defensive in-batch dedup: Postgres cannot apply ON CONFLICT DO UPDATE
+  // twice to the same conflict key within one statement — if a scraper ever
+  // emits two rows sharing the full identity key below, the ENTIRE batch
+  // throws and rolls back (this is exactly what happened for 13/15 providers
+  // every night from 2026-09-08 until this fix: the constraint didn't include
+  // gpu_count, so legitimate multi-count tiers like H100 x1/x4/x8 collided).
+  // Keep the last row per key (scrapers list cheapest-relevant last-writer-
+  // wins is fine here — price_history below still logs every row untouched).
+  const byKey = new Map<string, (typeof clean)[number]>();
+  for (const l of clean) {
+    const key = `${l.provider_slug}|${l.gpu_model}|${l.region}|${l.pricing_type}|${l.gpu_count}`;
+    byKey.set(key, l);
+  }
+  const deduped = Array.from(byKey.values());
+  if (deduped.length < clean.length) {
+    console.warn(`[upsertGpuListings] Collapsed ${clean.length - deduped.length} in-batch duplicate identity keys before upsert.`);
+  }
+
   const { error } = await supabaseAdmin.from("gpu_listings").upsert(
-    clean.map((l) => ({
+    deduped.map((l) => ({
       provider: l.provider_slug,
       gpu_model: l.gpu_model,
       gpu_count: l.gpu_count,
@@ -171,10 +189,10 @@ export async function upsertGpuListings(listings: GpuListing[]): Promise<UpsertR
       raw_data: l.raw_data,
       fetched_at: l.fetched_at,
     })),
-    { onConflict: "provider,gpu_model,region,pricing_type" }
+    { onConflict: "provider,gpu_model,region,pricing_type,gpu_count" }
   );
   if (error) throw error;
-  report.inserted = clean.length;
+  report.inserted = deduped.length;
 
   // Also log every observation to price_history (append-only — no conflict
   // handling, repeated identical prices are a normal, correct time series).
