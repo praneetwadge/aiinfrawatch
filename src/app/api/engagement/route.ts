@@ -6,7 +6,7 @@ import { recordEngagement, recordEvent } from "@/lib/db/funnel";
 
 const schema = z.object({
   session_id: z.string().optional(),
-  kind: z.enum(["savings_share", "monitor"]),
+  kind: z.enum(["savings_share", "monitor", "self_serve_referral", "report_request"]),
   email: z.string().email("Valid work email required"),
   current_provider: z.string().optional(),
   gpu_type: z.string().optional(),
