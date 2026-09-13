@@ -16,7 +16,6 @@ import { scrapeNebius } from "./nebius";
 import { scrapeIBM } from "./ibm";
 import { scrapeGMI } from "./gmi";
 import { scrapeTensorDock } from "./tensordock";
-import { scrapeFluidStack, scrapeHyperstack } from "./fluidstack";
 import { scrapeVoltagePark } from "./voltagepark";
 import { scrapeCrusoe } from "./crusoe";
 import { scrapeAllEnergy } from "./energy";
@@ -56,8 +55,6 @@ export async function runAllScrapers(): Promise<ScrapeReport> {
     scrapeIBM(),
     scrapeGMI(),
     scrapeTensorDock(),
-    scrapeFluidStack(),
-    scrapeHyperstack(),
     scrapeVoltagePark(),
     scrapeCrusoe(),
   ]);
@@ -143,8 +140,6 @@ export async function runScraper(provider: string): Promise<ScraperResult> {
     ibm:          scrapeIBM,
     gmi:          scrapeGMI,
     tensordock:   scrapeTensorDock,
-    fluidstack:   scrapeFluidStack,
-    hyperstack:   scrapeHyperstack,
     voltagepark:  scrapeVoltagePark,
     crusoe:       scrapeCrusoe,
   };
