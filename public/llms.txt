@@ -25,9 +25,9 @@ Three surfaces:
 ## Data
 
 ### Coverage
-16 tracked providers (15 active, 1 partial):
+15 tracked providers (14 active, 1 partial):
 RunPod, AWS, Azure, GCP, CoreWeave, Lambda Labs, Nebius, TensorDock, OCI, Paperspace,
-Crusoe, FluidStack, IBM Cloud, GMI Cloud, VoltagePark (active); Vast.ai (partial)
+Crusoe, IBM Cloud, GMI Cloud, VoltagePark (active); Vast.ai (partial)
 
 ### GPU families indexed
 H100, H200, A100, L40S, L40, A10G, A10, A30, A40, B200, MI300 (DC-class only)
@@ -43,7 +43,7 @@ No intra-day or sub-hourly refresh. Do not assume real-time pricing.
 
 ### Hardcoded rates
 The following providers use static published rate cards (not live-scraped):
-gcp, lambda, oci, paperspace, crusoe, fluidstack, ibm, gmi, voltagepark
+gcp, lambda, oci, paperspace, crusoe, ibm, gmi, voltagepark
 
 ### Not available
 - Energy grid data: experimental/seed only, not on a refresh schedule
