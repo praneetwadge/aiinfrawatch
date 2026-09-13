@@ -13,6 +13,7 @@ const schema = z.object({
     "self_serve_click",
     "monitor_click",
     "share_click",
+    "report_request_click",
   ]),
   kind: z.string().optional(),
   meta: z.record(z.unknown()).optional(),
