@@ -66,7 +66,6 @@ const PROVIDER_SIGNUP_URLS: Record<string, string> = {
   paperspace: "https://www.paperspace.com/pricing",
   crusoe: "https://crusoe.ai/contact-us/",
   "crusoe energy": "https://crusoe.ai/contact-us/",
-  fluidstack: "https://www.fluidstack.io/",
   ibm: "https://www.ibm.com/cloud/gpu",
   "ibm cloud": "https://www.ibm.com/cloud/gpu",
   gmi: "https://www.gmicloud.ai/",

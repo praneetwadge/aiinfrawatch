@@ -30,7 +30,7 @@ const BODY:  React.CSSProperties = { fontFamily: "var(--font-body)" };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TOTAL_TRACKED = 16;
+const TOTAL_TRACKED = 15;
 const DATA_CAVEAT   =
   "Prices are normalised per provider — methodology varies. Some GPUs (including H100) may be absent from a given snapshot window. For current pricing on a specific GPU or region, request a cost audit.";
 
@@ -46,7 +46,6 @@ const ALL_PROVIDERS = [
   { slug: "oci",         name: "Oracle Cloud", cat: "Hyperscaler", status: "live" },
   { slug: "paperspace",  name: "Paperspace",   cat: "Neocloud",    status: "live" },
   { slug: "crusoe",      name: "Crusoe",       cat: "Neocloud",    status: "live" },
-  { slug: "fluidstack",  name: "FluidStack",   cat: "Marketplace", status: "live" },
   { slug: "ibm",         name: "IBM Cloud",    cat: "Hyperscaler", status: "live" },
   { slug: "gmi",         name: "GMI Cloud",    cat: "Neocloud",    status: "live" },
   { slug: "voltagepark", name: "VoltagePark",  cat: "Neocloud",    status: "live" },
