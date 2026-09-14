@@ -6,6 +6,7 @@ import {
   GpuListing, HYPERSCALERS, fmtMoney, fmtP, getMeta,
 } from "@/lib/market-helpers";
 import { computeMarketStats, computeDemoExample } from "@/lib/market-stats";
+import ReportPreview from "./ReportPreview";
 
 const MONO:  React.CSSProperties = { fontFamily: "var(--font-mono)" };
 const SANS:  React.CSSProperties = { fontFamily: "var(--font-sans)" };
@@ -766,11 +767,9 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
               </div>
             )}
 
-            {/* CTA B — paid report interest capture (stubbed until the report agent ships) */}
+            {/* CTA B — show real value before asking for anything */}
             <div style={{ paddingTop: 14, borderTop: "1px solid rgba(247,243,234,0.1)" }}>
-              {reportDone ? (
-                <div style={{ ...SANS, fontSize: 12, color: "var(--green)" }}>✓ Got it — we'll email you the moment migration plans are ready.</div>
-              ) : !reportOpen ? (
+              {!reportOpen ? (
                 <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
                   <button
                     type="button"
@@ -781,10 +780,10 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                       letterSpacing: "0.01em", width: "100%",
                     }}
                   >
-                    Get the Full Migration Report →
+                    See a Sample Migration Report →
                   </button>
                   <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.5)", lineHeight: 1.5 }}>
-                    Need more help? A step-by-step move plan — what to move, in what order, with zero-downtime cutover. $99, launching soon.
+                    What to move, in what order, with zero-downtime cutover — see the real shape of it first.
                   </div>
                   {demoPromptReport && (
                     <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", lineHeight: 1.5 }}>
@@ -793,16 +792,24 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                   )}
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-                  <input type="email" placeholder="you@company.com" value={reportEmail} onChange={e => setReportEmail(e.target.value)}
-                    style={inputStyleLocal} />
-                  <button onClick={submitReport} disabled={reportLoading} style={{
-                    ...SANS, fontSize: 12, fontWeight: 600, color: "var(--blue)", background: "transparent",
-                    border: "1px solid var(--blue)", padding: "8px 14px", borderRadius: 3, cursor: reportLoading ? "not-allowed" : "pointer",
-                    width: "100%",
-                  }}>{reportLoading ? "Submitting…" : "Get Early Access →"}</button>
-                  {reportError && <p style={{ ...SANS, fontSize: 11.5, color: "#F2B5B5", margin: 0 }}>{reportError}</p>}
-                </div>
+                <ReportPreview
+                  providerLabel={providerLabel}
+                  floorProviderLabel={floorProviderLabel}
+                  currentRatePerHourLabel={currentRatePerHour != null ? fmtP(currentRatePerHour) : "—"}
+                  floorRatePerHourLabel={fmtP(floorRatePerHour)}
+                  currentMonthlyLabel={currentMonthly != null ? fmtMoney(currentMonthly) : "—"}
+                  recommendedMonthlyLabel={fmtMoney(recommendedMonthly)}
+                  annualSavingsLabel={annualSavings != null ? fmtBigMoney(annualSavings) : "—"}
+                  family={family}
+                  gpuCount={gpuCount}
+                  email={reportEmail}
+                  onEmailChange={setReportEmail}
+                  onSubmit={submitReport}
+                  loading={reportLoading}
+                  error={reportError}
+                  done={reportDone}
+                  onClose={() => setReportOpen(false)}
+                />
               )}
             </div>
           </div>
@@ -877,7 +884,6 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
   } | null>(() => ssRead()?.billExtracted ?? null);
   const [rows,           setRows]           = useState<WorkloadRow[]>(() => ssRead()?.rows ?? [buildDemoRow(listings)]);
   const [committed,      setCommitted]      = useState<boolean>(() => ssRead()?.committed ?? true);
-  const [wantsAlerts,    setWantsAlerts]    = useState(true);
 
   // userEdited: flips true when the visitor edits the text or uploads a file.
   // While false, the on-screen result is a demo derived from live market data —
@@ -971,26 +977,6 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
     textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6,
   };
 
-  const buildNotes = (extra?: string) => {
-    const lines: string[] = [];
-    if (setupText.trim()) lines.push(setupText.trim());
-    if (activeTab === "manual" || !hasText) {
-      lines.push(rows.map(r => `${r.gpuCountStr}×${r.family} · ${r.hoursStr}h/mo · ${r.situation} · ${r.workload}`).join("\n"));
-    }
-    if (billFileName)    lines.push(`Bill: ${billFileName}`);
-    const flags = [wantsAlerts ? "wantsAlerts:true" : "wantsAlerts:false", extra ?? null].filter(Boolean).join(" · ");
-    if (flags) lines.push(flags);
-    return lines.filter(Boolean).join("\n\n");
-  };
-
-  const post = async (notes: string) => {
-    const res = await fetch("/api/audit-request", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "", monthlySpend: "Unknown / audit needed", workload: primarySnapshot.workload, notes, source: "cost-audit" }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) throw new Error(json.error ?? "Something went wrong.");
-  };
 
 
   // ── Compact shell (used inside the /market-data hero stat strip) ──

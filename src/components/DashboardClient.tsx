@@ -6,8 +6,8 @@ import SiteNav from "@/components/SiteNav";
 import MarketTicker from "@/components/MarketTicker";
 import AuditTool from "@/components/AuditTool";
 import {
-  GpuListing, HYPERSCALERS, PROVIDER_META,
-  getMeta, fmtP, fmtMoney, minsAgo,
+  GpuListing,
+  getMeta, fmtP, minsAgo,
 } from "@/lib/market-helpers";
 import { computeMarketStats } from "@/lib/market-stats";
 
@@ -30,7 +30,6 @@ const BODY:  React.CSSProperties = { fontFamily: "var(--font-body)" };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TOTAL_TRACKED = 15;
 const DATA_CAVEAT   =
   "Prices are normalised per provider — methodology varies. Some GPUs (including H100) may be absent from a given snapshot window. For current pricing on a specific GPU or region, request a cost audit.";
 
