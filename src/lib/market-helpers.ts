@@ -14,8 +14,6 @@ export interface GpuListing {
   fetched_at?: string;
 }
 
-export const TOTAL_TRACKED = 15;
-
 // Provenance is tracked honestly per provider. `source` reflects how that
 // provider's prices actually reach us:
 //   "live"      — fetched from the provider's public pricing API every run
