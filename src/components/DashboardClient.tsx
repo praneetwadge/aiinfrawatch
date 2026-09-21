@@ -297,10 +297,13 @@ export function GpuSmallMultiples({ listings }: { listings: GpuListing[] }) {
     const prices   = ls.map(l => l.price_per_hour).sort((a, b) => a - b);
     const highLs   = ls.filter(l => l.availability === "high" && l.pricing_type !== "spot");
     const minReliable = highLs.length ? Math.min(...highLs.map(l => l.price_per_hour)) : null;
+    const maxReliable = highLs.length ? Math.max(...highLs.map(l => l.price_per_hour)) : null;
+    const reliableProviders = new Set(highLs.map(l => l.provider)).size;
+    const totalProviders    = new Set(ls.map(l => l.provider)).size;
     const gapPct   = minReliable && prices[0] > 0
       ? Math.round(((minReliable - prices[0]) / prices[0]) * 100) : null;
-    return { family, count: ls.length, min: prices[0], minReliable, gapPct };
-  }).filter(Boolean) as { family: string; count: number; min: number; minReliable: number | null; gapPct: number | null }[];
+    return { family, count: ls.length, min: prices[0], minReliable, maxReliable, reliableProviders, totalProviders, gapPct };
+  }).filter(Boolean) as { family: string; count: number; min: number; minReliable: number | null; maxReliable: number | null; reliableProviders: number; totalProviders: number; gapPct: number | null }[];
 
   if (!cards.length) return <div style={{ ...SANS, fontSize: 12, color: "var(--text-muted)", padding: "20px 0" }}>No DC GPU data.</div>;
 
@@ -332,16 +335,20 @@ export function GpuSmallMultiples({ listings }: { listings: GpuListing[] }) {
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 16, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
-              <div>
-                <div style={{ ...SANS, fontSize: 9.5, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 2 }}>Observed</div>
-                <div style={{ ...MONO, fontSize: 13.5, fontWeight: 500, color: "var(--text-secondary)" }}>{fmtP(c.min)}</div>
+            {c.minReliable && (
+              <div style={{ display: "flex", gap: 16, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+                <div>
+                  <div style={{ ...SANS, fontSize: 9.5, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 2 }}>Reliable Range</div>
+                  <div style={{ ...MONO, fontSize: 13.5, fontWeight: 500, color: "var(--text-secondary)" }}>
+                    {fmtP(c.minReliable)}{c.maxReliable && c.maxReliable > c.minReliable ? `–${fmtP(c.maxReliable)}` : ""}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ ...SANS, fontSize: 9.5, color: "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 2 }}>Reliable Providers</div>
+                  <div style={{ ...MONO, fontSize: 13.5, fontWeight: 500, color: "var(--text-secondary)" }}>{c.reliableProviders} of {c.totalProviders}</div>
+                </div>
               </div>
-              <div>
-                <div style={{ ...SANS, fontSize: 9.5, color: c.minReliable ? "var(--green)" : "var(--text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.07em", marginBottom: 2 }}>Reliable</div>
-                <div style={{ ...MONO, fontSize: 13.5, fontWeight: 500, color: c.minReliable ? "var(--green)" : "var(--text-muted)" }}>{c.minReliable ? fmtP(c.minReliable) : "—"}</div>
-              </div>
-            </div>
+            )}
           </div>
         );
       })}

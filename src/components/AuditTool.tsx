@@ -780,10 +780,10 @@ function ResultSection({ r, family, gpuCount, hours, situation, workload, label,
                       letterSpacing: "0.01em", width: "100%",
                     }}
                   >
-                    See a Sample Migration Report →
+                    Get the Full Migration Plan →
                   </button>
                   <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.5)", lineHeight: 1.5 }}>
-                    What to move, in what order, with zero-downtime cutover — see the real shape of it first.
+                    Step-by-step, sequenced to your setup, with zero-downtime cutover.
                   </div>
                   {demoPromptReport && (
                     <div style={{ ...SANS, fontSize: 11.5, color: "rgba(247,243,234,0.6)", lineHeight: 1.5 }}>
@@ -1187,7 +1187,7 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
                 )}
               </div>
 
-              <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 8 }}>
+              <div style={{ marginTop: 14, display: "flex", alignItems: "center", flexWrap: "wrap" as const, gap: 8 }}>
                 <label style={{
                   ...SANS, fontSize: 12.5, color: "var(--blue)", cursor: "pointer",
                   display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "underline",
@@ -1200,10 +1200,6 @@ export default function AuditTool({ listings, compact = false }: AuditToolProps)
                   />
                   📎 or upload a bill
                 </label>
-
-                <div style={{ ...SANS, fontSize: 11, color: "var(--text-muted)" }}>
-                  Never saved · <a href="/privacy" style={{ color: "var(--text-muted)", textDecoration: "underline" }}>Privacy</a>
-                </div>
               </div>
 
               {/* Parsed terms — confirmation the parser understood the input */}
