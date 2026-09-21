@@ -52,13 +52,13 @@ export default async function Page() {
                     ...SERIF, fontSize: 42, fontWeight: 400, lineHeight: 1.12,
                     color: "var(--text-primary)", marginBottom: 16,
                   }}>
-                    You&rsquo;re probably overpaying for GPU compute.
+                    You&rsquo;re probably paying too much for AI.
                   </h1>
                   <p style={{
                     ...SANS, fontSize: 16.5, color: "var(--text-secondary)", lineHeight: 1.6,
                     maxWidth: 460,
                   }}>
-                    Paste your setup and see how it compares to real pricing across {activeProviders} providers — free, and nothing is saved.
+                    Paste your setup and see how it compares to real pricing across {activeProviders} providers.
                   </p>
                 </div>
 
